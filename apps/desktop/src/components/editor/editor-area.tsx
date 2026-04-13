@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState, useCallback, useRef } from 'react'
 import { Loader2 } from 'lucide-react';
 import { EditorTabs } from './editor-tabs';
 import { EditorWelcome } from './editor-welcome';
+import { DiffViewer } from './diff-viewer';
 import { useEditorStore, useFileStore } from '../../stores';
 import { tauriFs } from '../../lib/tauri-fs';
 
@@ -105,6 +106,11 @@ export function EditorArea() {
       {hasOpenTabs && <EditorTabs />}
       {!activeTab ? (
         <EditorWelcome />
+      ) : activeTab.type === 'diff' && activeTab.diffProps ? (
+        <DiffViewer
+          filePath={activeTab.diffProps.filePath}
+          staged={activeTab.diffProps.staged}
+        />
       ) : loading ? (
         <EditorLoading />
       ) : (

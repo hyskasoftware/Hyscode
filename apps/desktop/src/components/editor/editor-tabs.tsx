@@ -1,4 +1,4 @@
-import { X, Circle } from 'lucide-react';
+import { X, Circle, GitCompare } from 'lucide-react';
 import { useEditorStore } from '../../stores';
 
 export function EditorTabs() {
@@ -13,6 +13,7 @@ export function EditorTabs() {
     <div className="flex h-8 items-center gap-0.5 bg-surface-raised px-2 overflow-x-auto shrink-0">
       {tabs.map((tab) => {
         const isActive = activeTabId === tab.id;
+        const isDiff = tab.type === 'diff';
         return (
           <div
             key={tab.id}
@@ -23,6 +24,7 @@ export function EditorTabs() {
             }`}
             onClick={() => setActiveTab(tab.id)}
           >
+            {isDiff && <GitCompare className="h-3 w-3 shrink-0 text-accent" />}
             <span className="truncate max-w-[120px]">{tab.fileName}</span>
             {tab.isDirty && (
               <Circle className="h-2 w-2 shrink-0 fill-accent text-accent" />

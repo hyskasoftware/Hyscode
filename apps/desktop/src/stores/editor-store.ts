@@ -9,12 +9,17 @@ export interface Tab {
   isDirty: boolean;
   isPinned: boolean;
   isPreview: boolean;
+  type: 'file' | 'diff';
+  diffProps?: {
+    filePath: string;
+    staged: boolean;
+  };
 }
 
 interface EditorState {
   tabs: Tab[];
   activeTabId: string | null;
-  openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview'>) => void;
+  openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview' | 'type' | 'diffProps'> & { type?: Tab['type']; diffProps?: Tab['diffProps'] }) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   markDirty: (id: string, dirty: boolean) => void;
@@ -28,7 +33,7 @@ export const useEditorStore = create<EditorState>()(
 
     openTab: (tab) =>
       set((state) => {
-        const existing = state.tabs.find((t) => t.filePath === tab.filePath);
+        const existing = state.tabs.find((t) => t.id === tab.id);
         if (existing) {
           state.activeTabId = existing.id;
           return;
@@ -38,6 +43,7 @@ export const useEditorStore = create<EditorState>()(
         const previewIdx = state.tabs.findIndex((t) => t.isPreview);
         const newTab: Tab = {
           ...tab,
+          type: tab.type ?? 'file',
           isDirty: false,
           isPinned: false,
           isPreview: false,

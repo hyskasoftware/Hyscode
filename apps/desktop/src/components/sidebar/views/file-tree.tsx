@@ -15,7 +15,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react';
-import { useFileStore, useEditorStore } from '../../../stores';
+import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
 import { tauriFs } from '../../../lib/tauri-fs';
 import type { FileNode } from '../../../stores/file-store';
 
@@ -159,8 +159,35 @@ function FileTreeNode({
   onCreateCancel,
 }: FileTreeNodeProps) {
   const { expandDirectory, toggleExpand } = useFileStore();
+  const rootPath = useFileStore((s) => s.rootPath);
   const { openTab, tabs } = useEditorStore();
   const activeTabId = useEditorStore((s) => s.activeTabId);
+
+  // Git status lookup
+  const staged = useGitStore((s) => s.staged);
+  const unstaged = useGitStore((s) => s.unstaged);
+  const untracked = useGitStore((s) => s.untracked);
+  const conflicts = useGitStore((s) => s.conflicts);
+
+  const getRelativePath = (absPath: string) => {
+    if (!rootPath) return absPath;
+    const prefix = rootPath.endsWith('/') || rootPath.endsWith('\\') ? rootPath : rootPath + '/';
+    return absPath.startsWith(prefix) ? absPath.slice(prefix.length).replace(/\\/g, '/') : absPath.replace(/\\/g, '/');
+  };
+
+  const relPath = getRelativePath(node.path);
+  const allFiles = [...conflicts, ...staged, ...unstaged, ...untracked];
+  const gitFileMatch = allFiles.find((f) => f.path === relPath);
+  const isInGitDir = node.isDir && allFiles.some((f) => f.path.startsWith(relPath + '/'));
+
+  const GIT_STATUS_COLORS: Record<string, string> = {
+    M: 'text-yellow-400',
+    A: 'text-green-400',
+    D: 'text-red-400',
+    R: 'text-blue-400',
+    '?': 'text-zinc-400',
+    U: 'text-orange-400',
+  };
 
   const isActive = !node.isDir && tabs.find((t) => t.filePath === node.path)?.id === activeTabId;
 
@@ -237,6 +264,14 @@ function FileTreeNode({
           </>
         )}
         <span className="truncate">{node.name}</span>
+        {gitFileMatch && (
+          <span className={`ml-auto shrink-0 text-[9px] font-mono ${GIT_STATUS_COLORS[gitFileMatch.status] ?? 'text-muted-foreground'}`}>
+            {gitFileMatch.status === '?' ? 'U' : gitFileMatch.status}
+          </span>
+        )}
+        {!gitFileMatch && isInGitDir && (
+          <span className="ml-auto shrink-0 h-1.5 w-1.5 rounded-full bg-accent/40" />
+        )}
       </button>
 
       {node.isDir && node.isExpanded && (
