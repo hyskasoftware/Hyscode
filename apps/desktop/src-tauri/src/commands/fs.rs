@@ -19,6 +19,13 @@ pub struct FileStat {
     pub modified: Option<u64>,
 }
 
+#[derive(Serialize)]
+pub struct SearchResult {
+    pub path: String,
+    pub line_number: usize,
+    pub line_content: String,
+}
+
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {
     let path = PathBuf::from(&path);
@@ -120,4 +127,86 @@ pub fn stat_path(path: String) -> Result<FileStat, String> {
         size: metadata.len(),
         modified,
     })
+}
+
+const IGNORED_DIRS: &[&str] = &[
+    "node_modules", "target", ".git", "dist", "build", ".next", "__pycache__", ".turbo",
+];
+
+const BINARY_EXTENSIONS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "woff", "woff2", "ttf", "otf", "eot",
+    "mp3", "mp4", "avi", "mov", "zip", "tar", "gz", "rar", "7z", "pdf", "exe", "dll", "so",
+    "dylib", "o", "a", "wasm", "lock",
+];
+
+fn is_binary_file(name: &str) -> bool {
+    if let Some(ext) = name.rsplit('.').next() {
+        BINARY_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+    } else {
+        false
+    }
+}
+
+#[tauri::command]
+pub fn search_files(root: String, query: String, max_results: Option<usize>) -> Result<Vec<SearchResult>, String> {
+    let root_path = PathBuf::from(&root);
+    if !root_path.is_dir() {
+        return Err(format!("Not a directory: {}", root));
+    }
+
+    let query_lower = query.to_lowercase();
+    let limit = max_results.unwrap_or(200);
+    let mut results = Vec::new();
+
+    fn walk(
+        dir: &PathBuf,
+        query: &str,
+        results: &mut Vec<SearchResult>,
+        limit: usize,
+    ) -> std::io::Result<()> {
+        if results.len() >= limit {
+            return Ok(());
+        }
+
+        let entries = fs::read_dir(dir)?;
+        for entry in entries {
+            if results.len() >= limit {
+                break;
+            }
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            if name.starts_with('.') || IGNORED_DIRS.contains(&name.as_str()) {
+                continue;
+            }
+
+            let path = entry.path();
+            let ft = entry.file_type()?;
+
+            if ft.is_dir() {
+                walk(&path, query, results, limit)?;
+            } else if ft.is_file() && !is_binary_file(&name) {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    for (i, line) in content.lines().enumerate() {
+                        if results.len() >= limit {
+                            break;
+                        }
+                        if line.to_lowercase().contains(query) {
+                            results.push(SearchResult {
+                                path: path.to_string_lossy().to_string(),
+                                line_number: i + 1,
+                                line_content: line.trim().to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    walk(&root_path, &query_lower, &mut results, limit)
+        .map_err(|e| format!("Search error: {}", e))?;
+
+    Ok(results)
 }

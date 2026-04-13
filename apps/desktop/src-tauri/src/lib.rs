@@ -18,6 +18,7 @@ pub fn run() {
             commands::fs::create_file,
             commands::fs::delete_path,
             commands::fs::stat_path,
+            commands::fs::search_files,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

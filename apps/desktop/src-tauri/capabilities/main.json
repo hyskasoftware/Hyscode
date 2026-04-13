@@ -21,6 +21,26 @@
     "fs:allow-read-dir",
     "shell:default",
     "shell:allow-open",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "git",
+          "cmd": "git",
+          "args": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "git",
+          "cmd": "git",
+          "args": true
+        }
+      ]
+    },
     "sql:default",
     "sql:allow-load",
     "sql:allow-execute",
@@ -29,7 +49,9 @@
     "http:allow-fetch",
     "http:allow-fetch-cancel",
     "clipboard-manager:default",
-    "clipboard-manager:allow-read",
-    "clipboard-manager:allow-write"
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-read-image",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-write-image"
   ]
 }

@@ -1,0 +1,33 @@
+import { invoke } from '@tauri-apps/api/core';
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
+}
+
+export interface FileStat {
+  path: string;
+  is_dir: boolean;
+  is_file: boolean;
+  size: number;
+  modified: number | null;
+}
+
+export interface SearchResult {
+  path: string;
+  line_number: number;
+  line_content: string;
+}
+
+export const tauriFs = {
+  readFile: (path: string) => invoke<string>('read_file', { path }),
+  writeFile: (path: string, content: string) => invoke<void>('write_file', { path, content }),
+  createFile: (path: string, content?: string) => invoke<void>('create_file', { path, content }),
+  deletePath: (path: string) => invoke<void>('delete_path', { path }),
+  listDir: (path: string) => invoke<FileEntry[]>('list_dir', { path }),
+  statPath: (path: string) => invoke<FileStat>('stat_path', { path }),
+  searchFiles: (root: string, query: string, maxResults?: number) =>
+    invoke<SearchResult[]>('search_files', { root, query, maxResults }),
+};

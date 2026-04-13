@@ -16,24 +16,24 @@
   --font-sans: 'Geist Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
 
-  /* Monochromatic base — zinc/neutral */
-  --color-background: #09090b;
-  --color-foreground: #d4d4d8;
-  --color-surface: #0e0e11;
-  --color-surface-raised: #141418;
-  --color-muted: #18181b;
-  --color-muted-foreground: #6b6b76;
-  --color-input: #141418;
+  /* Monochromatic base — neutral dark */
+  --color-background: #141414;
+  --color-foreground: #f0f0f0;
+  --color-surface: #1a1a1a;
+  --color-surface-raised: #222222;
+  --color-muted: #2a2a2a;
+  --color-muted-foreground: #b0b0b0;
+  --color-input: #222222;
 
-  /* Purple-tinted borders */
-  --color-border: rgb(126 58 242 / 0.07);
-  --color-border-hover: rgb(126 58 242 / 0.16);
-  --color-border-active: rgb(126 58 242 / 0.28);
+  /* Purple borders */
+  --color-border: rgba(168, 85, 247, 0.22);
+  --color-border-hover: rgba(168, 85, 247, 0.22);
+  --color-border-active: rgba(168, 85, 247, 0.22);
 
   /* Accent — very sparing use */
   --color-accent: #a855f7;
-  --color-accent-muted: rgb(126 58 242 / 0.06);
-  --color-accent-foreground: #e4e4e7;
+  --color-accent-muted: rgba(168, 85, 247, 0.08);
+  --color-accent-foreground: #FFFFFF;
 
   /* Semantic */
   --color-success: #4ade80;
@@ -41,8 +41,8 @@
   --color-error: #f87171;
 
   /* Sidebar */
-  --color-sidebar: #0b0b0e;
-  --color-sidebar-foreground: #6b6b76;
+  --color-sidebar: #121212;
+  --color-sidebar-foreground: #e8e8e8;
 
   /* Radius */
   --radius-sm: 0.25rem;
@@ -66,7 +66,7 @@ body {
   color: var(--color-foreground);
 }
 
-/* Custom scrollbar — subtle purple tint */
+/* Custom scrollbar — purple tint */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -77,10 +77,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(126 58 242 / 0.10);
+  background: rgba(168, 85, 247, 0.22);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(126 58 242 / 0.18);
+  background: rgba(168, 85, 247, 0.40);
 }
