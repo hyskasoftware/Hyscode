@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.turbo/
+target/
+*.log
+.DS_Store
+Thumbs.db
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/WixTools/
+apps/desktop/src-tauri/gen/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local

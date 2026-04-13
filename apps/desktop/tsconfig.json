@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@hyscode/ui/*": ["../../packages/ui/src/*"],
+      "@hyscode/ai-providers": ["../../packages/ai-providers/src"],
+      "@hyscode/agent-harness": ["../../packages/agent-harness/src"],
+      "@hyscode/mcp-client": ["../../packages/mcp-client/src"],
+      "@hyscode/skills": ["../../packages/skills/src"]
+    }
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/ui" },
+    { "path": "../../packages/ai-providers" },
+    { "path": "../../packages/agent-harness" },
+    { "path": "../../packages/mcp-client" },
+    { "path": "../../packages/skills" }
+  ]
+}

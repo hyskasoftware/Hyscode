@@ -1,0 +1,86 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Geist Sans';
+  src: local('Geist Sans');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: local('Geist Mono');
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Geist Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* Monochromatic base — zinc/neutral */
+  --color-background: #09090b;
+  --color-foreground: #d4d4d8;
+  --color-surface: #0e0e11;
+  --color-surface-raised: #141418;
+  --color-muted: #18181b;
+  --color-muted-foreground: #6b6b76;
+  --color-input: #141418;
+
+  /* Purple-tinted borders */
+  --color-border: rgb(126 58 242 / 0.07);
+  --color-border-hover: rgb(126 58 242 / 0.16);
+  --color-border-active: rgb(126 58 242 / 0.28);
+
+  /* Accent — very sparing use */
+  --color-accent: #a855f7;
+  --color-accent-muted: rgb(126 58 242 / 0.06);
+  --color-accent-foreground: #e4e4e7;
+
+  /* Semantic */
+  --color-success: #4ade80;
+  --color-warning: #facc15;
+  --color-error: #f87171;
+
+  /* Sidebar */
+  --color-sidebar: #0b0b0e;
+  --color-sidebar-foreground: #6b6b76;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-pill: 9999px;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Custom scrollbar — subtle purple tint */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(126 58 242 / 0.10);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(126 58 242 / 0.18);
+}
