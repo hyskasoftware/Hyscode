@@ -17,7 +17,7 @@ export function AgentSidebarView() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-1.5 border-b border-border px-2 py-1">
+      <div className="flex items-center gap-1.5 bg-surface-raised px-2 py-1">
         <Bot className="h-3.5 w-3.5 text-accent" />
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Agent
@@ -25,17 +25,17 @@ export function AgentSidebarView() {
       </div>
 
       {/* Mode selector */}
-      <div className="border-b border-border px-2 py-2">
+      <div className="bg-surface-raised px-2 py-2">
         <span className="text-[10px] text-muted-foreground mb-1 block">Mode</span>
         <div className="flex gap-1">
           {MODE_OPTIONS.map(({ mode: m, icon: Icon, label }) => (
             <button
               key={m}
               onClick={() => setMode(m)}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[10px] font-medium transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-medium transition-colors ${
                 mode === m
-                  ? 'border-accent/30 bg-accent/5 text-accent'
-                  : 'border-border text-muted-foreground hover:border-border-hover hover:text-foreground'
+                  ? 'bg-accent-muted text-accent'
+                  : 'bg-background text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Icon className="h-3 w-3" />
@@ -49,7 +49,7 @@ export function AgentSidebarView() {
       </div>
 
       {/* Context Files */}
-      <div className="border-b border-border px-2 py-2">
+      <div className="px-2 py-2">
         <span className="text-[10px] text-muted-foreground mb-1 block">
           Context Files ({contextFiles.length})
         </span>
@@ -64,7 +64,7 @@ export function AgentSidebarView() {
               return (
                 <div
                   key={file}
-                  className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] hover:bg-accent-muted group"
+                  className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] hover:bg-muted group"
                 >
                   <span className="truncate text-foreground">{name}</span>
                   <button

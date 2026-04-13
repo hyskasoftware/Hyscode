@@ -11,7 +11,7 @@ export function AgentPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex h-8 items-center gap-2 border-b border-border px-3">
+      <div className="flex h-8 shrink-0 items-center gap-2 bg-surface-raised px-3">
         <Bot className="h-3.5 w-3.5 text-accent" />
         <span className="text-[11px] font-medium">Agent</span>
       </div>

@@ -58,7 +58,7 @@ export function FileExplorerView() {
         <p className="text-xs">No folder open</p>
         <button
           onClick={handleOpenFolder}
-          className="mt-3 rounded-md border border-border-hover px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-accent-muted transition-colors"
+          className="mt-3 rounded-md bg-surface-raised px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
         >
           Open Folder
         </button>
@@ -76,21 +76,21 @@ export function FileExplorerView() {
         <div className="flex items-center gap-0.5">
           <button
             onClick={handleNewFileAtRoot}
-            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="New File"
           >
             <FilePlus className="h-3 w-3" />
           </button>
           <button
             onClick={handleNewFolderAtRoot}
-            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="New Folder"
           >
             <FolderPlus className="h-3 w-3" />
           </button>
           <button
             onClick={handleRefresh}
-            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Refresh"
           >
             <RefreshCw className="h-3 w-3" />

@@ -129,7 +129,7 @@ function InlineInput({ defaultValue = '', onSubmit, onCancel, depth, isDir }: In
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={onCancel}
-        className="flex-1 rounded-sm border border-accent bg-input px-1 py-0.5 text-[11px] text-foreground outline-none"
+        className="flex-1 rounded-sm bg-background px-1 py-0.5 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-accent/40"
       />
     </div>
   );
@@ -217,7 +217,7 @@ function FileTreeNode({
         className={`flex w-full items-center gap-1 rounded-sm px-1 py-[3px] text-[11px] transition-colors ${
           isActive
             ? 'text-foreground bg-accent-muted'
-            : 'text-foreground hover:bg-accent-muted'
+            : 'text-foreground hover:bg-surface-raised'
         }`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
@@ -408,12 +408,12 @@ export function FileTree() {
       {contextMenu && (
         <div
           ref={menuRef}
-          className="fixed z-50 min-w-[160px] rounded-lg border border-border bg-surface-raised p-1 shadow-lg"
+          className="fixed z-50 min-w-[160px] rounded-lg bg-muted p-1"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <ContextMenuItem icon={FilePlus} label="New File" onClick={handleNewFile} />
           <ContextMenuItem icon={FolderPlus} label="New Folder" onClick={handleNewFolder} />
-          <div className="my-1 h-px bg-border" />
+          <div className="my-1 h-px bg-surface-raised" />
           <ContextMenuItem icon={Pencil} label="Rename" onClick={handleRename} />
           <ContextMenuItem icon={Trash2} label="Delete" onClick={handleDelete} danger />
         </div>
@@ -439,7 +439,7 @@ function ContextMenuItem({
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors ${
         danger
           ? 'text-error hover:bg-error/10'
-          : 'text-foreground hover:bg-accent-muted'
+          : 'text-foreground hover:bg-muted'
       }`}
     >
       <Icon className="h-3.5 w-3.5" />

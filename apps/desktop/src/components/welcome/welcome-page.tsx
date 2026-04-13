@@ -48,7 +48,7 @@ export function WelcomePage() {
       <div className="flex w-full max-w-2xl flex-col items-center gap-10 px-8">
         {/* Logo and title */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-muted border border-border">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-raised">
             <Code2 className="h-8 w-8 text-accent" />
           </div>
           <h1 className="text-2xl font-light tracking-tight text-foreground">
@@ -63,7 +63,7 @@ export function WelcomePage() {
         <div className="flex w-full flex-col gap-3">
           <button
             onClick={handleOpenFolder}
-            className="group flex w-full items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3.5 text-left transition-all hover:bg-surface-raised hover:border-border-hover"
+            className="group flex w-full items-center gap-3 rounded-lg bg-surface-raised px-4 py-3.5 text-left transition-all hover:bg-muted"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-muted">
               <FolderOpen className="h-4 w-4 text-accent" />
@@ -88,11 +88,11 @@ export function WelcomePage() {
               </span>
             </div>
 
-            <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-surface p-1">
+            <div className="flex flex-col gap-0.5 rounded-lg bg-surface-raised p-1">
               {recentProjects.map((project) => (
                 <div
                   key={project.path}
-                  className="group flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-accent-muted cursor-pointer"
+                  className="group flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted cursor-pointer"
                   onClick={() => handleOpenRecent(project)}
                 >
                   <FolderOpen className="h-4 w-4 shrink-0 text-accent opacity-60" />
@@ -126,13 +126,13 @@ export function WelcomePage() {
         {/* Keyboard shortcuts */}
         <div className="flex flex-col gap-1.5 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
-            <kbd className="rounded-md border border-border bg-surface px-2 py-0.5 font-mono text-[10px]">
+            <kbd className="rounded-md bg-surface-raised px-2 py-0.5 font-mono text-[10px]">
               Ctrl+K Ctrl+O
             </kbd>
             <span>Open Folder</span>
           </div>
           <div className="flex items-center gap-2">
-            <kbd className="rounded-md border border-border bg-surface px-2 py-0.5 font-mono text-[10px]">
+            <kbd className="rounded-md bg-surface-raised px-2 py-0.5 font-mono text-[10px]">
               Ctrl+L
             </kbd>
             <span>Focus Agent</span>

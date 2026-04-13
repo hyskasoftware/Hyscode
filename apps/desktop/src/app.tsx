@@ -31,7 +31,7 @@ function IDE() {
         <PanelGroup direction="horizontal">
           {/* Sidebar */}
           <Panel defaultSize={16} minSize={12} maxSize={24}>
-            <div className="h-full rounded-lg border border-border bg-surface">
+            <div className="h-full rounded-lg bg-surface overflow-hidden">
               <Sidebar />
             </div>
           </Panel>
@@ -42,7 +42,7 @@ function IDE() {
           <Panel defaultSize={50} minSize={30}>
             <PanelGroup direction="vertical">
               <Panel defaultSize={65} minSize={25}>
-                <div className="h-full rounded-lg border border-border bg-surface">
+                <div className="h-full rounded-lg bg-surface overflow-hidden">
                   <EditorArea />
                 </div>
               </Panel>
@@ -50,7 +50,7 @@ function IDE() {
               <PanelResizeHandle className="h-1.5" />
 
               <Panel defaultSize={35} minSize={15}>
-                <div className="h-full rounded-lg border border-border bg-surface">
+                <div className="h-full rounded-lg bg-surface overflow-hidden">
                   <TerminalPanel />
                 </div>
               </Panel>
@@ -61,7 +61,7 @@ function IDE() {
 
           {/* Agent — single unified block */}
           <Panel defaultSize={34} minSize={22} maxSize={50}>
-            <div className="h-full rounded-lg border border-border bg-surface">
+            <div className="h-full rounded-lg bg-surface overflow-hidden">
               <AgentPanel />
             </div>
           </Panel>

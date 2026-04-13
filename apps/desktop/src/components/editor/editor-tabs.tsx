@@ -10,7 +10,7 @@ export function EditorTabs() {
   if (tabs.length === 0) return null;
 
   return (
-    <div className="flex h-8 items-center gap-0.5 border-b border-border px-2 overflow-x-auto">
+    <div className="flex h-8 items-center gap-0.5 bg-surface-raised px-2 overflow-x-auto shrink-0">
       {tabs.map((tab) => {
         const isActive = activeTabId === tab.id;
         return (
@@ -18,8 +18,8 @@ export function EditorTabs() {
             key={tab.id}
             className={`group flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer select-none ${
               isActive
-                ? 'text-foreground bg-accent-muted border border-border-hover'
-                : 'text-muted-foreground hover:text-foreground border border-transparent'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-raised'
             }`}
             onClick={() => setActiveTab(tab.id)}
           >

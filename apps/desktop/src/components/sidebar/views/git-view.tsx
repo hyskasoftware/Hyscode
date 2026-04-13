@@ -125,14 +125,14 @@ export function GitView() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-2 py-1 border-b border-border">
+      <div className="flex items-center justify-between bg-surface-raised px-2 py-1">
         <div className="flex items-center gap-1.5">
           <GitBranch className="h-3 w-3 text-accent" />
           <span className="text-[11px] font-medium text-foreground">{branch}</span>
         </div>
         <button
           onClick={refresh}
-          className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
+          className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Refresh"
         >
           {isLoading ? (
@@ -145,7 +145,7 @@ export function GitView() {
 
       {/* Error */}
       {error && (
-        <div className="px-2 py-1 text-[10px] text-red-400 bg-red-500/5 border-b border-border">
+        <div className="px-2 py-1 text-[10px] text-red-400 bg-red-500/5">
           {error}
         </div>
       )}
@@ -182,7 +182,7 @@ function FileGroup({
   rootPath: string;
 }) {
   return (
-    <div className="border-b border-border">
+    <div className="">
       <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {title}
         <span className="ml-1.5 text-[10px] font-normal">{files.length}</span>
@@ -193,7 +193,7 @@ function FileGroup({
         return (
           <div
             key={f.path}
-            className="flex items-center gap-1.5 px-2 py-[3px] text-[11px] hover:bg-accent-muted transition-colors"
+            className="flex items-center gap-1.5 px-2 py-[3px] text-[11px] hover:bg-muted transition-colors"
           >
             <Icon className={`h-3 w-3 shrink-0 ${STATUS_COLORS[f.status] ?? 'text-muted-foreground'}`} />
             <span className="truncate text-foreground">{fileName}</span>

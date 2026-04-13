@@ -2,7 +2,7 @@ import { GitBranch, Circle } from 'lucide-react';
 
 export function StatusBar() {
   return (
-    <footer className="flex h-5 items-center justify-between border-t border-border bg-background px-3 text-[10px]">
+    <footer className="flex h-5 items-center justify-between bg-background px-3 text-[10px]">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <GitBranch className="h-2.5 w-2.5" />

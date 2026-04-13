@@ -81,7 +81,7 @@ export function SearchView() {
   return (
     <div className="flex h-full flex-col">
       {/* Search input */}
-      <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
+      <div className="flex items-center gap-1 bg-surface-raised px-2 py-1.5">
         <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <input
           type="text"
@@ -121,7 +121,7 @@ export function SearchView() {
               : filePath;
 
             return (
-              <div key={filePath} className="border-b border-border">
+              <div key={filePath} className="">
                 <div className="flex items-center gap-1.5 px-2 py-1">
                   <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                   <span className="truncate text-[11px] font-medium text-foreground">{fileName}</span>
@@ -134,7 +134,7 @@ export function SearchView() {
                   <button
                     key={`${r.line_number}-${i}`}
                     onClick={() => handleResultClick(r)}
-                    className="flex w-full items-start gap-2 px-4 py-0.5 text-left text-[11px] hover:bg-accent-muted transition-colors"
+                    className="flex w-full items-start gap-2 px-4 py-0.5 text-left text-[11px] hover:bg-muted transition-colors"
                   >
                     <span className="shrink-0 text-muted-foreground w-6 text-right">
                       {r.line_number}

@@ -11,23 +11,23 @@ interface AgentSelectorsProps {
 
 export function AgentSelectors({ mode, onModeChange, model, agent }: AgentSelectorsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border">
+    <div className="flex flex-wrap items-center gap-1.5 bg-surface-raised px-3 py-2">
       {/* Agent selector */}
-      <button className="flex items-center gap-1 rounded-pill border border-border px-2.5 py-[3px] text-[10px] text-muted-foreground hover:text-foreground hover:border-border-hover transition-colors">
+      <button className="flex items-center gap-1 rounded-pill bg-muted px-2.5 py-[3px] text-[10px] text-muted-foreground hover:text-foreground transition-colors">
         <span>{agent}</span>
         <ChevronDown className="h-2.5 w-2.5" />
       </button>
 
       {/* Mode pills */}
-      <div className="flex items-center gap-0.5 rounded-pill border border-border p-[2px]">
+      <div className="flex items-center gap-0.5 rounded-pill bg-background p-[2px]">
         {(['chat', 'build', 'review'] as const).map((m) => (
           <button
             key={m}
             onClick={() => onModeChange(m)}
             className={`rounded-pill px-2.5 py-[2px] text-[10px] font-medium capitalize transition-colors ${
               mode === m
-                ? 'bg-accent-muted text-foreground border border-border-hover'
-                : 'text-muted-foreground hover:text-foreground border border-transparent'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {m}
@@ -36,7 +36,7 @@ export function AgentSelectors({ mode, onModeChange, model, agent }: AgentSelect
       </div>
 
       {/* Model selector */}
-      <button className="flex items-center gap-1 rounded-pill border border-border px-2.5 py-[3px] text-[10px] text-muted-foreground hover:text-foreground hover:border-border-hover transition-colors">
+      <button className="flex items-center gap-1 rounded-pill bg-muted px-2.5 py-[3px] text-[10px] text-muted-foreground hover:text-foreground transition-colors">
         <span>{model}</span>
         <ChevronDown className="h-2.5 w-2.5" />
       </button>

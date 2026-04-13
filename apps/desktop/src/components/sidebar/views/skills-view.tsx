@@ -93,10 +93,7 @@ export function SkillsView() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-2 py-1 border-b border-border">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Skills
-        </span>
+      <div className="flex items-center justify-between bg-surface-raised px-2 py-1">
         <span className="text-[10px] text-muted-foreground">
           {enabledCount}/{skills.length} active
         </span>
@@ -111,7 +108,7 @@ export function SkillsView() {
           const ScopeIcon = SCOPE_ICONS[scope];
 
           return (
-            <div key={scope} className="border-b border-border">
+            <div key={scope} className="">
               <div className="flex items-center gap-1.5 px-2 py-1">
                 <ScopeIcon className="h-3 w-3 text-muted-foreground" />
                 <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -123,7 +120,7 @@ export function SkillsView() {
                 <button
                   key={skill.id}
                   onClick={() => toggleSkill(skill.id)}
-                  className="flex w-full items-start gap-2 px-2 py-1.5 text-left hover:bg-accent-muted transition-colors"
+                  className="flex w-full items-start gap-2 px-2 py-1.5 text-left hover:bg-muted transition-colors"
                 >
                   <div className="mt-0.5 shrink-0">
                     {skill.enabled ? (

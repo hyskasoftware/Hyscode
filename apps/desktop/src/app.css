@@ -16,32 +16,51 @@
   --font-sans: 'Geist Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
 
-  /* Monochromatic base — neutral dark */
-  --color-background: #141414;
-  --color-foreground: #f0f0f0;
-  --color-surface: #1a1a1a;
-  --color-surface-raised: #222222;
-  --color-muted: #2a2a2a;
-  --color-muted-foreground: #b0b0b0;
-  --color-input: #222222;
+  /*
+   * Fill-only hierarchy — no borders, no shadows.
+   * Separation comes purely from value contrast between fills.
+   *
+   * Depth scale (darkest → lightest):
+   *   void (#0d0d0d) → anchor (#111111) → panel (#181818)
+   *   → raised (#202020) → hover (#282828) → pressed (#313131)
+   */
 
-  /* Purple borders */
-  --color-border: rgba(168, 85, 247, 0.22);
-  --color-border-hover: rgba(168, 85, 247, 0.22);
-  --color-border-active: rgba(168, 85, 247, 0.22);
+  /* App canvas — shown as the gap between floating panels */
+  --color-background: #0d0d0d;
+  --color-foreground: #e8e8e8;
 
-  /* Accent — very sparing use */
+  /* Primary panels (editor, sidebar content, agent) */
+  --color-surface: #181818;
+
+  /* Elevated areas within panels (tab rows, modal headers, input areas) */
+  --color-surface-raised: #202020;
+
+  /* Hover fill — clearly distinguishable from raised */
+  --color-muted: #282828;
+
+  /* Secondary text — enough contrast on dark surfaces, not distracting */
+  --color-muted-foreground: #888888;
+
+  /* Input backgrounds */
+  --color-input: #202020;
+
+  /* Borders — fully transparent: the system uses fills only */
+  --color-border: transparent;
+  --color-border-hover: transparent;
+  --color-border-active: transparent;
+
+  /* Accent — purple used only for active indicators and AI elements */
   --color-accent: #a855f7;
-  --color-accent-muted: rgba(168, 85, 247, 0.08);
-  --color-accent-foreground: #FFFFFF;
+  --color-accent-muted: rgba(168, 85, 247, 0.10);
+  --color-accent-foreground: #ffffff;
 
   /* Semantic */
   --color-success: #4ade80;
   --color-warning: #facc15;
   --color-error: #f87171;
 
-  /* Sidebar */
-  --color-sidebar: #121212;
+  /* Activity bar — darkest panel, grounds the left edge */
+  --color-sidebar: #111111;
   --color-sidebar-foreground: #e8e8e8;
 
   /* Radius */
@@ -66,7 +85,7 @@ body {
   color: var(--color-foreground);
 }
 
-/* Custom scrollbar — purple tint */
+/* Neutral scrollbar — no color personality, just functional */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -77,10 +96,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.22);
+  background: #303030;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.40);
+  background: #3d3d3d;
 }

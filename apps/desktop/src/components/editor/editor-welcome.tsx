@@ -24,19 +24,19 @@ export function EditorWelcome() {
         </p>
         <button
           onClick={handleOpenFolder}
-          className="mt-3 flex items-center gap-2 rounded-md border border-border-hover px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-accent-muted transition-colors"
+          className="mt-3 flex items-center gap-2 rounded-md bg-surface-raised px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
         >
           <FolderOpen className="h-3.5 w-3.5" />
           Open Folder
         </button>
         <div className="mt-4 flex flex-col gap-1.5 text-[11px] text-muted-foreground">
-          <kbd className="rounded-md border border-border px-2 py-0.5">
+          <kbd className="rounded-md bg-surface-raised px-2 py-0.5">
             Ctrl+K Ctrl+O — Open Folder
           </kbd>
-          <kbd className="rounded-md border border-border px-2 py-0.5">
+          <kbd className="rounded-md bg-surface-raised px-2 py-0.5">
             Ctrl+L — Focus Agent
           </kbd>
-          <kbd className="rounded-md border border-border px-2 py-0.5">
+          <kbd className="rounded-md bg-surface-raised px-2 py-0.5">
             Ctrl+S — Save File
           </kbd>
         </div>
