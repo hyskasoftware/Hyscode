@@ -7,6 +7,12 @@ export interface TextContent {
   text: string;
 }
 
+export interface ImageContent {
+  type: 'image';
+  base64: string;
+  mediaType: string;
+}
+
 export interface ToolCallContent {
   type: 'tool_call';
   id: string;
@@ -21,7 +27,7 @@ export interface ToolResultContent {
   isError?: boolean;
 }
 
-export type MessageContent = TextContent | ToolCallContent | ToolResultContent;
+export type MessageContent = TextContent | ImageContent | ToolCallContent | ToolResultContent;
 
 export interface Message {
   role: MessageRole;
@@ -54,8 +60,10 @@ export type StreamChunk =
   | { type: 'tool_call_delta'; id: string; input: string }
   | { type: 'tool_call_end'; id: string }
   | { type: 'usage'; usage: TokenUsage }
-  | { type: 'done'; stopReason: string }
-  | { type: 'error'; error: string };
+  | { type: 'done'; stopReason: StopReason }
+  | { type: 'error'; error: string; retryable?: boolean };
+
+export type StopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'error';
 
 // ─── Chat Parameters ────────────────────────────────────────────────────────
 
@@ -71,24 +79,76 @@ export interface ChatParams {
   signal?: AbortSignal;
 }
 
+// ─── Chat Response (non-streaming) ──────────────────────────────────────────
+
+export interface ChatResponse {
+  content: MessageContent[];
+  stopReason: StopReason;
+  usage: TokenUsage;
+  model: string;
+}
+
 // ─── Provider & Model ───────────────────────────────────────────────────────
 
 export interface AIModel {
   id: string;
   name: string;
+  provider: string;
   contextWindow: number;
   maxOutputTokens: number;
   supportsTools: boolean;
   supportsStreaming: boolean;
+  supportsVision: boolean;
   inputPricePerMToken?: number;
   outputPricePerMToken?: number;
 }
 
 export interface AIProvider {
-  id: string;
-  name: string;
+  readonly id: string;
+  readonly name: string;
   models: AIModel[];
   chat(params: ChatParams): AsyncIterable<StreamChunk>;
   listModels(): Promise<AIModel[]>;
   isConfigured(): boolean;
+}
+
+// ─── Retry Config ───────────────────────────────────────────────────────────
+
+export interface RetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  retryableStatuses: number[];
+}
+
+// ─── Provider Error ─────────────────────────────────────────────────────────
+
+export class ProviderError extends Error {
+  constructor(
+    message: string,
+    public readonly provider: string,
+    public readonly statusCode?: number,
+    public readonly retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = 'ProviderError';
+  }
+}
+
+// ─── HTTP Proxy types (for Rust IPC) ────────────────────────────────────────
+
+export interface StreamRequest {
+  provider: string;
+  url: string;
+  method: 'POST' | 'GET';
+  headers: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+}
+
+export interface StreamEvent {
+  id: string;
+  data: string;
+  done: boolean;
+  error?: string;
 }

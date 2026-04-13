@@ -4,6 +4,7 @@ use tauri::Manager;
 
 mod commands;
 
+use commands::keychain::KeychainState;
 use commands::lsp::LspState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -17,6 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(commands::pty::PtyState(Mutex::new(HashMap::new())))
         .manage(LspState(Mutex::new(HashMap::new())))
+        .manage(KeychainState(Mutex::new(HashMap::new())))
         .invoke_handler(tauri::generate_handler![
             commands::fs::read_file,
             commands::fs::write_file,
@@ -66,6 +68,14 @@ pub fn run() {
             commands::lsp::lsp_send,
             commands::lsp::lsp_stop,
             commands::lsp::lsp_list_active,
+            // Keychain commands
+            commands::keychain::keychain_set,
+            commands::keychain::keychain_get,
+            commands::keychain::keychain_delete,
+            commands::keychain::keychain_has,
+            // AI streaming commands
+            commands::ai::ai_stream_request,
+            commands::ai::ai_stream_cancel,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

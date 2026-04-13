@@ -6,6 +6,7 @@ import {
   Terminal,
   GitBranch,
   Settings2,
+  BrainCircuit,
 } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import { EditorTab } from './tabs/editor-tab';
@@ -13,14 +14,16 @@ import { ThemeTab } from './tabs/theme-tab';
 import { TerminalTab } from './tabs/terminal-tab';
 import { GitTab } from './tabs/git-tab';
 import { GeneralTab } from './tabs/general-tab';
+import { AiTab } from './tabs/ai-tab';
 
-type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general';
+type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai';
 
 const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'editor', icon: Code2, label: 'Editor' },
   { id: 'theme', icon: Palette, label: 'Themes' },
   { id: 'terminal', icon: Terminal, label: 'Terminal' },
   { id: 'git', icon: GitBranch, label: 'Git' },
+  { id: 'ai', icon: BrainCircuit, label: 'AI & Providers' },
   { id: 'general', icon: Settings2, label: 'General' },
 ];
 
@@ -29,6 +32,7 @@ const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
   theme: <ThemeTab />,
   terminal: <TerminalTab />,
   git: <GitTab />,
+  ai: <AiTab />,
   general: <GeneralTab />,
 };
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import type { AgentType } from '@hyscode/agent-harness';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,19 @@ export interface ProviderConfig {
   providerId: string;
   modelId: string;
   isActive: boolean;
+}
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  transport: 'stdio' | 'sse';
+  /** For stdio: command to run */
+  command?: string;
+  /** For stdio: args for command */
+  args?: string[];
+  /** For SSE: url */
+  url?: string;
+  enabled: boolean;
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -65,14 +79,21 @@ interface SettingsState {
   showWelcomeOnStartup: boolean;
   reducedMotion: boolean;
 
-  // ─ Agent / Provider (existing) ─
+  // ─ Agent / Provider ─
   activeProviderId: string | null;
   activeModelId: string | null;
+  agentType: AgentType;
   providers: ProviderConfig[];
   approvalMode: ApprovalMode;
   maxIterations: number;
   temperature: number;
   maxTokens: number;
+
+  // ─ MCP Servers ─
+  mcpServers: McpServerConfig[];
+
+  // ─ Skills ─
+  skillsPath: string;
 
   // ─ Settings modal ─
   settingsOpen: boolean;
@@ -83,6 +104,9 @@ interface SettingsState {
   setActiveProvider: (providerId: string, modelId: string) => void;
   openSettings: () => void;
   closeSettings: () => void;
+  addMcpServer: (server: McpServerConfig) => void;
+  removeMcpServer: (id: string) => void;
+  updateMcpServer: (id: string, patch: Partial<McpServerConfig>) => void;
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -128,11 +152,18 @@ export const useSettingsStore = create<SettingsState>()(
     // Agent / Provider
     activeProviderId: null,
     activeModelId: null,
+    agentType: 'chat' as AgentType,
     providers: [],
     approvalMode: 'manual',
     maxIterations: 25,
     temperature: 0.0,
     maxTokens: 8192,
+
+    // MCP Servers
+    mcpServers: [],
+
+    // Skills
+    skillsPath: '',
 
     // Settings modal
     settingsOpen: false,
@@ -162,6 +193,22 @@ export const useSettingsStore = create<SettingsState>()(
     closeSettings: () =>
       set((state) => {
         state.settingsOpen = false;
+      }),
+
+    addMcpServer: (server) =>
+      set((state) => {
+        state.mcpServers.push(server);
+      }),
+
+    removeMcpServer: (id) =>
+      set((state) => {
+        state.mcpServers = state.mcpServers.filter((s) => s.id !== id);
+      }),
+
+    updateMcpServer: (id, patch) =>
+      set((state) => {
+        const server = state.mcpServers.find((s) => s.id === id);
+        if (server) Object.assign(server, patch);
       }),
   })),
 );

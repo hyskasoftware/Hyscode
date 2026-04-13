@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import type { AgentType, SddStatus, SddTask } from '@hyscode/agent-harness';
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 export type AgentMode = 'chat' | 'build' | 'review';
 export type MessageRole = 'user' | 'assistant';
@@ -23,34 +26,119 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface PendingApproval {
+  id: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  description: string;
+}
+
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+// ─── State ──────────────────────────────────────────────────────────────────
+
 interface AgentState {
+  // Core
   mode: AgentMode;
+  agentType: AgentType;
   conversationId: string | null;
   messages: ChatMessage[];
   isStreaming: boolean;
-  pendingToolCalls: ToolCallDisplay[];
+  streamingText: string;
   contextFiles: string[];
+
+  // Tool calls & approval
+  pendingToolCalls: ToolCallDisplay[];
+  pendingApprovals: PendingApproval[];
+
+  // SDD (Spec-Driven Development)
+  sddPhase: SddStatus | null;
+  sddSpec: string | null;
+  sddTasks: SddTask[];
+  sddProgress: number; // 0-100
+
+  // Skills
+  activeSkills: string[];
+
+  // Token usage
+  tokenUsage: TokenUsage | null;
+
+  // ─── Actions ──────────────────────────────────────────────────────────
+
   setMode: (mode: AgentMode) => void;
+  setAgentType: (type: AgentType) => void;
+  setConversationId: (id: string) => void;
   addMessage: (message: ChatMessage) => void;
   updateLastAssistantContent: (content: string) => void;
+  appendStreamingText: (text: string) => void;
+  flushStreamingText: () => void;
   setStreaming: (streaming: boolean) => void;
   addContextFile: (path: string) => void;
   removeContextFile: (path: string) => void;
   clearConversation: () => void;
+
+  // Tool calls
+  addToolCall: (tc: ToolCallDisplay) => void;
+  updateToolCall: (id: string, patch: Partial<ToolCallDisplay>) => void;
+
+  // Approvals
+  addPendingApproval: (approval: PendingApproval) => void;
+  removePendingApproval: (id: string) => void;
+
+  // SDD
+  setSddPhase: (phase: SddStatus | null) => void;
+  setSddSpec: (spec: string | null) => void;
+  setSddTasks: (tasks: SddTask[]) => void;
+  updateSddTask: (id: string, patch: Partial<SddTask>) => void;
+  setSddProgress: (progress: number) => void;
+
+  // Skills
+  setActiveSkills: (skills: string[]) => void;
+
+  // Token usage
+  setTokenUsage: (usage: TokenUsage | null) => void;
 }
+
+// ─── Store ──────────────────────────────────────────────────────────────────
 
 export const useAgentStore = create<AgentState>()(
   immer((set) => ({
+    // Defaults
     mode: 'chat',
+    agentType: 'chat',
     conversationId: null,
     messages: [],
     isStreaming: false,
+    streamingText: '',
     pendingToolCalls: [],
+    pendingApprovals: [],
     contextFiles: [],
+    sddPhase: null,
+    sddSpec: null,
+    sddTasks: [],
+    sddProgress: 0,
+    activeSkills: [],
+    tokenUsage: null,
+
+    // ─── Core Actions ─────────────────────────────────────────────────
 
     setMode: (mode) =>
       set((state) => {
         state.mode = mode;
+      }),
+
+    setAgentType: (type) =>
+      set((state) => {
+        state.agentType = type;
+      }),
+
+    setConversationId: (id) =>
+      set((state) => {
+        state.conversationId = id;
       }),
 
     addMessage: (message) =>
@@ -66,9 +154,34 @@ export const useAgentStore = create<AgentState>()(
         }
       }),
 
+    appendStreamingText: (text) =>
+      set((state) => {
+        state.streamingText += text;
+      }),
+
+    flushStreamingText: () =>
+      set((state) => {
+        if (!state.streamingText) return;
+        const last = state.messages[state.messages.length - 1];
+        if (last?.role === 'assistant') {
+          last.content = state.streamingText;
+        } else {
+          state.messages.push({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: state.streamingText,
+            timestamp: Date.now(),
+          });
+        }
+        state.streamingText = '';
+      }),
+
     setStreaming: (streaming) =>
       set((state) => {
         state.isStreaming = streaming;
+        if (!streaming) {
+          state.streamingText = '';
+        }
       }),
 
     addContextFile: (path) =>
@@ -88,7 +201,98 @@ export const useAgentStore = create<AgentState>()(
         state.messages = [];
         state.conversationId = null;
         state.pendingToolCalls = [];
+        state.pendingApprovals = [];
         state.contextFiles = [];
+        state.streamingText = '';
+        state.sddPhase = null;
+        state.sddSpec = null;
+        state.sddTasks = [];
+        state.sddProgress = 0;
+        state.tokenUsage = null;
+      }),
+
+    // ─── Tool Calls ──────────────────────────────────────────────────
+
+    addToolCall: (tc) =>
+      set((state) => {
+        state.pendingToolCalls.push(tc);
+        // Also attach to last assistant message
+        const last = state.messages[state.messages.length - 1];
+        if (last?.role === 'assistant') {
+          if (!last.toolCalls) last.toolCalls = [];
+          last.toolCalls.push(tc);
+        }
+      }),
+
+    updateToolCall: (id, patch) =>
+      set((state) => {
+        const tc = state.pendingToolCalls.find((t) => t.id === id);
+        if (tc) Object.assign(tc, patch);
+        // Also update in message
+        for (const msg of state.messages) {
+          const msgTc = msg.toolCalls?.find((t) => t.id === id);
+          if (msgTc) Object.assign(msgTc, patch);
+        }
+      }),
+
+    // ─── Approvals ───────────────────────────────────────────────────
+
+    addPendingApproval: (approval) =>
+      set((state) => {
+        state.pendingApprovals.push(approval);
+      }),
+
+    removePendingApproval: (id) =>
+      set((state) => {
+        state.pendingApprovals = state.pendingApprovals.filter((a) => a.id !== id);
+      }),
+
+    // ─── SDD ─────────────────────────────────────────────────────────
+
+    setSddPhase: (phase) =>
+      set((state) => {
+        state.sddPhase = phase;
+      }),
+
+    setSddSpec: (spec) =>
+      set((state) => {
+        state.sddSpec = spec;
+      }),
+
+    setSddTasks: (tasks) =>
+      set((state) => {
+        state.sddTasks = tasks as SddTask[];
+      }),
+
+    updateSddTask: (id, patch) =>
+      set((state) => {
+        const task = state.sddTasks.find((t) => t.id === id);
+        if (task) Object.assign(task, patch);
+        // Recalculate progress
+        const total = state.sddTasks.length;
+        if (total > 0) {
+          const done = state.sddTasks.filter((t) => t.status === 'completed' || t.status === 'skipped').length;
+          state.sddProgress = Math.round((done / total) * 100);
+        }
+      }),
+
+    setSddProgress: (progress) =>
+      set((state) => {
+        state.sddProgress = progress;
+      }),
+
+    // ─── Skills ──────────────────────────────────────────────────────
+
+    setActiveSkills: (skills) =>
+      set((state) => {
+        state.activeSkills = skills;
+      }),
+
+    // ─── Token Usage ─────────────────────────────────────────────────
+
+    setTokenUsage: (usage) =>
+      set((state) => {
+        state.tokenUsage = usage;
       }),
   })),
 );

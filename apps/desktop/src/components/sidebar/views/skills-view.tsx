@@ -1,88 +1,70 @@
 import { useState, useEffect } from 'react';
 import { Puzzle, ToggleLeft, ToggleRight, Globe, FolderOpen, Package } from 'lucide-react';
+import { useAgentStore } from '@/stores/agent-store';
+import type { SkillScope } from '@hyscode/agent-harness';
 
-interface Skill {
+interface SkillDisplay {
   id: string;
   name: string;
   description: string;
-  scope: 'builtin' | 'global' | 'workspace';
+  scope: SkillScope;
   enabled: boolean;
 }
 
-const DEFAULT_SKILLS: Skill[] = [
-  {
-    id: 'code-completion',
-    name: 'Code Completion',
-    description: 'AI-powered code suggestions as you type',
-    scope: 'builtin',
-    enabled: true,
-  },
-  {
-    id: 'code-review',
-    name: 'Code Review',
-    description: 'Automated code review with best practice checks',
-    scope: 'builtin',
-    enabled: true,
-  },
-  {
-    id: 'refactor',
-    name: 'Refactor',
-    description: 'Intelligent code refactoring suggestions',
-    scope: 'builtin',
-    enabled: true,
-  },
-  {
-    id: 'test-generation',
-    name: 'Test Generation',
-    description: 'Generate unit tests for functions and modules',
-    scope: 'builtin',
-    enabled: false,
-  },
-  {
-    id: 'documentation',
-    name: 'Documentation',
-    description: 'Auto-generate docs and comments',
-    scope: 'builtin',
-    enabled: false,
-  },
-  {
-    id: 'git-assistant',
-    name: 'Git Assistant',
-    description: 'Smart commit messages and branch management',
-    scope: 'global',
-    enabled: true,
-  },
-  {
-    id: 'terminal-helper',
-    name: 'Terminal Helper',
-    description: 'Command suggestions and error explanations',
-    scope: 'global',
-    enabled: true,
-  },
+// ─── Default built-in skills (from @hyscode/skills package) ─────────────────
+
+const BUILTIN_SKILLS: SkillDisplay[] = [
+  { id: 'code-style', name: 'Code Style', description: 'Enforce consistent coding patterns and best practices', scope: 'built-in', enabled: true },
+  { id: 'testing', name: 'Testing', description: 'Guide test writing with framework-aware patterns', scope: 'built-in', enabled: true },
+  { id: 'security', name: 'Security', description: 'Detect and prevent security vulnerabilities', scope: 'built-in', enabled: true },
+  { id: 'git-workflow', name: 'Git Workflow', description: 'Smart commit messages, branch naming, and PR descriptions', scope: 'built-in', enabled: true },
+  { id: 'performance', name: 'Performance', description: 'Identify and fix performance bottlenecks', scope: 'built-in', enabled: false },
+  { id: 'documentation', name: 'Documentation', description: 'Auto-generate docs, comments, and READMEs', scope: 'built-in', enabled: false },
 ];
 
-const SCOPE_ICONS: Record<string, typeof Globe> = {
-  builtin: Package,
+const SCOPE_ICONS: Record<SkillScope, typeof Globe> = {
+  'built-in': Package,
   global: Globe,
   workspace: FolderOpen,
 };
 
-const SCOPE_LABELS: Record<string, string> = {
-  builtin: 'Built-in',
+const SCOPE_LABELS: Record<SkillScope, string> = {
+  'built-in': 'Built-in',
   global: 'Global',
   workspace: 'Workspace',
 };
 
 export function SkillsView() {
-  const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS);
+  const [skills, setSkills] = useState<SkillDisplay[]>(BUILTIN_SKILLS);
+  const activeSkills = useAgentStore((s) => s.activeSkills);
+
+  // Sync active state from store
+  useEffect(() => {
+    setSkills((prev) =>
+      prev.map((s) => ({
+        ...s,
+        enabled: activeSkills.includes(s.id) || (s.scope === 'built-in' && s.enabled),
+      })),
+    );
+  }, [activeSkills]);
 
   const toggleSkill = (id: string) => {
     setSkills((prev) =>
       prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
     );
+    // Sync to store
+    const skill = skills.find((s) => s.id === id);
+    if (skill) {
+      const currentActive = useAgentStore.getState().activeSkills;
+      if (skill.enabled) {
+        useAgentStore.getState().setActiveSkills(currentActive.filter((s) => s !== id));
+      } else {
+        useAgentStore.getState().setActiveSkills([...currentActive, id]);
+      }
+    }
   };
 
-  const grouped = skills.reduce<Record<string, Skill[]>>((acc, s) => {
+  const grouped = skills.reduce<Record<string, SkillDisplay[]>>((acc, s) => {
     if (!acc[s.scope]) acc[s.scope] = [];
     acc[s.scope].push(s);
     return acc;
@@ -101,7 +83,7 @@ export function SkillsView() {
 
       {/* Skills list */}
       <div className="flex-1 overflow-auto">
-        {(['builtin', 'global', 'workspace'] as const).map((scope) => {
+        {(['built-in', 'global', 'workspace'] as const).map((scope) => {
           const scopeSkills = grouped[scope];
           if (!scopeSkills || scopeSkills.length === 0) return null;
 

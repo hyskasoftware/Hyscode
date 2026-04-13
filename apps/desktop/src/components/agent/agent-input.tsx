@@ -1,6 +1,5 @@
-import { Send, Paperclip, ChevronDown } from 'lucide-react';
+import { Send, Square, Paperclip, ChevronDown } from 'lucide-react';
 import { useState, useRef } from 'react';
-import type { AgentMode } from './agent-selectors';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,20 +14,27 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useAgentStore } from '@/stores/agent-store';
+import { useSettingsStore } from '@/stores/settings-store';
+import { HarnessBridge } from '@/lib/harness-bridge';
+import type { AgentMode } from '@/stores/agent-store';
+import type { AgentType } from '@hyscode/agent-harness';
+import { getAllAgentDefinitions } from '@hyscode/agent-harness';
 
-const AGENTS = ['HysCode Agent', 'Researcher', 'Architect'];
-const MODELS = ['claude-sonnet-4-5', 'gpt-4o', 'gemini-2.0-flash'];
+const AGENT_DEFS = getAllAgentDefinitions();
+const MODELS = ['claude-sonnet-4-5', 'gpt-4o', 'gemini-2.0-flash', 'llama-3.3-70b'];
 
-interface AgentInputProps {
-  mode: AgentMode;
-  onModeChange: (mode: AgentMode) => void;
-  model: string;
-  agent: string;
-}
-
-export function AgentInput({ mode, onModeChange, model, agent }: AgentInputProps) {
+export function AgentInput() {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const mode = useAgentStore((s) => s.mode);
+  const setMode = useAgentStore((s) => s.setMode);
+  const agentType = useAgentStore((s) => s.agentType);
+  const isStreaming = useAgentStore((s) => s.isStreaming);
+  const activeModelId = useSettingsStore((s) => s.activeModelId);
+
+  const currentAgent = AGENT_DEFS.find((a) => a.type === agentType) ?? AGENT_DEFS[0];
 
   const placeholders: Record<AgentMode, string> = {
     chat: 'Ask anything...',
@@ -37,9 +43,37 @@ export function AgentInput({ mode, onModeChange, model, agent }: AgentInputProps
   };
 
   const handleSend = () => {
-    if (!input.trim()) return;
-    // TODO: dispatch to agent store
+    if (!input.trim() || isStreaming) return;
+    try {
+      HarnessBridge.get().sendMessage(input.trim());
+    } catch {
+      // Bridge not initialized yet — ignore
+    }
     setInput('');
+  };
+
+  const handleStop = () => {
+    try {
+      HarnessBridge.get().cancel();
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleAgentChange = (type: AgentType) => {
+    try {
+      HarnessBridge.get().setAgentType(type);
+    } catch {
+      useAgentStore.getState().setAgentType(type);
+      useSettingsStore.getState().set('agentType', type);
+    }
+  };
+
+  const handleModelChange = (modelId: string) => {
+    useSettingsStore.getState().setActiveProvider(
+      useSettingsStore.getState().activeProviderId ?? '',
+      modelId,
+    );
   };
 
   return (
@@ -68,12 +102,17 @@ export function AgentInput({ mode, onModeChange, model, agent }: AgentInputProps
           {/* Agent */}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex cursor-pointer items-center gap-0.5 rounded-pill bg-muted px-2 py-[3px] text-[10px] text-muted-foreground transition-colors hover:text-foreground focus:outline-none">
-              <span className="truncate max-w-[90px]">{agent}</span>
+              <span className="truncate max-w-[90px]">{currentAgent.name}</span>
               <ChevronDown className="h-2.5 w-2.5 shrink-0" />
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" className="min-w-[160px]">
-              {AGENTS.map((a) => (
-                <DropdownMenuItem key={a}>{a}</DropdownMenuItem>
+              {AGENT_DEFS.map((a) => (
+                <DropdownMenuItem key={a.type} onClick={() => handleAgentChange(a.type)}>
+                  <div className="flex flex-col">
+                    <span className="text-[11px]">{a.name}</span>
+                    <span className="text-[9px] text-muted-foreground">{a.description}</span>
+                  </div>
+                </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -83,7 +122,7 @@ export function AgentInput({ mode, onModeChange, model, agent }: AgentInputProps
             {(['chat', 'build', 'review'] as const).map((m) => (
               <button
                 key={m}
-                onClick={() => onModeChange(m)}
+                onClick={() => setMode(m)}
                 className={cn(
                   'cursor-pointer rounded-pill px-2.5 py-[2px] text-[10px] font-medium capitalize transition-colors',
                   mode === m
@@ -99,12 +138,14 @@ export function AgentInput({ mode, onModeChange, model, agent }: AgentInputProps
           {/* Model */}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex cursor-pointer items-center gap-0.5 rounded-pill bg-muted px-2 py-[3px] text-[10px] text-muted-foreground transition-colors hover:text-foreground focus:outline-none">
-              <span className="truncate max-w-[100px]">{model}</span>
+              <span className="truncate max-w-[100px]">{activeModelId ?? 'Select model'}</span>
               <ChevronDown className="h-2.5 w-2.5 shrink-0" />
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" className="min-w-[180px]">
               {MODELS.map((m) => (
-                <DropdownMenuItem key={m}>{m}</DropdownMenuItem>
+                <DropdownMenuItem key={m} onClick={() => handleModelChange(m)}>
+                  {m}
+                </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -127,21 +168,38 @@ export function AgentInput({ mode, onModeChange, model, agent }: AgentInputProps
             <TooltipContent side="top">Attach file</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon-xs"
-                  disabled={!input.trim()}
-                  onClick={handleSend}
-                  className="disabled:opacity-30"
-                />
-              }
-            >
-              <Send />
-            </TooltipTrigger>
-            <TooltipContent side="top">Send (Enter)</TooltipContent>
-          </Tooltip>
+          {isStreaming ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    onClick={handleStop}
+                    className="bg-red-600 hover:bg-red-700"
+                  />
+                }
+              >
+                <Square className="h-3 w-3" />
+              </TooltipTrigger>
+              <TooltipContent side="top">Stop (Esc)</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    disabled={!input.trim()}
+                    onClick={handleSend}
+                    className="disabled:opacity-30"
+                  />
+                }
+              >
+                <Send />
+              </TooltipTrigger>
+              <TooltipContent side="top">Send (Enter)</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
     </div>
