@@ -1,4 +1,4 @@
-import { Files, Search, GitBranch, Settings, Bot, Puzzle } from 'lucide-react';
+import { Files, Search, GitBranch, Settings, Bot, Puzzle, Blocks } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import type { SidebarView } from './sidebar';
 
@@ -7,6 +7,7 @@ const items = [
   { id: 'search', icon: Search, label: 'Search' },
   { id: 'git', icon: GitBranch, label: 'Source Control' },
   { id: 'skills', icon: Puzzle, label: 'Skills' },
+  { id: 'extensions', icon: Blocks, label: 'Extensions' },
   { id: 'agent', icon: Bot, label: 'Agent' },
 ] as const;
 

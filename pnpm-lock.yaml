@@ -39,6 +39,15 @@ importers:
       '@hyscode/ai-providers':
         specifier: workspace:*
         version: link:../../packages/ai-providers
+      '@hyscode/extension-api':
+        specifier: workspace:*
+        version: link:../../packages/extension-api
+      '@hyscode/extension-host':
+        specifier: workspace:*
+        version: link:../../packages/extension-host
+      '@hyscode/lsp-client':
+        specifier: workspace:*
+        version: link:../../packages/lsp-client
       '@hyscode/mcp-client':
         specifier: workspace:*
         version: link:../../packages/mcp-client
@@ -163,6 +172,32 @@ importers:
         version: 5.9.3
 
   packages/ai-providers:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+
+  packages/extension-api:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+
+  packages/extension-host:
+    dependencies:
+      '@hyscode/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+    devDependencies:
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+
+  packages/lsp-client:
+    dependencies:
+      '@hyscode/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
     devDependencies:
       typescript:
         specifier: ^5.8.0

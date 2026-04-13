@@ -13,6 +13,8 @@ import { useEffect } from 'react';
 import { pickFolder } from './lib/tauri-dialog';
 
 // ── Theme effect — applies CSS class on <html> whenever themeId changes ──────
+const LIGHT_THEMES = new Set(['hyscode-light']);
+
 function useThemeEffect() {
   const themeId = useSettingsStore((s) => s.themeId);
   useEffect(() => {
@@ -22,6 +24,12 @@ function useThemeEffect() {
       if (cls.startsWith('theme-')) el.classList.remove(cls);
     });
     el.classList.add(`theme-${themeId}`);
+    // Toggle dark class for shadcn dark: variant support
+    if (LIGHT_THEMES.has(themeId)) {
+      el.classList.remove('dark');
+    } else {
+      el.classList.add('dark');
+    }
   }, [themeId]);
 }
 

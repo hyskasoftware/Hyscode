@@ -4,6 +4,7 @@ import {
   SearchView,
   GitView,
   SkillsView,
+  ExtensionsView,
   AgentSidebarView,
 } from './views';
 
@@ -21,6 +22,8 @@ export function SidebarContent({ view }: SidebarContentProps) {
       return <GitView />;
     case 'skills':
       return <SkillsView />;
+    case 'extensions':
+      return <ExtensionsView />;
     case 'agent':
       return <AgentSidebarView />;
   }

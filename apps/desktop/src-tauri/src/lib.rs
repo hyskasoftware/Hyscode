@@ -4,6 +4,8 @@ use tauri::Manager;
 
 mod commands;
 
+use commands::lsp::LspState;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -14,6 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(commands::pty::PtyState(Mutex::new(HashMap::new())))
+        .manage(LspState(Mutex::new(HashMap::new())))
         .invoke_handler(tauri::generate_handler![
             commands::fs::read_file,
             commands::fs::write_file,
@@ -53,6 +56,16 @@ pub fn run() {
             commands::pty::pty_write,
             commands::pty::pty_resize,
             commands::pty::pty_kill,
+            // Extension commands
+            commands::extension::extension_install,
+            commands::extension::extension_uninstall,
+            commands::extension::extension_list,
+            commands::extension::extension_read_asset,
+            // LSP commands
+            commands::lsp::lsp_start,
+            commands::lsp::lsp_send,
+            commands::lsp::lsp_stop,
+            commands::lsp::lsp_list_active,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

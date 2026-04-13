@@ -7,10 +7,11 @@ const viewLabels: Record<SidebarView, string> = {
   search: 'Search',
   git: 'Source Control',
   skills: 'Skills',
+  extensions: 'Extensions',
   agent: 'Agent',
 };
 
-export type SidebarView = 'files' | 'search' | 'git' | 'skills' | 'agent';
+export type SidebarView = 'files' | 'search' | 'git' | 'skills' | 'extensions' | 'agent';
 
 export function Sidebar() {
   const [activeView, setActiveView] = useState<SidebarView>('files');

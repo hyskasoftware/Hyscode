@@ -17,7 +17,8 @@ export type ThemeId =
   | 'nord'
   | 'monokai'
   | 'dracula'
-  | 'github-dark';
+  | 'github-dark'
+  | (string & {}); // allows extension theme ids while keeping autocomplete
 
 export interface ProviderConfig {
   providerId: string;
