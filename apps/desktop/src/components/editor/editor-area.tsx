@@ -5,6 +5,8 @@ import { EditorWelcome } from './editor-welcome';
 import { DiffViewer } from './diff-viewer';
 import { useEditorStore, useFileStore } from '../../stores';
 import { tauriFs } from '../../lib/tauri-fs';
+import { useGitDecorations } from '../../hooks/use-git-decorations';
+import type * as monacoEditor from 'monaco-editor';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
 
@@ -26,6 +28,17 @@ export function EditorArea() {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const contentRef = useRef<string | null>(null);
+
+  // Monaco instance refs for git decorations
+  const editorInstanceRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
+  const monacoInstanceRef = useRef<typeof monacoEditor | null>(null);
+
+  // Apply git diff decorations to gutter + minimap
+  useGitDecorations(
+    editorInstanceRef,
+    monacoInstanceRef,
+    activeTab?.type === 'file' ? (activeTab?.filePath ?? null) : null,
+  );
 
   // Load file content when active tab changes
   useEffect(() => {
@@ -122,6 +135,10 @@ export function EditorArea() {
               value={content ?? ''}
               onChange={handleEditorChange}
               theme="hyscode-dark"
+              onMount={(editor, monaco) => {
+                editorInstanceRef.current = editor;
+                monacoInstanceRef.current = monaco;
+              }}
               beforeMount={(monaco) => {
                 monaco.editor.defineTheme('hyscode-dark', {
                   base: 'vs-dark',
@@ -153,6 +170,13 @@ export function EditorArea() {
                       'input.foreground': '#f0f0f0',
                       'input.border': '#a855f738',
                       'minimap.background': '#141414',
+                      'minimap.selectionHighlight': '#a855f755',
+                      'minimapGutter.addedBackground': '#3fb950',
+                      'minimapGutter.modifiedBackground': '#e3b341',
+                      'minimapGutter.deletedBackground': '#f85149',
+                      'editorOverviewRuler.addedForeground': '#3fb95088',
+                      'editorOverviewRuler.modifiedForeground': '#e3b34188',
+                      'editorOverviewRuler.deletedForeground': '#f8514988',
                       'scrollbarSlider.background': '#a855f722',
                       'scrollbarSlider.hoverBackground': '#a855f744',
                       'scrollbarSlider.activeBackground': '#a855f766',
@@ -175,9 +199,11 @@ export function EditorArea() {
                 insertSpaces: true,
                 renderWhitespace: 'selection',
                 padding: { top: 8 },
-                overviewRulerLanes: 0,
-                hideCursorInOverviewRuler: true,
+                // Overview ruler (scrollbar gutter) – needs at least 1 lane for git decorations
+                overviewRulerLanes: 3,
                 overviewRulerBorder: false,
+                // Line decorations column for git gutter bars
+                lineDecorationsWidth: 8,
               }}
             />
           </Suspense>

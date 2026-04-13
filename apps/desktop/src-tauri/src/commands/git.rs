@@ -208,6 +208,56 @@ pub fn git_status(repo_path: String) -> Result<GitStatusResult, String> {
     Ok(result)
 }
 
+// ── Diff Hunks ───────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Clone)]
+pub struct DiffHunkInfo {
+    pub new_start: u32,
+    pub new_lines: u32,
+    pub old_lines: u32,
+}
+
+#[tauri::command]
+pub fn git_diff_hunks(
+    repo_path: String,
+    file_path: String,
+    staged: bool,
+) -> Result<Vec<DiffHunkInfo>, String> {
+    let repo = open_repo(&repo_path)?;
+    let mut opts = DiffOptions::new();
+    opts.pathspec(&file_path);
+
+    let mut diff = if staged {
+        let head_tree = repo
+            .head()
+            .ok()
+            .and_then(|h| h.peel_to_tree().ok());
+        repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))
+    } else {
+        repo.diff_index_to_workdir(None, Some(&mut opts))
+    }
+    .map_err(|e| format!("Diff hunks error: {}", e))?;
+
+    let mut hunks: Vec<DiffHunkInfo> = Vec::new();
+
+    diff.foreach(
+        &mut |_, _| true,
+        None,
+        Some(&mut |_delta, hunk| {
+            hunks.push(DiffHunkInfo {
+                new_start: hunk.new_start(),
+                new_lines: hunk.new_lines(),
+                old_lines: hunk.old_lines(),
+            });
+            true
+        }),
+        None,
+    )
+    .map_err(|e| format!("Diff foreach error: {}", e))?;
+
+    Ok(hunks)
+}
+
 #[tauri::command]
 pub fn git_diff_file(
     repo_path: String,

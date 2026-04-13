@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { enableMapSet } from 'immer';
 import { App } from './app';
 import './app.css';
+// @ts-expect-error xterm CSS has no type declarations
+import '@xterm/xterm/css/xterm.css';
 
 enableMapSet();
 
