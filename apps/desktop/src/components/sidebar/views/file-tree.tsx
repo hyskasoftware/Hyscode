@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -9,6 +10,10 @@ import {
   File,
   Image,
   Loader2,
+  FilePlus,
+  FolderPlus,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useFileStore, useEditorStore } from '../../../stores';
 import { tauriFs } from '../../../lib/tauri-fs';
@@ -55,18 +60,109 @@ function getLanguage(name: string): string {
     toml: 'toml',
     yaml: 'yaml',
     yml: 'yaml',
+    sql: 'sql',
+    sh: 'shell',
+    bash: 'shell',
   };
   return map[ext] || 'plaintext';
+}
+
+function sortNodes(nodes: FileNode[]): FileNode[] {
+  return [...nodes].sort((a, b) => {
+    // Directories first
+    if (a.isDir && !b.isDir) return -1;
+    if (!a.isDir && b.isDir) return 1;
+    // Then alphabetical case-insensitive
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  });
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  node: FileNode | null;
+}
+
+interface InlineInputProps {
+  defaultValue?: string;
+  onSubmit: (value: string) => void;
+  onCancel: () => void;
+  depth: number;
+  isDir: boolean;
+}
+
+function InlineInput({ defaultValue = '', onSubmit, onCancel, depth, isDir }: InlineInputProps) {
+  const [value, setValue] = useState(defaultValue);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    if (defaultValue) {
+      // Select the filename part (before extension)
+      const dotIdx = defaultValue.lastIndexOf('.');
+      inputRef.current?.setSelectionRange(0, dotIdx > 0 ? dotIdx : defaultValue.length);
+    }
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (value.trim()) onSubmit(value.trim());
+    } else if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
+
+  const Icon = isDir ? Folder : File;
+
+  return (
+    <div
+      className="flex items-center gap-1 px-1 py-[3px]"
+      style={{ paddingLeft: `${depth * 12 + 4}px` }}
+    >
+      <span className="w-3 shrink-0" />
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={onCancel}
+        className="flex-1 rounded-sm border border-accent bg-input px-1 py-0.5 text-[11px] text-foreground outline-none"
+      />
+    </div>
+  );
 }
 
 interface FileTreeNodeProps {
   node: FileNode;
   depth: number;
+  onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
+  renamingPath: string | null;
+  creatingIn: { parentPath: string; isDir: boolean } | null;
+  onRenameSubmit: (node: FileNode, newName: string) => void;
+  onRenameCancel: () => void;
+  onCreateSubmit: (name: string) => void;
+  onCreateCancel: () => void;
 }
 
-function FileTreeNode({ node, depth }: FileTreeNodeProps) {
+function FileTreeNode({
+  node,
+  depth,
+  onContextMenu,
+  renamingPath,
+  creatingIn,
+  onRenameSubmit,
+  onRenameCancel,
+  onCreateSubmit,
+  onCreateCancel,
+}: FileTreeNodeProps) {
   const { expandDirectory, toggleExpand } = useFileStore();
   const { openTab, tabs } = useEditorStore();
+  const activeTabId = useEditorStore((s) => s.activeTabId);
+
+  const isActive = !node.isDir && tabs.find((t) => t.filePath === node.path)?.id === activeTabId;
 
   const handleClick = async () => {
     if (node.isDir) {
@@ -95,11 +191,34 @@ function FileTreeNode({ node, depth }: FileTreeNodeProps) {
   const FileIcon = getFileIcon(node.name);
   const ChevronIcon = node.isExpanded ? ChevronDown : ChevronRight;
 
+  const isRenaming = renamingPath === node.path;
+
+  if (isRenaming) {
+    return (
+      <InlineInput
+        defaultValue={node.name}
+        onSubmit={(newName) => onRenameSubmit(node, newName)}
+        onCancel={onRenameCancel}
+        depth={depth}
+        isDir={node.isDir}
+      />
+    );
+  }
+
+  const sortedChildren = node.children ? sortNodes(node.children) : [];
+  const showCreateInput =
+    creatingIn && creatingIn.parentPath === node.path && node.isDir && node.isExpanded;
+
   return (
     <>
       <button
         onClick={handleClick}
-        className="flex w-full items-center gap-1 rounded-sm px-1 py-[3px] text-[11px] text-foreground hover:bg-accent-muted transition-colors"
+        onContextMenu={(e) => onContextMenu(e, node)}
+        className={`flex w-full items-center gap-1 rounded-sm px-1 py-[3px] text-[11px] transition-colors ${
+          isActive
+            ? 'text-foreground bg-accent-muted'
+            : 'text-foreground hover:bg-accent-muted'
+        }`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
         {node.isDir ? (
@@ -120,10 +239,29 @@ function FileTreeNode({ node, depth }: FileTreeNodeProps) {
         <span className="truncate">{node.name}</span>
       </button>
 
-      {node.isDir && node.isExpanded && node.children && (
+      {node.isDir && node.isExpanded && (
         <div>
-          {node.children.map((child) => (
-            <FileTreeNode key={child.path} node={child} depth={depth + 1} />
+          {showCreateInput && (
+            <InlineInput
+              onSubmit={onCreateSubmit}
+              onCancel={onCreateCancel}
+              depth={depth + 1}
+              isDir={creatingIn!.isDir}
+            />
+          )}
+          {sortedChildren.map((child) => (
+            <FileTreeNode
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              onContextMenu={onContextMenu}
+              renamingPath={renamingPath}
+              creatingIn={creatingIn}
+              onRenameSubmit={onRenameSubmit}
+              onRenameCancel={onRenameCancel}
+              onCreateSubmit={onCreateSubmit}
+              onCreateCancel={onCreateCancel}
+            />
           ))}
         </div>
       )}
@@ -133,16 +271,186 @@ function FileTreeNode({ node, depth }: FileTreeNodeProps) {
 
 export function FileTree() {
   const tree = useFileStore((s) => s.tree);
+  const rootPath = useFileStore((s) => s.rootPath);
+  const { expandDirectory, openFolder } = useFileStore();
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [creatingIn, setCreatingIn] = useState<{ parentPath: string; isDir: boolean } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    if (contextMenu) {
+      document.addEventListener('mousedown', handler);
+    }
+    return () => document.removeEventListener('mousedown', handler);
+  }, [contextMenu]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, node: FileNode) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, node });
+  }, []);
+
+  const handleNewFile = async () => {
+    if (!contextMenu?.node) return;
+    const parentPath = contextMenu.node.isDir ? contextMenu.node.path : getParentPath(contextMenu.node.path);
+    // Make sure directory is expanded
+    if (contextMenu.node.isDir && !contextMenu.node.isExpanded) {
+      await expandDirectory(contextMenu.node.path);
+    }
+    setCreatingIn({ parentPath, isDir: false });
+    setContextMenu(null);
+  };
+
+  const handleNewFolder = async () => {
+    if (!contextMenu?.node) return;
+    const parentPath = contextMenu.node.isDir ? contextMenu.node.path : getParentPath(contextMenu.node.path);
+    if (contextMenu.node.isDir && !contextMenu.node.isExpanded) {
+      await expandDirectory(contextMenu.node.path);
+    }
+    setCreatingIn({ parentPath, isDir: true });
+    setContextMenu(null);
+  };
+
+  const handleRename = () => {
+    if (!contextMenu?.node) return;
+    setRenamingPath(contextMenu.node.path);
+    setContextMenu(null);
+  };
+
+  const handleDelete = async () => {
+    if (!contextMenu?.node) return;
+    const node = contextMenu.node;
+    setContextMenu(null);
+    try {
+      await tauriFs.deletePath(node.path);
+      // Refresh parent directory
+      const parentPath = getParentPath(node.path);
+      if (parentPath === rootPath) {
+        await openFolder(rootPath!);
+      } else {
+        await expandDirectory(parentPath);
+      }
+    } catch (err) {
+      console.error('Failed to delete:', err);
+    }
+  };
+
+  const handleRenameSubmit = async (node: FileNode, newName: string) => {
+    setRenamingPath(null);
+    if (newName === node.name) return;
+    const parentPath = getParentPath(node.path);
+    const sep = node.path.includes('/') ? '/' : '\\';
+    const newPath = parentPath + sep + newName;
+    try {
+      // Use Tauri invoke to rename
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('rename_path', { from: node.path, to: newPath });
+      // Refresh parent
+      if (parentPath === rootPath) {
+        await openFolder(rootPath!);
+      } else {
+        await expandDirectory(parentPath);
+      }
+    } catch (err) {
+      console.error('Failed to rename:', err);
+    }
+  };
+
+  const handleCreateSubmit = async (name: string) => {
+    if (!creatingIn) return;
+    const sep = creatingIn.parentPath.includes('/') ? '/' : '\\';
+    const newPath = creatingIn.parentPath + sep + name;
+    try {
+      if (creatingIn.isDir) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('create_directory', { path: newPath });
+      } else {
+        await tauriFs.createFile(newPath, '');
+      }
+      // Refresh parent
+      await expandDirectory(creatingIn.parentPath);
+    } catch (err) {
+      console.error('Failed to create:', err);
+    }
+    setCreatingIn(null);
+  };
 
   if (tree.length === 0) {
     return null;
   }
 
+  const sortedTree = sortNodes(tree);
+
   return (
-    <div className="flex flex-col py-1">
-      {tree.map((node) => (
-        <FileTreeNode key={node.path} node={node} depth={0} />
+    <div className="relative flex flex-col py-1">
+      {sortedTree.map((node) => (
+        <FileTreeNode
+          key={node.path}
+          node={node}
+          depth={0}
+          onContextMenu={handleContextMenu}
+          renamingPath={renamingPath}
+          creatingIn={creatingIn}
+          onRenameSubmit={handleRenameSubmit}
+          onRenameCancel={() => setRenamingPath(null)}
+          onCreateSubmit={handleCreateSubmit}
+          onCreateCancel={() => setCreatingIn(null)}
+        />
       ))}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 min-w-[160px] rounded-lg border border-border bg-surface-raised p-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <ContextMenuItem icon={FilePlus} label="New File" onClick={handleNewFile} />
+          <ContextMenuItem icon={FolderPlus} label="New Folder" onClick={handleNewFolder} />
+          <div className="my-1 h-px bg-border" />
+          <ContextMenuItem icon={Pencil} label="Rename" onClick={handleRename} />
+          <ContextMenuItem icon={Trash2} label="Delete" onClick={handleDelete} danger />
+        </div>
+      )}
     </div>
   );
+}
+
+function ContextMenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: typeof FilePlus;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors ${
+        danger
+          ? 'text-error hover:bg-error/10'
+          : 'text-foreground hover:bg-accent-muted'
+      }`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </button>
+  );
+}
+
+function getParentPath(path: string): string {
+  const sep = path.includes('/') ? '/' : '\\';
+  const parts = path.split(sep);
+  parts.pop();
+  return parts.join(sep);
 }

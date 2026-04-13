@@ -210,3 +210,27 @@ pub fn search_files(root: String, query: String, max_results: Option<usize>) -> 
 
     Ok(results)
 }
+
+#[tauri::command]
+pub fn rename_path(from: String, to: String) -> Result<(), String> {
+    let from_path = PathBuf::from(&from);
+    let to_path = PathBuf::from(&to);
+
+    if !from_path.exists() {
+        return Err(format!("Source path not found: {}", from));
+    }
+    if to_path.exists() {
+        return Err(format!("Destination already exists: {}", to));
+    }
+
+    fs::rename(&from_path, &to_path).map_err(|e| format!("Failed to rename: {}", e))
+}
+
+#[tauri::command]
+pub fn create_directory(path: String) -> Result<(), String> {
+    let dir_path = PathBuf::from(&path);
+    if dir_path.exists() {
+        return Err(format!("Directory already exists: {}", path));
+    }
+    fs::create_dir_all(&dir_path).map_err(|e| format!("Failed to create directory: {}", e))
+}

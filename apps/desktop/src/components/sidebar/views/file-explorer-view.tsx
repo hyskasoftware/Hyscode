@@ -1,6 +1,7 @@
-import { FolderOpen, RefreshCw } from 'lucide-react';
+import { FolderOpen, RefreshCw, FilePlus, FolderPlus } from 'lucide-react';
 import { useFileStore, useProjectStore } from '../../../stores';
 import { pickFolder } from '../../../lib/tauri-dialog';
+import { tauriFs } from '../../../lib/tauri-fs';
 import { FileTree } from './file-tree';
 
 export function FileExplorerView() {
@@ -20,6 +21,33 @@ export function FileExplorerView() {
   const handleRefresh = async () => {
     if (rootPath) {
       await openFolder(rootPath);
+    }
+  };
+
+  const handleNewFileAtRoot = async () => {
+    if (!rootPath) return;
+    const name = prompt('New file name:');
+    if (!name?.trim()) return;
+    const sep = rootPath.includes('/') ? '/' : '\\';
+    try {
+      await tauriFs.createFile(rootPath + sep + name.trim(), '');
+      await openFolder(rootPath);
+    } catch (err) {
+      console.error('Failed to create file:', err);
+    }
+  };
+
+  const handleNewFolderAtRoot = async () => {
+    if (!rootPath) return;
+    const name = prompt('New folder name:');
+    if (!name?.trim()) return;
+    const sep = rootPath.includes('/') ? '/' : '\\';
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('create_directory', { path: rootPath + sep + name.trim() });
+      await openFolder(rootPath);
+    } catch (err) {
+      console.error('Failed to create folder:', err);
     }
   };
 
@@ -45,13 +73,29 @@ export function FileExplorerView() {
         <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           {projectName}
         </span>
-        <button
-          onClick={handleRefresh}
-          className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className="h-3 w-3" />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={handleNewFileAtRoot}
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
+            title="New File"
+          >
+            <FilePlus className="h-3 w-3" />
+          </button>
+          <button
+            onClick={handleNewFolderAtRoot}
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
+            title="New Folder"
+          >
+            <FolderPlus className="h-3 w-3" />
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent-muted transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </button>
+        </div>
       </div>
 
       {/* File tree */}
