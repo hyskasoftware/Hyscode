@@ -5,16 +5,32 @@ import { AgentPanel } from './components/agent';
 import { TerminalPanel } from './components/terminal';
 import { StatusBar } from './components/statusbar';
 import { WelcomePage } from './components/welcome';
+import { SettingsModal } from './components/settings';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from './components/ui/tooltip';
-import { useProjectStore, useFileStore } from './stores';
+import { useProjectStore, useFileStore, useSettingsStore } from './stores';
 import { useEffect } from 'react';
 import { pickFolder } from './lib/tauri-dialog';
+
+// ── Theme effect — applies CSS class on <html> whenever themeId changes ──────
+function useThemeEffect() {
+  const themeId = useSettingsStore((s) => s.themeId);
+  useEffect(() => {
+    const el = document.documentElement;
+    // Remove any existing theme-* classes
+    el.classList.forEach((cls) => {
+      if (cls.startsWith('theme-')) el.classList.remove(cls);
+    });
+    el.classList.add(`theme-${themeId}`);
+  }, [themeId]);
+}
 
 function IDE() {
   const projectRootPath = useProjectStore((s) => s.rootPath);
   const fileRootPath = useFileStore((s) => s.rootPath);
   const openFolder = useFileStore((s) => s.openFolder);
+
+  useThemeEffect();
 
   // On mount: if fileStore is empty but projectStore has a path (from persistence),
   // reload the directory tree
@@ -70,6 +86,7 @@ function IDE() {
       </div>
 
       <StatusBar />
+      <SettingsModal />
     </div>
   );
 }

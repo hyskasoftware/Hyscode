@@ -1,4 +1,5 @@
 import { Files, Search, GitBranch, Settings, Bot, Puzzle } from 'lucide-react';
+import { useSettingsStore } from '../../stores';
 import type { SidebarView } from './sidebar';
 
 const items = [
@@ -15,6 +16,8 @@ interface ActivityBarProps {
 }
 
 export function ActivityBar({ active, onSelect }: ActivityBarProps) {
+  const openSettings = useSettingsStore((s) => s.openSettings);
+
   return (
     <div className="flex w-11 flex-col items-center gap-1 bg-sidebar py-2">
       {items.map((item) => {
@@ -38,6 +41,7 @@ export function ActivityBar({ active, onSelect }: ActivityBarProps) {
 
       <div className="mt-auto">
         <button
+          onClick={openSettings}
           className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-raised/50 transition-colors"
           title="Settings"
         >

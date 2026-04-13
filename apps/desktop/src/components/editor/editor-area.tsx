@@ -11,7 +11,7 @@ import {
   DocxViewer,
   PptxViewer,
 } from './viewers';
-import { useEditorStore, useFileStore } from '../../stores';
+import { useEditorStore, useFileStore, useSettingsStore } from '../../stores';
 import { tauriFs } from '../../lib/tauri-fs';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
 import type * as monacoEditor from 'monaco-editor';
@@ -32,6 +32,18 @@ export function EditorArea() {
   const markDirty = useEditorStore((s) => s.markDirty);
   const setMarkdownMode = useEditorStore((s) => s.setMarkdownMode);
   const { fileCache, setFileContent } = useFileStore();
+
+  // Editor settings
+  const editorFontSize = useSettingsStore((s) => s.fontSize);
+  const editorFontFamily = useSettingsStore((s) => s.fontFamily);
+  const editorLineHeight = useSettingsStore((s) => s.lineHeight);
+  const editorTabSize = useSettingsStore((s) => s.tabSize);
+  const editorWordWrap = useSettingsStore((s) => s.wordWrap);
+  const editorMinimap = useSettingsStore((s) => s.minimap);
+  const editorLineNumbers = useSettingsStore((s) => s.lineNumbers);
+  const editorCursorStyle = useSettingsStore((s) => s.cursorStyle);
+  const editorRenderWhitespace = useSettingsStore((s) => s.renderWhitespace);
+  const editorBracketPairColorization = useSettingsStore((s) => s.bracketPairColorization);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const [content, setContent] = useState<string | null>(null);
@@ -219,25 +231,25 @@ export function EditorArea() {
                   });
               }}
               options={{
-                fontFamily: "'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace",
-                fontSize: 14,
-                lineHeight: 1.6,
-                minimap: { enabled: true, scale: 1 },
+                fontFamily: `'${editorFontFamily}', 'JetBrains Mono', 'Fira Code', monospace`,
+                fontSize: editorFontSize,
+                lineHeight: editorLineHeight,
+                minimap: { enabled: editorMinimap, scale: 1 },
                 scrollBeyondLastLine: false,
                 smoothScrolling: true,
                 cursorBlinking: 'smooth',
                 cursorSmoothCaretAnimation: 'on',
-                bracketPairColorization: { enabled: true },
-                guides: { bracketPairs: true, indentation: true },
-                wordWrap: 'off',
-                tabSize: 2,
+                cursorStyle: editorCursorStyle,
+                bracketPairColorization: { enabled: editorBracketPairColorization },
+                guides: { bracketPairs: editorBracketPairColorization, indentation: true },
+                wordWrap: editorWordWrap,
+                lineNumbers: editorLineNumbers,
+                tabSize: editorTabSize,
                 insertSpaces: true,
-                renderWhitespace: 'selection',
+                renderWhitespace: editorRenderWhitespace === 'none' ? 'none' : editorRenderWhitespace,
                 padding: { top: 8 },
-                // Overview ruler (scrollbar gutter) – needs at least 1 lane for git decorations
                 overviewRulerLanes: 3,
                 overviewRulerBorder: false,
-                // Line decorations column for git gutter bars
                 lineDecorationsWidth: 8,
               }}
             />
