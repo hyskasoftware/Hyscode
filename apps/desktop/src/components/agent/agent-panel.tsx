@@ -1,6 +1,5 @@
 import { Bot } from 'lucide-react';
 import { useState } from 'react';
-import { AgentSelectors } from './agent-selectors';
 import { AgentMessages } from './agent-messages';
 import { AgentInput } from './agent-input';
 import type { AgentMode } from './agent-selectors';
@@ -16,19 +15,16 @@ export function AgentPanel() {
         <span className="text-[11px] font-medium">Agent</span>
       </div>
 
-      {/* Selectors bar (agent, mode, model) */}
-      <AgentSelectors
-        mode={mode}
-        onModeChange={setMode}
-        model="claude-4-sonnet"
-        agent="HysCode Agent"
-      />
-
       {/* Messages */}
       <AgentMessages />
 
-      {/* Input */}
-      <AgentInput mode={mode} />
+      {/* Input + selectors at the bottom */}
+      <AgentInput
+        mode={mode}
+        onModeChange={setMode}
+        model="claude-sonnet-4-5"
+        agent="HysCode Agent"
+      />
     </div>
   );
 }

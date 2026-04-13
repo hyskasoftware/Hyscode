@@ -6,6 +6,7 @@ import { TerminalPanel } from './components/terminal';
 import { StatusBar } from './components/statusbar';
 import { WelcomePage } from './components/welcome';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { TooltipProvider } from './components/ui/tooltip';
 import { useProjectStore, useFileStore } from './stores';
 import { useEffect } from 'react';
 import { pickFolder } from './lib/tauri-dialog';
@@ -108,9 +109,9 @@ export function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [openProject, openFolder]);
 
-  if (!rootPath) {
-    return <WelcomePage />;
-  }
-
-  return <IDE />;
+  return (
+    <TooltipProvider>
+      {!rootPath ? <WelcomePage /> : <IDE />}
+    </TooltipProvider>
+  );
 }
