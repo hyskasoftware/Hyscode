@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -18,6 +18,68 @@ import {
 import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
 import { tauriFs } from '../../../lib/tauri-fs';
 import type { FileNode } from '../../../stores/file-store';
+import type { GitFile } from '../../../stores/git-store';
+
+// ── Git status colors (matching VS Code) ─────────────────────────────────────
+const GIT_NAME_COLORS: Record<string, string> = {
+  M: 'text-amber-300',       // Modified – yellow/amber
+  A: 'text-green-400',       // Added – green
+  D: 'text-red-400',         // Deleted – red, strike-through added separately
+  R: 'text-green-400',       // Renamed – green
+  C: 'text-green-400',       // Copied – green
+  T: 'text-purple-400',      // Type changed
+  U: 'text-orange-400',      // Conflict
+  '?': 'text-green-400',     // Untracked – green
+};
+
+const GIT_BADGE_COLORS: Record<string, string> = {
+  M: 'text-amber-300',
+  A: 'text-green-400',
+  D: 'text-red-400',
+  R: 'text-green-400',
+  C: 'text-green-400',
+  T: 'text-purple-400',
+  U: 'text-orange-400',
+  '?': 'text-green-400',
+};
+
+/** Build a map of relative path → highest-priority git status letter */
+function buildGitStatusMap(
+  staged: GitFile[],
+  unstaged: GitFile[],
+  untracked: GitFile[],
+  conflicts: GitFile[],
+): Map<string, string> {
+  const map = new Map<string, string>();
+  // Priority: conflicts > staged > unstaged > untracked
+  for (const f of untracked) map.set(f.path, f.status);
+  for (const f of unstaged) map.set(f.path, f.status);
+  for (const f of staged) map.set(f.path, f.status);
+  for (const f of conflicts) map.set(f.path, f.status);
+  return map;
+}
+
+/**
+ * For a directory, count changed files inside it and determine
+ * the "dominant" status to color the folder dot.
+ */
+function getDirGitInfo(
+  relDir: string,
+  gitMap: Map<string, string>,
+): { count: number; dominantStatus: string | null } {
+  let count = 0;
+  let dominantStatus: string | null = null;
+  const prefix = relDir + '/';
+  for (const [path, status] of gitMap) {
+    if (path.startsWith(prefix)) {
+      count++;
+      // prioritize M over A for folder dot color (amber)
+      if (!dominantStatus) dominantStatus = status;
+      else if (status === 'M' || status === 'U') dominantStatus = status;
+    }
+  }
+  return { count, dominantStatus };
+}
 
 const FILE_ICONS: Record<string, typeof FileText> = {
   ts: FileCode,
@@ -145,6 +207,8 @@ interface FileTreeNodeProps {
   onRenameCancel: () => void;
   onCreateSubmit: (name: string) => void;
   onCreateCancel: () => void;
+  gitMap: Map<string, string>;
+  rootPath: string | null;
 }
 
 function FileTreeNode({
@@ -157,37 +221,36 @@ function FileTreeNode({
   onRenameCancel,
   onCreateSubmit,
   onCreateCancel,
+  gitMap,
+  rootPath,
 }: FileTreeNodeProps) {
   const { expandDirectory, toggleExpand } = useFileStore();
-  const rootPath = useFileStore((s) => s.rootPath);
   const { openTab, tabs } = useEditorStore();
   const activeTabId = useEditorStore((s) => s.activeTabId);
 
-  // Git status lookup
-  const staged = useGitStore((s) => s.staged);
-  const unstaged = useGitStore((s) => s.unstaged);
-  const untracked = useGitStore((s) => s.untracked);
-  const conflicts = useGitStore((s) => s.conflicts);
+  // Compute relative path for git matching
+  const relPath = useMemo(() => {
+    if (!rootPath) return node.path;
+    const normalized = node.path.replace(/\\/g, '/');
+    let root = rootPath.replace(/\\/g, '/');
+    if (!root.endsWith('/')) root += '/';
+    return normalized.startsWith(root) ? normalized.slice(root.length) : normalized;
+  }, [node.path, rootPath]);
 
-  const getRelativePath = (absPath: string) => {
-    if (!rootPath) return absPath;
-    const prefix = rootPath.endsWith('/') || rootPath.endsWith('\\') ? rootPath : rootPath + '/';
-    return absPath.startsWith(prefix) ? absPath.slice(prefix.length).replace(/\\/g, '/') : absPath.replace(/\\/g, '/');
-  };
+  // Git status for this node
+  const gitStatus = gitMap.get(relPath) ?? null;
 
-  const relPath = getRelativePath(node.path);
-  const allFiles = [...conflicts, ...staged, ...unstaged, ...untracked];
-  const gitFileMatch = allFiles.find((f) => f.path === relPath);
-  const isInGitDir = node.isDir && allFiles.some((f) => f.path.startsWith(relPath + '/'));
+  // For directories, get aggregated info
+  const dirGit = useMemo(() => {
+    if (!node.isDir) return null;
+    return getDirGitInfo(relPath, gitMap);
+  }, [node.isDir, relPath, gitMap]);
 
-  const GIT_STATUS_COLORS: Record<string, string> = {
-    M: 'text-yellow-400',
-    A: 'text-green-400',
-    D: 'text-red-400',
-    R: 'text-blue-400',
-    '?': 'text-zinc-400',
-    U: 'text-orange-400',
-  };
+  const nameColorClass = gitStatus
+    ? GIT_NAME_COLORS[gitStatus] ?? ''
+    : dirGit && dirGit.count > 0
+      ? GIT_NAME_COLORS[dirGit.dominantStatus ?? 'M'] ?? ''
+      : '';
 
   const isActive = !node.isDir && tabs.find((t) => t.filePath === node.path)?.id === activeTabId;
 
@@ -243,9 +306,9 @@ function FileTreeNode({
         onContextMenu={(e) => onContextMenu(e, node)}
         className={`flex w-full items-center gap-1 rounded-sm px-1 py-[3px] text-[11px] transition-colors ${
           isActive
-            ? 'text-foreground bg-accent-muted'
-            : 'text-foreground hover:bg-surface-raised'
-        }`}
+            ? 'bg-accent-muted'
+            : 'hover:bg-surface-raised'
+        } ${nameColorClass || 'text-foreground'}`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
         {node.isDir ? (
@@ -263,14 +326,22 @@ function FileTreeNode({
             <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </>
         )}
-        <span className="truncate">{node.name}</span>
-        {gitFileMatch && (
-          <span className={`ml-auto shrink-0 text-[9px] font-mono ${GIT_STATUS_COLORS[gitFileMatch.status] ?? 'text-muted-foreground'}`}>
-            {gitFileMatch.status === '?' ? 'U' : gitFileMatch.status}
+        <span className={`truncate ${nameColorClass || ''} ${gitStatus === 'D' ? 'line-through opacity-70' : ''}`}>{node.name}</span>
+        {/* Git badge for files: status letter */}
+        {!node.isDir && gitStatus && (
+          <span className={`ml-auto shrink-0 pr-1 text-[10px] font-mono font-medium ${GIT_BADGE_COLORS[gitStatus] ?? 'text-muted-foreground'}`}>
+            {gitStatus === '?' ? 'U' : gitStatus}
           </span>
         )}
-        {!gitFileMatch && isInGitDir && (
-          <span className="ml-auto shrink-0 h-1.5 w-1.5 rounded-full bg-accent/40" />
+        {/* Git badge for directories: colored dot */}
+        {node.isDir && dirGit && dirGit.count > 0 && (
+          <span className={`ml-auto shrink-0 pr-1 h-[6px] w-[6px] rounded-full ${
+            dirGit.dominantStatus === 'M' || dirGit.dominantStatus === 'U'
+              ? 'bg-amber-400'
+              : dirGit.dominantStatus === 'D'
+                ? 'bg-red-400'
+                : 'bg-green-400'
+          }`} />
         )}
       </button>
 
@@ -296,6 +367,8 @@ function FileTreeNode({
               onRenameCancel={onRenameCancel}
               onCreateSubmit={onCreateSubmit}
               onCreateCancel={onCreateCancel}
+              gitMap={gitMap}
+              rootPath={rootPath}
             />
           ))}
         </div>
@@ -312,6 +385,16 @@ export function FileTree() {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [creatingIn, setCreatingIn] = useState<{ parentPath: string; isDir: boolean } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Build git status map once at the top level
+  const staged = useGitStore((s) => s.staged);
+  const unstaged = useGitStore((s) => s.unstaged);
+  const untracked = useGitStore((s) => s.untracked);
+  const conflicts = useGitStore((s) => s.conflicts);
+  const gitMap = useMemo(
+    () => buildGitStatusMap(staged, unstaged, untracked, conflicts),
+    [staged, unstaged, untracked, conflicts],
+  );
 
   // Close context menu on outside click
   useEffect(() => {
@@ -436,6 +519,8 @@ export function FileTree() {
           onRenameCancel={() => setRenamingPath(null)}
           onCreateSubmit={handleCreateSubmit}
           onCreateCancel={() => setCreatingIn(null)}
+          gitMap={gitMap}
+          rootPath={rootPath}
         />
       ))}
 
