@@ -267,6 +267,100 @@ export class SseTransport implements McpTransport {
   }
 }
 
+// ─── WebSocket Transport ────────────────────────────────────────────────────
+// Bidirectional JSON-RPC over a single WebSocket connection.
+
+export class WebSocketTransport implements McpTransport {
+  private config: McpServerConfig;
+  private ws: WebSocket | null = null;
+  private pendingRequests = new Map<number, {
+    resolve: (value: JsonRpcResponse) => void;
+    reject: (reason: Error) => void;
+  }>();
+  private notificationHandler: ((n: JsonRpcNotification) => void) | null = null;
+
+  constructor(config: McpServerConfig) {
+    this.config = config;
+  }
+
+  async connect(): Promise<void> {
+    if (!this.config.wsUrl) throw new Error('WebSocket transport requires wsUrl');
+
+    this.ws = new WebSocket(this.config.wsUrl);
+
+    this.ws.addEventListener('message', (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(String(event.data));
+        if ('id' in msg && this.pendingRequests.has(msg.id)) {
+          const pending = this.pendingRequests.get(msg.id)!;
+          this.pendingRequests.delete(msg.id);
+          pending.resolve(msg as JsonRpcResponse);
+        } else if ('method' in msg && !('id' in msg)) {
+          this.notificationHandler?.(msg as JsonRpcNotification);
+        }
+      } catch {
+        // Invalid JSON message
+      }
+    });
+
+    // Wait for open or error
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('WebSocket connection timeout')), 10000);
+
+      this.ws!.addEventListener('open', () => {
+        clearTimeout(timeout);
+        resolve();
+      }, { once: true });
+
+      this.ws!.addEventListener('error', () => {
+        clearTimeout(timeout);
+        reject(new Error('WebSocket connection failed'));
+      }, { once: true });
+    });
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    for (const [, pending] of this.pendingRequests) {
+      pending.reject(new Error('Transport disconnected'));
+    }
+    this.pendingRequests.clear();
+  }
+
+  async send(message: JsonRpcRequest): Promise<JsonRpcResponse> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket not connected');
+    }
+
+    this.ws.send(JSON.stringify(message));
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingRequests.delete(message.id);
+        reject(new Error(`Request ${message.id} timed out`));
+      }, this.config.capabilities.timeoutMs || 30000);
+
+      this.pendingRequests.set(message.id, {
+        resolve: (resp) => {
+          clearTimeout(timeout);
+          resolve(resp);
+        },
+        reject: (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        },
+      });
+    });
+  }
+
+  onNotification(handler: (notification: JsonRpcNotification) => void): void {
+    this.notificationHandler = handler;
+  }
+}
+
 // ─── MCP Client Manager ────────────────────────────────────────────────────
 
 export class McpClientManager {
@@ -288,6 +382,9 @@ export class McpClientManager {
         break;
       case 'sse':
         transport = new SseTransport(config);
+        break;
+      case 'websocket':
+        transport = new WebSocketTransport(config);
         break;
       default:
         throw new Error(`Unsupported transport: ${config.transport}`);

@@ -30,13 +30,15 @@ export interface ProviderConfig {
 export interface McpServerConfig {
   id: string;
   name: string;
-  transport: 'stdio' | 'sse';
+  transport: 'stdio' | 'sse' | 'websocket';
   /** For stdio: command to run */
   command?: string;
   /** For stdio: args for command */
   args?: string[];
   /** For SSE: url */
   url?: string;
+  /** For WebSocket: url */
+  wsUrl?: string;
   enabled: boolean;
 }
 

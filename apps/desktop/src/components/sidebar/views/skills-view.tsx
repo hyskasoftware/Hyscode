@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Puzzle, ToggleLeft, ToggleRight, Globe, FolderOpen, Package } from 'lucide-react';
+import { Puzzle, ToggleLeft, ToggleRight, Globe, FolderOpen, Package, Pencil, Plus } from 'lucide-react';
 import { useAgentStore } from '@/stores/agent-store';
+import { useProjectStore } from '@/stores/project-store';
+import { SkillEditor } from './skill-editor';
+import { getBuiltinSkillContent } from '@hyscode/skills';
 import type { SkillScope } from '@hyscode/agent-harness';
 
 interface SkillDisplay {
@@ -9,6 +12,8 @@ interface SkillDisplay {
   description: string;
   scope: SkillScope;
   enabled: boolean;
+  content?: string;
+  filePath?: string | null;
 }
 
 // ─── Default built-in skills (from @hyscode/skills package) ─────────────────
@@ -34,9 +39,18 @@ const SCOPE_LABELS: Record<SkillScope, string> = {
   workspace: 'Workspace',
 };
 
+// ─── Editing state ──────────────────────────────────────────────────────────
+
+type EditorTarget =
+  | null
+  | { type: 'new' }
+  | { type: 'edit'; skill: SkillDisplay };
+
 export function SkillsView() {
   const [skills, setSkills] = useState<SkillDisplay[]>(BUILTIN_SKILLS);
+  const [editing, setEditing] = useState<EditorTarget>(null);
   const activeSkills = useAgentStore((s) => s.activeSkills);
+  const workspacePath = useProjectStore((s) => s.rootPath ?? '');
 
   // Sync active state from store
   useEffect(() => {
@@ -52,7 +66,6 @@ export function SkillsView() {
     setSkills((prev) =>
       prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
     );
-    // Sync to store
     const skill = skills.find((s) => s.id === id);
     if (skill) {
       const currentActive = useAgentStore.getState().activeSkills;
@@ -63,6 +76,44 @@ export function SkillsView() {
       }
     }
   };
+
+  const openEditor = (skill: SkillDisplay) => {
+    // For built-in skills, load content from package
+    const content = skill.scope === 'built-in'
+      ? getBuiltinSkillContent(skill.id) ?? ''
+      : skill.content ?? '';
+    setEditing({
+      type: 'edit',
+      skill: { ...skill, content },
+    });
+  };
+
+  // ─── Editor mode ────────────────────────────────────────────────────
+
+  if (editing) {
+    return (
+      <SkillEditor
+        skill={
+          editing.type === 'edit'
+            ? {
+                id: editing.skill.id,
+                name: editing.skill.name,
+                description: editing.skill.description,
+                scope: editing.skill.scope,
+                activation: 'manual',
+                content: editing.skill.content ?? '',
+                filePath: editing.skill.filePath ?? null,
+              }
+            : null
+        }
+        workspacePath={workspacePath}
+        onBack={() => setEditing(null)}
+        onSaved={() => setEditing(null)}
+      />
+    );
+  }
+
+  // ─── List mode ──────────────────────────────────────────────────────
 
   const grouped = skills.reduce<Record<string, SkillDisplay[]>>((acc, s) => {
     if (!acc[s.scope]) acc[s.scope] = [];
@@ -79,6 +130,13 @@ export function SkillsView() {
         <span className="text-[10px] text-muted-foreground">
           {enabledCount}/{skills.length} active
         </span>
+        <button
+          onClick={() => setEditing({ type: 'new' })}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Plus className="h-3 w-3" />
+          New
+        </button>
       </div>
 
       {/* Skills list */}
@@ -90,7 +148,7 @@ export function SkillsView() {
           const ScopeIcon = SCOPE_ICONS[scope];
 
           return (
-            <div key={scope} className="">
+            <div key={scope}>
               <div className="flex items-center gap-1.5 px-2 py-1">
                 <ScopeIcon className="h-3 w-3 text-muted-foreground" />
                 <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -99,18 +157,20 @@ export function SkillsView() {
               </div>
 
               {scopeSkills.map((skill) => (
-                <button
+                <div
                   key={skill.id}
-                  onClick={() => toggleSkill(skill.id)}
-                  className="flex w-full items-start gap-2 px-2 py-1.5 text-left hover:bg-muted transition-colors"
+                  className="group flex w-full items-start gap-2 px-2 py-1.5 text-left transition-colors hover:bg-muted"
                 >
-                  <div className="mt-0.5 shrink-0">
+                  <button
+                    onClick={() => toggleSkill(skill.id)}
+                    className="mt-0.5 shrink-0"
+                  >
                     {skill.enabled ? (
                       <ToggleRight className="h-4 w-4 text-accent" />
                     ) : (
                       <ToggleLeft className="h-4 w-4 text-muted-foreground opacity-50" />
                     )}
-                  </div>
+                  </button>
                   <div className="min-w-0 flex-1">
                     <div
                       className={`text-[11px] font-medium ${skill.enabled ? 'text-foreground' : 'text-muted-foreground'}`}
@@ -121,7 +181,14 @@ export function SkillsView() {
                       {skill.description}
                     </div>
                   </div>
-                </button>
+                  <button
+                    onClick={() => openEditor(skill)}
+                    className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface-raised hover:text-accent group-hover:opacity-100"
+                    title={skill.scope === 'built-in' ? 'View skill' : 'Edit skill'}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </div>
           );

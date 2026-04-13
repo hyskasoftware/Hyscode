@@ -1,7 +1,7 @@
 // ─── MCP Bridge ─────────────────────────────────────────────────────────────
 // Singleton that owns the McpClientManager and syncs it with settings.
 
-import { McpClientManager, StdioTransport, SseTransport } from '@hyscode/mcp-client';
+import { McpClientManager, StdioTransport, SseTransport, WebSocketTransport } from '@hyscode/mcp-client';
 import type { McpToolDefinition, McpResource } from '@hyscode/mcp-client';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { McpServerConfig } from '@/stores/settings-store';
@@ -44,10 +44,18 @@ export class McpBridge {
   }
 
   async connect(server: McpServerConfig): Promise<void> {
-    const transport =
-      server.transport === 'stdio'
-        ? new StdioTransport(server.command ?? '', server.args ?? [])
-        : new SseTransport(server.url ?? '');
+    let transport;
+    switch (server.transport) {
+      case 'stdio':
+        transport = new StdioTransport(server.command ?? '', server.args ?? []);
+        break;
+      case 'sse':
+        transport = new SseTransport(server.url ?? '');
+        break;
+      case 'websocket':
+        transport = new WebSocketTransport(server.wsUrl ?? '');
+        break;
+    }
 
     await this.manager.connect(server.id, transport, {
       name: server.name,

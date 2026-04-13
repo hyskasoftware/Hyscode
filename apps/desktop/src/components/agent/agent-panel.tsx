@@ -1,7 +1,8 @@
-import { Bot, Trash2 } from 'lucide-react';
+import { Bot, Trash2, History } from 'lucide-react';
 import { AgentMessages } from './agent-messages';
 import { AgentInput } from './agent-input';
 import { ContextChipsBar } from './context-chips-bar';
+import { SessionHistory } from './session-history';
 import { SddStepper } from './sdd/sdd-stepper';
 import { useAgentStore } from '@/stores/agent-store';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,8 @@ export function AgentPanel() {
   const clearConversation = useAgentStore((s) => s.clearConversation);
   const messageCount = useAgentStore((s) => s.messages.length);
   const tokenUsage = useAgentStore((s) => s.tokenUsage);
+  const historyOpen = useAgentStore((s) => s.historyOpen);
+  const setHistoryOpen = useAgentStore((s) => s.setHistoryOpen);
 
   return (
     <div className="flex h-full flex-col">
@@ -30,36 +33,60 @@ export function AgentPanel() {
             </span>
           )}
         </div>
-        {messageCount > 0 && (
+        <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger
               render={
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  onClick={clearConversation}
-                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setHistoryOpen(!historyOpen)}
+                  className={historyOpen ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}
                 />
               }
             >
-              <Trash2 className="h-3 w-3" />
+              <History className="h-3 w-3" />
             </TooltipTrigger>
-            <TooltipContent side="bottom">Clear conversation</TooltipContent>
+            <TooltipContent side="bottom">Session history</TooltipContent>
           </Tooltip>
-        )}
+          {messageCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={clearConversation}
+                    className="text-muted-foreground hover:text-foreground"
+                  />
+                }
+              >
+                <Trash2 className="h-3 w-3" />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Clear conversation</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
-      {/* SDD Stepper (only visible in active SDD session) */}
-      {sddPhase && <SddStepper />}
+      {/* Session History overlay */}
+      {historyOpen ? (
+        <SessionHistory />
+      ) : (
+        <>
+          {/* SDD Stepper (only visible in active SDD session) */}
+          {sddPhase && <SddStepper />}
 
-      {/* Context chips */}
-      <ContextChipsBar />
+          {/* Context chips */}
+          <ContextChipsBar />
 
-      {/* Messages */}
-      <AgentMessages />
+          {/* Messages */}
+          <AgentMessages />
 
-      {/* Input + selectors at the bottom */}
-      <AgentInput />
+          {/* Input + selectors at the bottom */}
+          <AgentInput />
+        </>
+      )}
     </div>
   );
 }

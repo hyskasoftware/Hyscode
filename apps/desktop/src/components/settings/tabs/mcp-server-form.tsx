@@ -9,10 +9,11 @@ interface McpServerFormProps {
 
 export function McpServerForm({ onSave, onCancel }: McpServerFormProps) {
   const [name, setName] = useState('');
-  const [transport, setTransport] = useState<'stdio' | 'sse'>('stdio');
+  const [transport, setTransport] = useState<'stdio' | 'sse' | 'websocket'>('stdio');
   const [command, setCommand] = useState('');
   const [args, setArgs] = useState('');
   const [url, setUrl] = useState('');
+  const [wsUrl, setWsUrl] = useState('');
 
   const handleSubmit = () => {
     if (!name.trim()) return;
@@ -30,8 +31,10 @@ export function McpServerForm({ onSave, onCancel }: McpServerFormProps) {
         .split(' ')
         .map((a) => a.trim())
         .filter(Boolean);
-    } else {
+    } else if (transport === 'sse') {
       server.url = url.trim();
+    } else {
+      server.wsUrl = wsUrl.trim();
     }
 
     onSave(server);
@@ -53,7 +56,7 @@ export function McpServerForm({ onSave, onCancel }: McpServerFormProps) {
         {/* Transport */}
         <Field label="Transport">
           <div className="flex gap-1">
-            {(['stdio', 'sse'] as const).map((t) => (
+            {(['stdio', 'sse', 'websocket'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTransport(t)}
@@ -63,7 +66,7 @@ export function McpServerForm({ onSave, onCancel }: McpServerFormProps) {
                     : 'bg-muted text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {t.toUpperCase()}
+                {t === 'websocket' ? 'WS' : t.toUpperCase()}
               </button>
             ))}
           </div>
@@ -89,12 +92,21 @@ export function McpServerForm({ onSave, onCancel }: McpServerFormProps) {
               />
             </Field>
           </>
-        ) : (
+        ) : transport === 'sse' ? (
           <Field label="URL">
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="http://localhost:3001/sse"
+              className="h-7 w-full rounded-md bg-muted px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+            />
+          </Field>
+        ) : (
+          <Field label="WebSocket URL">
+            <input
+              value={wsUrl}
+              onChange={(e) => setWsUrl(e.target.value)}
+              placeholder="ws://localhost:3001/ws"
               className="h-7 w-full rounded-md bg-muted px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
             />
           </Field>

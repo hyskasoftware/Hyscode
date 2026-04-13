@@ -39,6 +39,17 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export interface SessionSummary {
+  id: string;
+  title: string;
+  mode: AgentMode;
+  modelId: string | null;
+  providerId: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── State ──────────────────────────────────────────────────────────────────
 
 interface AgentState {
@@ -66,6 +77,11 @@ interface AgentState {
 
   // Token usage
   tokenUsage: TokenUsage | null;
+
+  // Session history
+  sessions: SessionSummary[];
+  sessionsLoading: boolean;
+  historyOpen: boolean;
 
   // ─── Actions ──────────────────────────────────────────────────────────
 
@@ -101,6 +117,12 @@ interface AgentState {
 
   // Token usage
   setTokenUsage: (usage: TokenUsage | null) => void;
+
+  // Session history
+  setSessions: (sessions: SessionSummary[]) => void;
+  setSessionsLoading: (loading: boolean) => void;
+  setHistoryOpen: (open: boolean) => void;
+  deleteSession: (id: string) => void;
 }
 
 // ─── Store ──────────────────────────────────────────────────────────────────
@@ -123,6 +145,9 @@ export const useAgentStore = create<AgentState>()(
     sddProgress: 0,
     activeSkills: [],
     tokenUsage: null,
+    sessions: [],
+    sessionsLoading: false,
+    historyOpen: false,
 
     // ─── Core Actions ─────────────────────────────────────────────────
 
@@ -293,6 +318,28 @@ export const useAgentStore = create<AgentState>()(
     setTokenUsage: (usage) =>
       set((state) => {
         state.tokenUsage = usage;
+      }),
+
+    // ─── Session History ─────────────────────────────────────────────
+
+    setSessions: (sessions) =>
+      set((state) => {
+        state.sessions = sessions;
+      }),
+
+    setSessionsLoading: (loading) =>
+      set((state) => {
+        state.sessionsLoading = loading;
+      }),
+
+    setHistoryOpen: (open) =>
+      set((state) => {
+        state.historyOpen = open;
+      }),
+
+    deleteSession: (id) =>
+      set((state) => {
+        state.sessions = state.sessions.filter((s) => s.id !== id);
       }),
   })),
 );
