@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Search, X, FileText, Loader2 } from 'lucide-react';
 import { tauriFs, type SearchResult } from '../../../lib/tauri-fs';
 import { useFileStore, useEditorStore } from '../../../stores';
+import { getViewerType } from '../../../lib/utils';
 
 export function SearchView() {
   const rootPath = useFileStore((s) => s.rootPath);
@@ -58,6 +59,7 @@ export function SearchView() {
         filePath: result.path,
         fileName,
         language: 'plaintext',
+        viewerType: getViewerType(fileName),
       });
     }
   };

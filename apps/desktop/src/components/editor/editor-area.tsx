@@ -3,6 +3,14 @@ import { Loader2 } from 'lucide-react';
 import { EditorTabs } from './editor-tabs';
 import { EditorWelcome } from './editor-welcome';
 import { DiffViewer } from './diff-viewer';
+import {
+  MarkdownViewer,
+  ImageViewer,
+  PdfViewer,
+  SpreadsheetViewer,
+  DocxViewer,
+  PptxViewer,
+} from './viewers';
 import { useEditorStore, useFileStore } from '../../stores';
 import { tauriFs } from '../../lib/tauri-fs';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
@@ -22,6 +30,7 @@ export function EditorArea() {
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const markDirty = useEditorStore((s) => s.markDirty);
+  const setMarkdownMode = useEditorStore((s) => s.setMarkdownMode);
   const { fileCache, setFileContent } = useFileStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -40,9 +49,13 @@ export function EditorArea() {
     activeTab?.type === 'file' ? (activeTab?.filePath ?? null) : null,
   );
 
-  // Load file content when active tab changes
+  // Viewer types that are handled as text (Monaco / markdown)
+  const isTextViewer =
+    !activeTab || activeTab.viewerType === 'code' || activeTab.viewerType === 'markdown';
+
+  // Load file content when active tab changes (only for text-based viewers)
   useEffect(() => {
-    if (!activeTab) {
+    if (!activeTab || !isTextViewer) {
       setContent(null);
       contentRef.current = null;
       return;
@@ -92,12 +105,12 @@ export function EditorArea() {
     [activeTab?.id, activeTab?.filePath, markDirty, setFileContent],
   );
 
-  // Save with Ctrl+S
+  // Save with Ctrl+S (only for text-editable viewers)
   useEffect(() => {
     const handler = async (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (!activeTab) return;
+        if (!activeTab || !isTextViewer) return;
         const currentContent = contentRef.current;
         if (currentContent === null) return;
         try {
@@ -124,6 +137,28 @@ export function EditorArea() {
           filePath={activeTab.diffProps.filePath}
           staged={activeTab.diffProps.staged}
         />
+      ) : activeTab.viewerType === 'markdown' ? (
+        loading ? (
+          <EditorLoading />
+        ) : (
+          <MarkdownViewer
+            content={content ?? ''}
+            mode={activeTab.markdownMode ?? 'preview'}
+            onModeChange={(mode) => setMarkdownMode(activeTab.id, mode)}
+            onChange={handleEditorChange}
+            language={activeTab.language}
+          />
+        )
+      ) : activeTab.viewerType === 'image' ? (
+        <ImageViewer filePath={activeTab.filePath} />
+      ) : activeTab.viewerType === 'pdf' ? (
+        <PdfViewer filePath={activeTab.filePath} />
+      ) : activeTab.viewerType === 'spreadsheet' ? (
+        <SpreadsheetViewer filePath={activeTab.filePath} />
+      ) : activeTab.viewerType === 'docx' ? (
+        <DocxViewer filePath={activeTab.filePath} />
+      ) : activeTab.viewerType === 'pptx' ? (
+        <PptxViewer filePath={activeTab.filePath} />
       ) : loading ? (
         <EditorLoading />
       ) : (

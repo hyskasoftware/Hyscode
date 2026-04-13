@@ -12,6 +12,7 @@ import {
   Archive,
 } from 'lucide-react';
 import { useGitStore, useEditorStore } from '../../../stores';
+import { getViewerType } from '../../../lib/utils';
 import { GitFileItem } from '../../git/git-file-item';
 import { GitLogView } from '../../git/git-log-view';
 import type { GitFile } from '../../../stores/git-store';
@@ -102,6 +103,7 @@ export function GitView() {
         filePath: file.path,
         fileName,
         language: getLanguageFromPath(file.path),
+        viewerType: getViewerType(fileName),
       });
     },
     [openTab],

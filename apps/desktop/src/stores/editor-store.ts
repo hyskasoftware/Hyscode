@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import type { ViewerType } from '../lib/utils';
 
 export interface Tab {
   id: string;
@@ -10,6 +11,8 @@ export interface Tab {
   isPinned: boolean;
   isPreview: boolean;
   type: 'file' | 'diff';
+  viewerType: ViewerType;
+  markdownMode?: 'preview' | 'code';
   diffProps?: {
     filePath: string;
     staged: boolean;
@@ -19,11 +22,12 @@ export interface Tab {
 interface EditorState {
   tabs: Tab[];
   activeTabId: string | null;
-  openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview' | 'type' | 'diffProps'> & { type?: Tab['type']; diffProps?: Tab['diffProps'] }) => void;
+  openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview' | 'type' | 'diffProps' | 'viewerType' | 'markdownMode'> & { type?: Tab['type']; diffProps?: Tab['diffProps']; viewerType?: ViewerType; markdownMode?: Tab['markdownMode'] }) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   markDirty: (id: string, dirty: boolean) => void;
   pinTab: (id: string) => void;
+  setMarkdownMode: (id: string, mode: 'preview' | 'code') => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -44,6 +48,7 @@ export const useEditorStore = create<EditorState>()(
         const newTab: Tab = {
           ...tab,
           type: tab.type ?? 'file',
+          viewerType: tab.viewerType ?? 'code',
           isDirty: false,
           isPinned: false,
           isPreview: false,
@@ -85,6 +90,12 @@ export const useEditorStore = create<EditorState>()(
           tab.isPinned = true;
           tab.isPreview = false;
         }
+      }),
+
+    setMarkdownMode: (id, mode) =>
+      set((state) => {
+        const tab = state.tabs.find((t) => t.id === id);
+        if (tab) tab.markdownMode = mode;
       }),
   })),
 );

@@ -4,3 +4,39 @@ import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export type ViewerType =
+  | 'code'
+  | 'markdown'
+  | 'image'
+  | 'pdf'
+  | 'spreadsheet'
+  | 'docx'
+  | 'pptx';
+
+const VIEWER_MAP: Record<string, ViewerType> = {
+  md: 'markdown',
+  mdx: 'markdown',
+  png: 'image',
+  jpg: 'image',
+  jpeg: 'image',
+  gif: 'image',
+  webp: 'image',
+  bmp: 'image',
+  ico: 'image',
+  svg: 'image',
+  pdf: 'pdf',
+  xlsx: 'spreadsheet',
+  xls: 'spreadsheet',
+  csv: 'spreadsheet',
+  ods: 'spreadsheet',
+  docx: 'docx',
+  doc: 'docx',
+  pptx: 'pptx',
+  ppt: 'pptx',
+};
+
+export function getViewerType(filename: string): ViewerType {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  return VIEWER_MAP[ext] ?? 'code';
+}

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
 import { tauriFs } from '../../../lib/tauri-fs';
+import { getViewerType } from '../../../lib/utils';
 import type { FileNode } from '../../../stores/file-store';
 import type { GitFile } from '../../../stores/git-store';
 
@@ -272,6 +273,7 @@ function FileTreeNode({
           filePath: node.path,
           fileName: node.name,
           language: getLanguage(node.name),
+          viewerType: getViewerType(node.name),
         });
       }
     }

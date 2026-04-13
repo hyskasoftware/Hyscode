@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.anthropic.com https://*.openai.com https://*.googleapis.com https://openrouter.ai http://localhost:*"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset:; frame-src 'self' data: blob:; connect-src 'self' https://*.anthropic.com https://*.openai.com https://*.googleapis.com https://openrouter.ai http://localhost:*"
     }
   },
   "bundle": {
