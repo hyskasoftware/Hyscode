@@ -162,6 +162,7 @@ export class ToolRouter {
     // Emit start event
     this.eventHandler?.({
       type: 'tool_call_start',
+      toolCallId,
       toolName,
       input,
     });
@@ -183,6 +184,7 @@ export class ToolRouter {
     // Emit result event
     this.eventHandler?.({
       type: 'tool_call_result',
+      toolCallId,
       toolName,
       result,
       durationMs,

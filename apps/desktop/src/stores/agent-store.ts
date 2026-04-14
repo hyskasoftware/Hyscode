@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { AgentType, SddStatus, SddTask } from '@hyscode/agent-harness';
+import type { MessageContent } from '@hyscode/ai-providers';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,9 @@ export interface ChatMessage {
   content: string;
   thinking?: string;
   toolCalls?: ToolCallDisplay[];
+  /** Structured LLM content blocks for faithful history reconstruction.
+   *  When present, buildHistory() uses these instead of `content` string. */
+  blocks?: MessageContent[];
   timestamp: number;
 }
 

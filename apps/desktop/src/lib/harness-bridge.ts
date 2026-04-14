@@ -14,7 +14,7 @@ import type {
   ToolExecutionContext,
   ToolCategory,
 } from '@hyscode/agent-harness';
-import type { Message, ToolDefinition } from '@hyscode/ai-providers';
+import type { Message, ToolDefinition, MessageContent } from '@hyscode/ai-providers';
 import { tauriInvokeRaw } from './tauri-invoke';
 import { tauriFs } from './tauri-fs';
 import { listen as tauriListen } from '@tauri-apps/api/event';
@@ -33,6 +33,10 @@ let _instance: HarnessBridge | null = null;
 export class HarnessBridge {
   private harness: Harness;
   private approvalResolvers = new Map<string, (approved: boolean) => void>();
+  /** Accumulated tool results for the current iteration (flushed between turns). */
+  private pendingToolResults: Array<{ toolCallId: string; output: string; isError: boolean }> = [];
+  /** Tool call IDs seen in the current iteration (for building assistant blocks). */
+  private currentIterationToolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
   private constructor(workspacePath: string, projectId: string, homePath: string) {
     const settings = useSettingsStore.getState();
@@ -219,7 +223,12 @@ export class HarnessBridge {
 
     try {
       // Build history from store messages (use fresh state after addMessage calls)
+      // Exclude the last 2 messages (user + placeholder assistant for this turn)
       const history = this.buildHistory(useAgentStore.getState().messages.slice(0, -2));
+
+      // Reset iteration tracking for the new turn
+      this.currentIterationToolCalls = [];
+      this.pendingToolResults = [];
 
       dbg(`Enviando para LLM (${history.length} msgs no histórico)...`);
 
@@ -265,6 +274,110 @@ export class HarnessBridge {
   skipSddTask(taskId: string): void {
     this.harness.getSddEngine()?.skipTask(taskId);
     this.debug(`SDD task skipped: ${taskId}`);
+  }
+
+  /**
+   * Start a new SDD session explicitly.
+   * Generates the spec and surfaces it to the store for user review.
+   */
+  async startSdd(description: string): Promise<void> {
+    const store = useAgentStore.getState();
+    const settings = useSettingsStore.getState();
+
+    this.harness.setConfig({
+      providerId: settings.activeProviderId ?? '',
+      modelId: settings.activeModelId ?? '',
+    });
+    this.harness.setAgentType('build');
+    this.harness.setMode('sdd');
+
+    if (!store.conversationId) {
+      const id = crypto.randomUUID();
+      store.setConversationId(id);
+      this.harness.setConversationId(id);
+    }
+
+    store.setStreaming(true);
+    store.setSddPhase('describing');
+
+    try {
+      const { spec } = await this.harness.startSdd(description);
+      store.setSddSpec(spec);
+      // Phase changes are emitted by the SDD engine events → handleEvent
+      this.debug(`SDD spec generated (${spec.length} chars)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.debug(`SDD start error: ${msg}`);
+      store.setSddPhase(null);
+    } finally {
+      store.setStreaming(false);
+    }
+  }
+
+  /**
+   * Approve the SDD spec. Generates the plan and surfaces tasks for review.
+   */
+  async approveSddSpec(): Promise<void> {
+    const store = useAgentStore.getState();
+    store.setStreaming(true);
+
+    try {
+      const tasks = await this.harness.approveSddSpec();
+      store.setSddTasks(tasks);
+      // Phase event (planning) is emitted by the engine
+      this.debug(`SDD plan generated (${tasks.length} tasks)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.debug(`SDD approve spec error: ${msg}`);
+    } finally {
+      store.setStreaming(false);
+    }
+  }
+
+  /**
+   * Reject the SDD spec and regenerate it.
+   */
+  async rejectSddSpec(feedback?: string): Promise<void> {
+    const store = useAgentStore.getState();
+    store.setStreaming(true);
+    store.setSddSpec(null);
+    store.setSddPhase('describing');
+
+    try {
+      const spec = await this.harness.rejectSddSpec(feedback);
+      store.setSddSpec(spec);
+      this.debug(`SDD spec regenerated (${spec.length} chars)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.debug(`SDD reject spec error: ${msg}`);
+    } finally {
+      store.setStreaming(false);
+    }
+  }
+
+  /**
+   * Approve the SDD plan and start execution.
+   */
+  async approveSddPlan(): Promise<void> {
+    const store = useAgentStore.getState();
+    store.setStreaming(true);
+
+    try {
+      const review = await this.harness.approveSddPlan();
+      // Add the review as an assistant message
+      store.addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: review,
+        timestamp: Date.now(),
+      });
+      this.debug('SDD execution complete');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.debug(`SDD plan execution error: ${msg}`);
+    } finally {
+      store.setStreaming(false);
+    }
   }
 
   setAgentType(type: AgentType): void {
@@ -484,9 +597,10 @@ export class HarnessBridge {
       case 'turn_start': {
         this.debug(`Iteração ${event.iteration} — aguardando LLM...`);
 
-        // On subsequent turns, flush current text and create a fresh assistant
-        // message so each turn's text + tool calls form their own block in the UI
+        // On subsequent turns, finalize the previous iteration's blocks,
+        // flush current text, and create a fresh assistant message
         if (event.iteration > 1) {
+          this.finalizeIterationBlocks();
           store.flushStreamingText();
           store.addMessage({
             id: crypto.randomUUID(),
@@ -519,13 +633,19 @@ export class HarnessBridge {
       case 'tool_call_start': {
         this.debug(`Ferramenta: ${event.toolName}`);
         const tc: ToolCallDisplay = {
-          id: crypto.randomUUID(),
+          id: event.toolCallId,
           name: event.toolName,
           input: event.input,
           status: 'running',
           startedAt: Date.now(),
         };
         store.addToolCall(tc);
+        // Track for structured block construction
+        this.currentIterationToolCalls.push({
+          id: event.toolCallId,
+          name: event.toolName,
+          input: event.input,
+        });
         break;
       }
 
@@ -538,19 +658,22 @@ export class HarnessBridge {
       case 'tool_call_result': {
         const label = event.result.success ? '✓' : '✗';
         this.debug(`${label} ${event.toolName} (${event.durationMs}ms)`);
-        // Find running tool call with matching name (most recent)
-        const agentState = useAgentStore.getState();
-        const running = [...agentState.pendingToolCalls]
-          .reverse()
-          .find((tc) => tc.name === event.toolName && (tc.status === 'running' || tc.status === 'approved'));
-        if (running) {
-          store.updateToolCall(running.id, {
-            status: event.result.success ? 'success' : 'error',
-            output: event.result.output,
-            error: event.result.error,
-            completedAt: Date.now(),
-          });
-        }
+        // Find tool call by the harness-assigned ID (stable correlation)
+        store.updateToolCall(event.toolCallId, {
+          status: event.result.success ? 'success' : 'error',
+          output: event.result.output,
+          error: event.result.error,
+          completedAt: Date.now(),
+        });
+
+        // Accumulate for structured tool_result blocks
+        this.pendingToolResults.push({
+          toolCallId: event.toolCallId,
+          output: event.result.success
+            ? event.result.output
+            : `Error: ${event.result.error ?? event.result.output}`,
+          isError: !event.result.success,
+        });
 
         // Handle metadata actions from tools
         const meta = event.result.metadata;
@@ -594,6 +717,8 @@ export class HarnessBridge {
         } else {
           this.debug(`Turno encerrado: ${event.reason}`);
         }
+        // Finalize any remaining iteration blocks before ending the turn
+        this.finalizeIterationBlocks();
         useAgentStore.getState().flushStreamingText();
         break;
       }
@@ -704,11 +829,85 @@ export class HarnessBridge {
 
   // ─── Helpers ────────────────────────────────────────────────────────
 
-  private buildHistory(messages: Array<{ role: string; content: string }>): Message[] {
-    return messages.map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: [{ type: 'text' as const, text: msg.content }],
-    }));
+  /**
+   * Finalize the current iteration's structured blocks.
+   * Stamps the last assistant message with proper content blocks (text + tool_calls)
+   * and inserts a tool_result message if tools were executed.
+   */
+  private finalizeIterationBlocks(): void {
+    if (this.currentIterationToolCalls.length === 0 && this.pendingToolResults.length === 0) {
+      return;
+    }
+
+    const store = useAgentStore.getState();
+
+    // 1. Build structured blocks for the last assistant message
+    if (this.currentIterationToolCalls.length > 0) {
+      const messages = store.messages;
+      // Walk backwards to find the assistant message that owns these tool calls
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        if (msg.role === 'assistant') {
+          const blocks: MessageContent[] = [];
+          if (msg.content) {
+            blocks.push({ type: 'text', text: msg.content });
+          }
+          for (const tc of this.currentIterationToolCalls) {
+            blocks.push({ type: 'tool_call', id: tc.id, name: tc.name, input: tc.input });
+          }
+          useAgentStore.setState((draft) => {
+            const target = draft.messages[i];
+            if (target) target.blocks = blocks;
+          });
+          break;
+        }
+      }
+    }
+
+    // 2. Insert a tool_result message with structured blocks
+    if (this.pendingToolResults.length > 0) {
+      const resultBlocks: MessageContent[] = this.pendingToolResults.map((r) => ({
+        type: 'tool_result' as const,
+        toolCallId: r.toolCallId,
+        output: r.output,
+        isError: r.isError,
+      }));
+      store.addMessage({
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: '', // UI won't render this; blocks carry the real data
+        blocks: resultBlocks,
+        timestamp: Date.now(),
+      });
+    }
+
+    // Reset iteration tracking
+    this.currentIterationToolCalls = [];
+    this.pendingToolResults = [];
+  }
+
+  /**
+   * Build LLM-compatible history from store messages.
+   * Uses `blocks` when available for faithful tool_call/tool_result reconstruction;
+   * falls back to text-only for messages that predate the structured format.
+   */
+  private buildHistory(messages: Array<import('@/stores/agent-store').ChatMessage>): Message[] {
+    const result: Message[] = [];
+    for (const msg of messages) {
+      if (msg.blocks && msg.blocks.length > 0) {
+        result.push({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.blocks,
+        });
+      } else if (msg.content) {
+        result.push({
+          role: msg.role as 'user' | 'assistant',
+          content: [{ type: 'text', text: msg.content }],
+        });
+      }
+      // Skip messages with no content and no blocks (e.g. empty tool_result placeholders)
+    }
+    return result;
   }
 
   /** Persist the current conversation turn to the database */
@@ -744,9 +943,10 @@ export class HarnessBridge {
         });
       }
 
-      // Persist individual messages
-      const lastTwo = store.messages.slice(-2);
-      for (const msg of lastTwo) {
+      // Persist individual messages (all messages from this turn, not just last 2)
+      // We track which messages have been persisted via their ID; db_create_message
+      // silently ignores duplicate IDs.
+      for (const msg of store.messages) {
         try {
           await tauriInvokeRaw('db_create_message', {
             id: msg.id,
@@ -754,6 +954,7 @@ export class HarnessBridge {
             role: msg.role,
             content: msg.content,
             toolCalls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
+            blocks: msg.blocks ? JSON.stringify(msg.blocks) : null,
             tokenInput: 0,
             tokenOutput: 0,
           });

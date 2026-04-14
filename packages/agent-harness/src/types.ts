@@ -221,9 +221,9 @@ export const DEFAULT_HARNESS_CONFIG: HarnessConfig = {
 export type HarnessEvent =
   | { type: 'turn_start'; conversationId: string; iteration: number }
   | { type: 'stream_chunk'; chunk: StreamChunk }
-  | { type: 'tool_call_start'; toolName: string; input: Record<string, unknown> }
+  | { type: 'tool_call_start'; toolCallId: string; toolName: string; input: Record<string, unknown> }
   | { type: 'tool_call_pending'; pending: PendingToolCall }
-  | { type: 'tool_call_result'; toolName: string; result: ToolResult; durationMs: number }
+  | { type: 'tool_call_result'; toolCallId: string; toolName: string; result: ToolResult; durationMs: number }
   | { type: 'turn_end'; reason: 'complete' | 'max_iterations' | 'cancelled' | 'error'; error?: string }
   | { type: 'context_overflow'; droppedMessages: number }
   | { type: 'sdd_phase_change'; phase: SddStatus }

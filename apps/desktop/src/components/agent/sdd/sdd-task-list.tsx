@@ -18,9 +18,14 @@ const STATUS_ICONS: Record<SddTaskStatus, { icon: typeof Check; color: string; a
 export function SddTaskList() {
   const tasks = useAgentStore((s) => s.sddTasks);
   const sddProgress = useAgentStore((s) => s.sddProgress);
+  const sddPhase = useAgentStore((s) => s.sddPhase);
+  const isStreaming = useAgentStore((s) => s.isStreaming);
   const [paused, setPaused] = useState(false);
 
   if (tasks.length === 0) return null;
+
+  const isPlanReview = sddPhase === 'planning' && !isStreaming;
+  const isExecuting = sddPhase === 'executing';
 
   const handlePauseResume = () => {
     try {
@@ -44,40 +49,56 @@ export function SddTaskList() {
     }
   };
 
+  const handleApprovePlan = async () => {
+    try {
+      await HarnessBridge.get().approveSddPlan();
+    } catch {
+      // bridge not ready
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-surface-raised bg-background p-3">
       {/* Header with progress + controls */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-foreground">Tasks</span>
+        <span className="text-[11px] font-semibold text-foreground">
+          {isPlanReview ? 'Review Plan' : 'Tasks'}
+        </span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] tabular-nums text-muted-foreground">
-            {sddProgress}%
-          </span>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={handlePauseResume}
-                  className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                />
-              }
-            >
-              {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
-            </TooltipTrigger>
-            <TooltipContent side="top">{paused ? 'Resume' : 'Pause'}</TooltipContent>
-          </Tooltip>
+          {isExecuting && (
+            <>
+              <span className="text-[10px] tabular-nums text-muted-foreground">
+                {sddProgress}%
+              </span>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={handlePauseResume}
+                      className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                    />
+                  }
+                >
+                  {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                </TooltipTrigger>
+                <TooltipContent side="top">{paused ? 'Resume' : 'Pause'}</TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-1 w-full rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-accent transition-all duration-300"
-          style={{ width: `${sddProgress}%` }}
-        />
-      </div>
+      {/* Progress bar (only during execution) */}
+      {isExecuting && (
+        <div className="h-1 w-full rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-accent transition-all duration-300"
+            style={{ width: `${sddProgress}%` }}
+          />
+        </div>
+      )}
 
       {/* Task list */}
       <div className="flex flex-col gap-1">
@@ -140,6 +161,20 @@ export function SddTaskList() {
           );
         })}
       </div>
+
+      {/* Plan approval button — shown when plan is ready for review */}
+      {isPlanReview && (
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleApprovePlan}
+            className="h-6 text-[11px]"
+          >
+            Approve & Execute
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

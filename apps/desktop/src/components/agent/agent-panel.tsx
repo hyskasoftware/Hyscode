@@ -27,22 +27,20 @@ export function AgentPanel() {
   const historyOpen = useAgentStore((s) => s.historyOpen);
   const setHistoryOpen = useAgentStore((s) => s.setHistoryOpen);
 
-  const handleSpecApprove = () => {
+  const handleSpecApprove = async () => {
     try {
-      const engine = HarnessBridge.get()['harness'].getSddEngine();
-      if (engine) {
-        // Agent will continue to plan generation when spec is approved
-        useAgentStore.getState().setSddPhase('planning');
-      }
+      await HarnessBridge.get().approveSddSpec();
     } catch {
       // Bridge not ready
     }
   };
 
-  const handleSpecReject = () => {
-    // Reset spec so the agent can regenerate
-    useAgentStore.getState().setSddSpec(null);
-    useAgentStore.getState().setSddPhase('describing');
+  const handleSpecReject = async () => {
+    try {
+      await HarnessBridge.get().rejectSddSpec();
+    } catch {
+      // Bridge not ready
+    }
   };
 
   return (

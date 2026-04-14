@@ -187,10 +187,11 @@ export class Harness {
     this.cancelled = false;
     this.toolCallHistory = [];
 
-    // In SDD mode, delegate to runSdd
+    // In SDD mode, start a new session and return the spec for user review.
+    // Subsequent phases are driven by explicit approve/reject calls.
     if (this._mode === 'sdd') {
-      const review = await this.runSdd(userMessage);
-      return { response: review, toolCalls: this.toolCallHistory };
+      const { spec } = await this.startSdd(userMessage);
+      return { response: spec, toolCalls: this.toolCallHistory };
     }
 
     // In chat mode, override to chat agent
@@ -474,34 +475,83 @@ export class Harness {
 
   // ─── SDD Mode ───────────────────────────────────────────────────────
 
-  async runSdd(description: string): Promise<string> {
+  /** Active SDD session ID (set when SDD is in progress) */
+  private sddSessionId: string | null = null;
+
+  /** Get the current SDD session ID */
+  getSddSessionId(): string | null {
+    return this.sddSessionId;
+  }
+
+  /**
+   * Start a new SDD session: create the session and generate a spec.
+   * Returns the spec text. The caller is responsible for presenting it
+   * to the user for approval (the harness does NOT auto-approve).
+   */
+  async startSdd(description: string): Promise<{ sessionId: string; spec: string }> {
     if (!this.sddEngine) {
       throw new Error('SDD Engine not initialized (no database provided)');
     }
 
-    // Phase 1: Create session
     const session = await this.sddEngine.startSession(this.projectId, description);
+    this.sddSessionId = session.id;
 
-    // Phase 2: Generate and review spec
-    await this.sddEngine.generateSpec(session.id);
+    const spec = await this.sddEngine.generateSpec(session.id);
+    return { sessionId: session.id, spec };
+  }
 
-    // Spec is returned to UI for user review/approval
-    // In automated mode, we auto-approve
-    await this.sddEngine.approveSpec(session.id);
+  /**
+   * Approve the SDD spec and generate the implementation plan.
+   * Returns the task list. The caller presents it for user review.
+   */
+  async approveSddSpec(): Promise<import('./types').SddTask[]> {
+    if (!this.sddEngine || !this.sddSessionId) {
+      throw new Error('No active SDD session');
+    }
 
-    // Phase 3: Generate plan
-    await this.sddEngine.generatePlan(session.id);
+    await this.sddEngine.approveSpec(this.sddSessionId);
+    const tasks = await this.sddEngine.generatePlan(this.sddSessionId);
+    return tasks;
+  }
 
-    // Plan is returned to UI for user review/approval
-    // In automated mode, we auto-approve
-    await this.sddEngine.approvePlan(session.id);
+  /**
+   * Reject the SDD spec and regenerate it.
+   * Returns the new spec text.
+   */
+  async rejectSddSpec(_feedback?: string): Promise<string> {
+    if (!this.sddEngine || !this.sddSessionId) {
+      throw new Error('No active SDD session');
+    }
 
-    // Phase 4: Execute
-    await this.sddEngine.execute(session.id);
+    // Regenerate with optional feedback
+    const spec = await this.sddEngine.generateSpec(this.sddSessionId);
+    return spec;
+  }
 
-    // Phase 5: Review
-    const review = await this.sddEngine.review(session.id);
+  /**
+   * Approve the SDD plan and begin execution + review.
+   * Returns the final review text.
+   */
+  async approveSddPlan(): Promise<string> {
+    if (!this.sddEngine || !this.sddSessionId) {
+      throw new Error('No active SDD session');
+    }
 
+    await this.sddEngine.approvePlan(this.sddSessionId);
+    await this.sddEngine.execute(this.sddSessionId);
+    const review = await this.sddEngine.review(this.sddSessionId);
+    this.sddSessionId = null;
+    return review;
+  }
+
+  /**
+   * @deprecated Use startSdd() + approveSddSpec() + approveSddPlan() instead.
+   * Kept for backward compatibility but now delegates to the stepped API.
+   */
+  async runSdd(description: string): Promise<string> {
+    await this.startSdd(description);
+    await this.approveSddSpec();
+    const review = await this.approveSddPlan();
     return review;
   }
 
