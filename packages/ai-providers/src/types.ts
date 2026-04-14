@@ -80,6 +80,12 @@ export interface ChatParams {
   signal?: AbortSignal;
 }
 
+// ─── Transport ──────────────────────────────────────────────────────────────
+// Abstraction over fetch so providers can route through a Tauri proxy instead
+// of making direct browser fetch calls (which are blocked by CORS).
+
+export type FetchImpl = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+
 // ─── Chat Response (non-streaming) ──────────────────────────────────────────
 
 export interface ChatResponse {

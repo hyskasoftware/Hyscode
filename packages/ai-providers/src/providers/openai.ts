@@ -6,6 +6,7 @@ import type {
   Message,
   ToolDefinition,
   StopReason,
+  FetchImpl,
 } from '../types';
 import { ProviderError } from '../types';
 import { parseSSEStream } from '../retry';
@@ -229,11 +230,13 @@ export class OpenAIProvider implements AIProvider {
   protected apiKey: string;
   protected baseUrl: string;
   protected defaultHeaders: Record<string, string>;
+  protected fetchImpl: FetchImpl;
 
-  constructor(apiKey: string, baseUrl = 'https://api.openai.com/v1', extraHeaders: Record<string, string> = {}) {
+  constructor(apiKey: string, baseUrl = 'https://api.openai.com/v1', extraHeaders: Record<string, string> = {}, fetchImpl?: FetchImpl) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.defaultHeaders = extraHeaders;
+    this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   isConfigured(): boolean {
@@ -260,7 +263,7 @@ export class OpenAIProvider implements AIProvider {
     if (params.stopSequences?.length) body.stop = params.stopSequences;
     if (params.tools?.length) body.tools = toOpenAITools(params.tools);
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

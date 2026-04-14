@@ -6,6 +6,7 @@ import type {
   Message,
   ToolDefinition,
   StopReason,
+  FetchImpl,
 } from '../types';
 import { ProviderError } from '../types';
 
@@ -213,10 +214,12 @@ export class GeminiProvider implements AIProvider {
 
   private apiKey: string;
   private baseUrl: string;
+  private fetchImpl: FetchImpl;
 
-  constructor(apiKey: string, baseUrl = 'https://generativelanguage.googleapis.com/v1beta') {
+  constructor(apiKey: string, baseUrl = 'https://generativelanguage.googleapis.com/v1beta', fetchImpl?: FetchImpl) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
+    this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   isConfigured(): boolean {
@@ -248,7 +251,7 @@ export class GeminiProvider implements AIProvider {
 
     const url = `${this.baseUrl}/models/${params.model}:streamGenerateContent?alt=sse`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchImpl(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

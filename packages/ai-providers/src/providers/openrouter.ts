@@ -1,4 +1,4 @@
-import type { AIModel, ChatParams, StreamChunk } from '../types';
+import type { AIModel, ChatParams, StreamChunk, FetchImpl } from '../types';
 import { OpenAIProvider } from './openai';
 
 // ─── OpenRouter Provider ────────────────────────────────────────────────────
@@ -63,16 +63,16 @@ export class OpenRouterProvider extends OpenAIProvider {
   override readonly name = 'OpenRouter';
   override models: AIModel[] = [...OPENROUTER_MODELS];
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, fetchImpl?: FetchImpl) {
     super(apiKey, 'https://openrouter.ai/api/v1', {
       'HTTP-Referer': 'https://hyscode.dev',
       'X-Title': 'HysCode IDE',
-    });
+    }, fetchImpl);
   }
 
   override async listModels(): Promise<AIModel[]> {
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
+      const response = await this.fetchImpl('https://openrouter.ai/api/v1/models', {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
         },

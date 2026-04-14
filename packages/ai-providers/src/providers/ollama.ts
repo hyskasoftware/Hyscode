@@ -5,6 +5,7 @@ import type {
   StreamChunk,
   Message,
   ToolDefinition,
+  FetchImpl,
 } from '../types';
 import { ProviderError } from '../types';
 import { parseNDJSONStream } from '../retry';
@@ -88,9 +89,11 @@ export class OllamaProvider implements AIProvider {
   models: AIModel[] = [];
 
   private baseUrl: string;
+  private fetchImpl: FetchImpl;
 
-  constructor(baseUrl = 'http://localhost:11434') {
+  constructor(baseUrl = 'http://localhost:11434', fetchImpl?: FetchImpl) {
     this.baseUrl = baseUrl;
+    this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   isConfigured(): boolean {
@@ -99,7 +102,7 @@ export class OllamaProvider implements AIProvider {
 
   async listModels(): Promise<AIModel[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/tags`);
+      const response = await this.fetchImpl(`${this.baseUrl}/api/tags`);
       if (!response.ok) return [];
 
       const data = (await response.json()) as { models?: Array<{ name: string; details?: { parameter_size?: string }; size?: number }> };
@@ -138,7 +141,7 @@ export class OllamaProvider implements AIProvider {
 
     if (params.tools?.length) body.tools = toOllamaTools(params.tools);
 
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
+    const response = await this.fetchImpl(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

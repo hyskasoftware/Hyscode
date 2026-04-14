@@ -5,6 +5,7 @@ import type {
   StreamChunk,
   Message,
   ToolDefinition,
+  FetchImpl,
 } from '../types';
 import { ProviderError } from '../types';
 import { parseSSEStream } from '../retry';
@@ -232,10 +233,12 @@ export class AnthropicProvider implements AIProvider {
 
   private apiKey: string;
   private baseUrl: string;
+  private fetchImpl: FetchImpl;
 
-  constructor(apiKey: string, baseUrl = 'https://api.anthropic.com') {
+  constructor(apiKey: string, baseUrl = 'https://api.anthropic.com', fetchImpl?: FetchImpl) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
+    this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   isConfigured(): boolean {
@@ -272,7 +275,7 @@ export class AnthropicProvider implements AIProvider {
       body.stop_sequences = params.stopSequences;
     }
 
-    const response = await fetch(`${this.baseUrl}/v1/messages`, {
+    const response = await this.fetchImpl(`${this.baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

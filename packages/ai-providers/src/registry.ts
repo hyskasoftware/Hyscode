@@ -1,4 +1,4 @@
-import type { AIProvider, AIModel, ChatParams, StreamChunk, RetryConfig } from './types';
+import type { AIProvider, AIModel, ChatParams, StreamChunk, RetryConfig, FetchImpl } from './types';
 import { ProviderError } from './types';
 import { AnthropicProvider } from './providers/anthropic';
 import { OpenAIProvider } from './providers/openai';
@@ -151,32 +151,32 @@ export class ProviderRegistry {
    * Initialize all providers from a key store.
    * Called on app startup to register providers with their API keys.
    */
-  async initialize(keyStore: KeyStore, ollamaBaseUrl?: string): Promise<void> {
+  async initialize(keyStore: KeyStore, ollamaBaseUrl?: string, fetchImpl?: FetchImpl): Promise<void> {
     // Anthropic
     const anthropicKey = await keyStore.get('anthropic_api_key');
     if (anthropicKey) {
-      this.register(new AnthropicProvider(anthropicKey));
+      this.register(new AnthropicProvider(anthropicKey, undefined, fetchImpl));
     }
 
     // OpenAI
     const openaiKey = await keyStore.get('openai_api_key');
     if (openaiKey) {
-      this.register(new OpenAIProvider(openaiKey));
+      this.register(new OpenAIProvider(openaiKey, undefined, undefined, fetchImpl));
     }
 
     // Gemini
     const geminiKey = await keyStore.get('gemini_api_key');
     if (geminiKey) {
-      this.register(new GeminiProvider(geminiKey));
+      this.register(new GeminiProvider(geminiKey, undefined, fetchImpl));
     }
 
     // Ollama (always registered, no key needed)
-    this.register(new OllamaProvider(ollamaBaseUrl));
+    this.register(new OllamaProvider(ollamaBaseUrl, fetchImpl));
 
     // OpenRouter
     const openrouterKey = await keyStore.get('openrouter_api_key');
     if (openrouterKey) {
-      this.register(new OpenRouterProvider(openrouterKey));
+      this.register(new OpenRouterProvider(openrouterKey, fetchImpl));
     }
 
     // Set default to first configured provider
@@ -194,32 +194,33 @@ export class ProviderRegistry {
     providerId: string,
     keyStore: KeyStore,
     ollamaBaseUrl?: string,
+    fetchImpl?: FetchImpl,
   ): Promise<void> {
     this.unregister(providerId);
 
     switch (providerId) {
       case 'anthropic': {
         const key = await keyStore.get('anthropic_api_key');
-        if (key) this.register(new AnthropicProvider(key));
+        if (key) this.register(new AnthropicProvider(key, undefined, fetchImpl));
         break;
       }
       case 'openai': {
         const key = await keyStore.get('openai_api_key');
-        if (key) this.register(new OpenAIProvider(key));
+        if (key) this.register(new OpenAIProvider(key, undefined, undefined, fetchImpl));
         break;
       }
       case 'gemini': {
         const key = await keyStore.get('gemini_api_key');
-        if (key) this.register(new GeminiProvider(key));
+        if (key) this.register(new GeminiProvider(key, undefined, fetchImpl));
         break;
       }
       case 'ollama': {
-        this.register(new OllamaProvider(ollamaBaseUrl));
+        this.register(new OllamaProvider(ollamaBaseUrl, fetchImpl));
         break;
       }
       case 'openrouter': {
         const key = await keyStore.get('openrouter_api_key');
-        if (key) this.register(new OpenRouterProvider(key));
+        if (key) this.register(new OpenRouterProvider(key, fetchImpl));
         break;
       }
     }

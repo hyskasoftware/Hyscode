@@ -174,6 +174,30 @@ function StreamingIndicator() {
   );
 }
 
+// ─── Collapsible reasoning text (shown only when message also has tool calls) ──
+
+const ReasoningText = memo(function ReasoningText({ content }: { content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-1">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-muted-foreground/80 transition-colors"
+      >
+        {open ? <ChevronDown className="h-2.5 w-2.5" /> : <ChevronRight className="h-2.5 w-2.5" />}
+        <span>Reasoning</span>
+      </button>
+      {open && (
+        <div className="mt-1 max-h-[160px] overflow-y-auto rounded border border-border/20 bg-[#0d1117]/40 px-2.5 py-1.5">
+          <div className="text-[11px] leading-relaxed text-muted-foreground/60">
+            {content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 // ─── Memoized Message Item ────────────────────────────────────────────────────
 
 interface MessageItemProps {
@@ -190,6 +214,8 @@ const MessageItem = memo(function MessageItem({
   showSeparator,
   isActivelyStreaming,
 }: MessageItemProps) {
+  const hasToolCalls = (msg.toolCalls?.length ?? 0) > 0;
+
   return (
     <div className="group/msg">
       {/* User message */}
@@ -227,17 +253,18 @@ const MessageItem = memo(function MessageItem({
               />
             )}
 
-            {/* Markdown content */}
-            {msg.content ? (
+            {hasToolCalls ? (
+              /* Mid-loop message: show tool calls prominently, hide text behind toggle */
+              <>
+                {msg.content && <ReasoningText content={msg.content} />}
+                <ToolCallGroup toolCalls={msg.toolCalls!} />
+              </>
+            ) : msg.content ? (
+              /* Final response: full markdown */
               <MarkdownContent content={msg.content} />
             ) : isActivelyStreaming ? (
               <StreamingIndicator />
             ) : null}
-
-            {/* Tool calls */}
-            {msg.toolCalls && msg.toolCalls.length > 0 && (
-              <ToolCallGroup toolCalls={msg.toolCalls} />
-            )}
           </div>
         </div>
       )}
@@ -356,7 +383,7 @@ export function AgentMessages() {
   return (
     <div className="flex-1 overflow-hidden">
       <ScrollArea className="h-full">
-        <div className="flex flex-col gap-0 px-4 py-3">
+        <div className="flex flex-col gap-0 px-4 py-3 max-w-[720px] mx-auto w-full">
           {messages.map((msg, idx) => {
             const prevMsg = idx > 0 ? messages[idx - 1] : null;
             const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
