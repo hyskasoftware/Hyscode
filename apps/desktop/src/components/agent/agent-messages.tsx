@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAgentStore } from '@/stores/agent-store';
-import { ToolCallCard } from './tool-call-card';
+import { ToolCallGroup } from './tool-call-card';
 import { ApprovalDialog } from './approval-dialog';
 import { cn } from '@/lib/utils';
 
@@ -173,58 +173,69 @@ export function AgentMessages() {
     <div className="flex-1 overflow-hidden">
       <ScrollArea className="h-full">
         <div className="flex flex-col gap-0 px-4 py-3">
-          {messages.map((msg, idx) => (
-            <div key={msg.id} className="group/msg">
-              {/* User message */}
-              {msg.role === 'user' && (
-                <div className="mb-3 mt-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
-                      <User className="h-3 w-3 text-foreground/70" />
-                    </div>
-                    <span className="text-[11px] font-semibold text-foreground">You</span>
-                  </div>
-                  <div className="pl-7">
-                    <MarkdownContent content={msg.content} />
-                  </div>
-                </div>
-              )}
+          {messages.map((msg, idx) => {
+            // Check if previous message was also from the same role (consecutive assistant messages)
+            const prevMsg = idx > 0 ? messages[idx - 1] : null;
+            const isConsecutiveAssistant =
+              msg.role === 'assistant' && prevMsg?.role === 'assistant';
 
-              {/* Assistant message */}
-              {msg.role === 'assistant' && (
-                <div className="mb-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15">
-                      <Bot className="h-3 w-3 text-accent" />
+            return (
+              <div key={msg.id} className="group/msg">
+                {/* User message */}
+                {msg.role === 'user' && (
+                  <div className="mb-3 mt-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
+                        <User className="h-3 w-3 text-foreground/70" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-foreground">You</span>
                     </div>
-                    <span className="text-[11px] font-semibold text-foreground">HysCode</span>
-                  </div>
-                  <div className="pl-7">
-                    {/* Markdown content */}
-                    {msg.content ? (
+                    <div className="pl-7">
                       <MarkdownContent content={msg.content} />
-                    ) : isStreaming && idx === messages.length - 1 ? (
-                      <StreamingIndicator />
-                    ) : null}
+                    </div>
+                  </div>
+                )}
 
-                    {/* Tool calls — rendered inline */}
-                    {msg.toolCalls && msg.toolCalls.length > 0 && (
-                      <div className="mt-2 flex flex-col gap-1">
-                        {msg.toolCalls.map((tc) => (
-                          <ToolCallCard key={tc.id} toolCall={tc} />
-                        ))}
+                {/* Assistant message */}
+                {msg.role === 'assistant' && (
+                  <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-1')}>
+                    {/* Only show header for the FIRST assistant message in a sequence */}
+                    {!isConsecutiveAssistant && (
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15">
+                          <Bot className="h-3 w-3 text-accent" />
+                        </div>
+                        <span className="text-[11px] font-semibold text-foreground">HysCode</span>
                       </div>
                     )}
-                  </div>
-                </div>
-              )}
+                    <div className="pl-7">
+                      {/* Markdown content */}
+                      {msg.content ? (
+                        <MarkdownContent content={msg.content} />
+                      ) : isStreaming && idx === messages.length - 1 ? (
+                        <StreamingIndicator />
+                      ) : null}
 
-              {/* Separator between messages */}
-              {idx < messages.length - 1 && (
-                <div className="border-b border-border/20 mb-1" />
-              )}
-            </div>
-          ))}
+                      {/* Tool calls — collapsed group between text turns */}
+                      {msg.toolCalls && msg.toolCalls.length > 0 && (
+                        <ToolCallGroup toolCalls={msg.toolCalls} />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Separator — only between user↔assistant boundaries */}
+                {idx < messages.length - 1 &&
+                  msg.role === 'user' &&
+                  messages[idx + 1].role === 'assistant' ? null : // no separator between user→assistant
+                  idx < messages.length - 1 &&
+                  msg.role === 'assistant' &&
+                  messages[idx + 1]?.role === 'user' ? (
+                    <div className="border-b border-border/20 my-2" />
+                  ) : null}
+              </div>
+            );
+          })}
 
           {/* Pending approvals  */}
           {pendingApprovals.map((approval) => (

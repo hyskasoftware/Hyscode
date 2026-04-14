@@ -314,9 +314,22 @@ export class HarnessBridge {
     const store = useAgentStore.getState();
 
     switch (event.type) {
-      case 'turn_start':
+      case 'turn_start': {
         this.debug(`Iteração ${event.iteration} — aguardando LLM...`);
+
+        // On subsequent turns, flush current text and create a fresh assistant
+        // message so each turn's text + tool calls form their own block in the UI
+        if (event.iteration > 1) {
+          store.flushStreamingText();
+          store.addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: '',
+            timestamp: Date.now(),
+          });
+        }
         break;
+      }
 
       case 'stream_chunk': {
         const chunk = event.chunk;

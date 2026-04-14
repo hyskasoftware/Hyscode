@@ -14,17 +14,15 @@ import {
   Pencil,
   Plus,
   Zap,
+  type LucideIcon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { ToolCallDisplay } from '@/stores/agent-store';
 
-interface ToolCallCardProps {
-  toolCall: ToolCallDisplay;
-}
+// ─── Icon mapping ─────────────────────────────────────────────────────────────
 
-// Icon mapping for common tool names
-const TOOL_ICONS: Record<string, typeof Wrench> = {
+const TOOL_ICONS: Record<string, LucideIcon> = {
   read_file: FileText,
   write_file: Plus,
   create_file: Plus,
@@ -39,15 +37,12 @@ const TOOL_ICONS: Record<string, typeof Wrench> = {
   list_skills: Zap,
 };
 
-const STATUS_CONFIG = {
-  pending: { icon: Clock, color: 'text-yellow-400/70', bg: 'bg-yellow-400/5', label: 'Pending' },
-  approved: { icon: Check, color: 'text-blue-400/70', bg: 'bg-blue-400/5', label: 'Approved' },
-  running: { icon: Loader2, color: 'text-accent', bg: 'bg-accent/5', label: 'Running', animate: true },
-  success: { icon: Check, color: 'text-green-400/70', bg: 'bg-green-400/5', label: 'Done' },
-  error: { icon: X, color: 'text-red-400/70', bg: 'bg-red-400/5', label: 'Failed' },
-} as const;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Extract a short summary from tool input for inline preview */
+function getToolLabel(name: string): string {
+  return name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function getToolSummary(name: string, input: Record<string, unknown>): string {
   const path = input.path as string | undefined;
   if (path) {
@@ -55,104 +50,172 @@ function getToolSummary(name: string, input: Record<string, unknown>): string {
     if (name === 'read_file') {
       const start = input.start_line as number | undefined;
       const end = input.end_line as number | undefined;
-      if (start && end) return `${short} (L${start}-${end})`;
+      if (start && end) return `${short} L${start}-${end}`;
       return short;
     }
     return short;
   }
   const query = input.query as string | undefined;
-  if (query) return query.length > 40 ? query.slice(0, 40) + '...' : query;
+  if (query) return query.length > 50 ? query.slice(0, 50) + '…' : query;
   const command = input.command as string | undefined;
-  if (command) return command.length > 40 ? command.slice(0, 40) + '...' : command;
+  if (command) return command.length > 50 ? command.slice(0, 50) + '…' : command;
   return '';
+}
+
+// ─── Single tool call line (used inside ToolCallGroup) ────────────────────────
+
+interface ToolCallCardProps {
+  toolCall: ToolCallDisplay;
 }
 
 export function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const config = STATUS_CONFIG[toolCall.status];
-  const StatusIcon = config.icon;
   const ToolIcon = TOOL_ICONS[toolCall.name] ?? Wrench;
-
-  const duration =
-    toolCall.startedAt && toolCall.completedAt
-      ? `${((toolCall.completedAt - toolCall.startedAt) / 1000).toFixed(1)}s`
-      : null;
-
   const summary = getToolSummary(toolCall.name, toolCall.input);
 
+  const isRunning = toolCall.status === 'running';
+  const isFailed = toolCall.status === 'error';
+  const isDone = toolCall.status === 'success';
+
   return (
-    <div className={cn(
-      'rounded-md border border-border/30 transition-colors',
-      config.bg,
-    )}>
-      {/* Header — compact inline */}
+    <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
+        className="group/tc flex w-full items-center gap-1.5 rounded px-1.5 py-[3px] text-left transition-colors hover:bg-white/[0.03]"
       >
-        {expanded ? (
-          <ChevronDown className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+        {/* Status indicator */}
+        {isRunning ? (
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent/70" />
+        ) : isDone ? (
+          <Check className="h-3 w-3 shrink-0 text-green-400/60" />
+        ) : isFailed ? (
+          <X className="h-3 w-3 shrink-0 text-red-400/60" />
         ) : (
-          <ChevronRight className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+          <Clock className="h-3 w-3 shrink-0 text-yellow-400/50" />
         )}
 
-        <ToolIcon className="h-3 w-3 shrink-0 text-muted-foreground/60" />
-
-        <span className="text-[10.5px] font-medium text-foreground/80">
-          {toolCall.name}
+        {/* Tool icon + name */}
+        <ToolIcon className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+        <span className={cn(
+          'text-[11px]',
+          isFailed ? 'text-red-400/80' : 'text-foreground/70',
+        )}>
+          {getToolLabel(toolCall.name)}
         </span>
 
         {/* Inline summary */}
         {summary && (
-          <span className="ml-1 truncate text-[10px] text-muted-foreground/50 font-mono">
+          <span className="ml-0.5 truncate font-mono text-[10px] text-muted-foreground/40">
             {summary}
           </span>
         )}
 
-        <div className="ml-auto flex items-center gap-1.5">
-          {duration && (
-            <span className="text-[9px] tabular-nums text-muted-foreground/50">{duration}</span>
+        {/* Expand chevron on hover */}
+        <div className="ml-auto opacity-0 transition-opacity group-hover/tc:opacity-100">
+          {expanded ? (
+            <ChevronDown className="h-2.5 w-2.5 text-muted-foreground/40" />
+          ) : (
+            <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/40" />
           )}
-          <StatusIcon
-            className={cn(
-              'h-3 w-3 shrink-0',
-              config.color,
-              'animate' in config && config.animate ? 'animate-spin' : '',
-            )}
-          />
         </div>
       </button>
 
-      {/* Expandable details */}
+      {/* Expandable detail panel */}
       {expanded && (
-        <div className="border-t border-border/20 px-2.5 py-2 text-[10px]">
-          {/* Input */}
-          <div className="mb-1.5">
-            <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">Input</span>
-            <pre className="mt-0.5 overflow-x-auto rounded bg-[#0d1117] p-2 font-mono text-[10px] leading-relaxed text-foreground/70">
+        <div className="ml-[18px] mt-0.5 mb-1 rounded border border-border/20 bg-[#0d1117]/60 px-2.5 py-2 text-[10px]">
+          <div className="mb-1">
+            <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/50">Input</span>
+            <pre className="mt-0.5 overflow-x-auto rounded bg-[#0d1117] p-2 font-mono text-[10px] leading-relaxed text-foreground/60">
               {JSON.stringify(toolCall.input, null, 2)}
             </pre>
           </div>
-
-          {/* Output */}
           {toolCall.output && (
             <div>
-              <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">Output</span>
-              <pre className="mt-0.5 max-h-40 overflow-auto rounded bg-[#0d1117] p-2 font-mono text-[10px] leading-relaxed text-foreground/70">
+              <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/50">Output</span>
+              <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-[#0d1117] p-2 font-mono text-[10px] leading-relaxed text-foreground/60">
                 {toolCall.output}
               </pre>
             </div>
           )}
-
-          {/* Error */}
           {toolCall.error && (
             <div>
-              <span className="text-[9px] font-medium uppercase tracking-wider text-red-400/80">Error</span>
-              <pre className="mt-0.5 overflow-x-auto rounded bg-red-950/20 p-2 font-mono text-[10px] leading-relaxed text-red-300/80">
+              <span className="text-[9px] font-medium uppercase tracking-wider text-red-400/70">Error</span>
+              <pre className="mt-0.5 overflow-x-auto rounded bg-red-950/20 p-2 font-mono text-[10px] leading-relaxed text-red-300/70">
                 {toolCall.error}
               </pre>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tool Call Group (collapsible "Used N tools") ─────────────────────────────
+
+interface ToolCallGroupProps {
+  toolCalls: ToolCallDisplay[];
+}
+
+export function ToolCallGroup({ toolCalls }: ToolCallGroupProps) {
+  const [expanded, setExpanded] = useState(true);
+
+  const doneCount = toolCalls.filter((tc) => tc.status === 'success').length;
+  const errorCount = toolCalls.filter((tc) => tc.status === 'error').length;
+  const runningCount = toolCalls.filter((tc) => tc.status === 'running').length;
+  const total = toolCalls.length;
+  const allDone = doneCount + errorCount === total && runningCount === 0;
+
+  // Build status label
+  let statusLabel: string;
+  if (runningCount > 0) {
+    statusLabel = `Running ${runningCount} tool${runningCount > 1 ? 's' : ''}…`;
+  } else if (allDone) {
+    statusLabel = `Used ${total} tool${total > 1 ? 's' : ''}`;
+  } else {
+    statusLabel = `${doneCount}/${total} tools`;
+  }
+
+  return (
+    <div className="my-1.5 rounded-md border border-border/20 bg-[#0d1117]/30">
+      {/* Group header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-white/[0.02]"
+      >
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+        )}
+
+        {/* Status icon */}
+        {runningCount > 0 ? (
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-accent/70" />
+        ) : allDone && errorCount === 0 ? (
+          <Check className="h-3 w-3 shrink-0 text-green-400/60" />
+        ) : allDone && errorCount > 0 ? (
+          <X className="h-3 w-3 shrink-0 text-red-400/60" />
+        ) : (
+          <Wrench className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+        )}
+
+        <span className="text-[11px] text-muted-foreground/70">{statusLabel}</span>
+
+        {/* Error badge */}
+        {errorCount > 0 && (
+          <span className="rounded-full bg-red-500/10 px-1.5 py-0.5 text-[9px] text-red-400/80">
+            {errorCount} failed
+          </span>
+        )}
+      </button>
+
+      {/* Tool list */}
+      {expanded && (
+        <div className="border-t border-border/15 px-1 py-0.5">
+          {toolCalls.map((tc) => (
+            <ToolCallCard key={tc.id} toolCall={tc} />
+          ))}
         </div>
       )}
     </div>
