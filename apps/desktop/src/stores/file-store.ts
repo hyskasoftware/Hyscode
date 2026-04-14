@@ -24,6 +24,7 @@ interface FileState {
   loadDirectory: (path: string) => Promise<FileNode[]>;
   openFolder: (path: string) => Promise<void>;
   expandDirectory: (path: string) => Promise<void>;
+  closeFolder: () => void;
 }
 
 function entriesToNodes(entries: { name: string; path: string; is_dir: boolean; size: number }[]): FileNode[] {
@@ -94,6 +95,13 @@ export const useFileStore = create<FileState>()(
         state.tree = nodes;
       });
     },
+
+    closeFolder: () =>
+      set((state) => {
+        state.rootPath = null;
+        state.tree = [];
+        state.fileCache.clear();
+      }),
 
     expandDirectory: async (path) => {
       // Mark loading

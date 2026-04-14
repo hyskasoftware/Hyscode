@@ -8,11 +8,12 @@ import { WelcomePage } from './components/welcome';
 import { SettingsModal } from './components/settings';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from './components/ui/tooltip';
-import { useProjectStore, useFileStore, useSettingsStore } from './stores';
+import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
 import { useEffect, useRef } from 'react';
-import { pickFolder } from './lib/tauri-dialog';
+import { pickFolder, pickFile } from './lib/tauri-dialog';
 import { initProviders } from './lib/init-providers';
 import { HarnessBridge } from './lib/harness-bridge';
+import { getViewerType } from './lib/utils';
 
 // ── Theme effect — applies CSS class on <html> whenever themeId changes ──────
 const LIGHT_THEMES = new Set(['hyscode-light']);
@@ -131,47 +132,105 @@ function IDE() {
 export function App() {
   const rootPath = useProjectStore((s) => s.rootPath);
   const openProject = useProjectStore((s) => s.openProject);
+  const closeProject = useProjectStore((s) => s.closeProject);
   const openFolder = useFileStore((s) => s.openFolder);
+  const closeFolder = useFileStore((s) => s.closeFolder);
+  const openUntitled = useEditorStore((s) => s.openUntitled);
+  const openTab = useEditorStore((s) => s.openTab);
+  const closeTab = useEditorStore((s) => s.closeTab);
 
   // Initialize AI providers on app startup (once)
   useEffect(() => {
     initProviders().catch(console.error);
   }, []);
 
-  // Initialize AI providers on app startup (once)
+  // Global keyboard shortcuts
   useEffect(() => {
-    initProviders().catch(console.error);
-  }, []);
-
-  // Global keyboard shortcut: Ctrl+K Ctrl+O to open folder
-  useEffect(() => {
-    let waitingForO = false;
+    let waitingForSecond: string | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
+    const clearChord = () => {
+      waitingForSecond = null;
+      if (timer) { clearTimeout(timer); timer = null; }
+    };
+
     const handler = async (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      const ctrl = e.ctrlKey || e.metaKey;
+
+      // ── Ctrl+K chord sequences ──
+      if (ctrl && e.key === 'k') {
         e.preventDefault();
-        waitingForO = true;
-        timer = setTimeout(() => {
-          waitingForO = false;
-        }, 1000);
-      } else if (waitingForO && (e.ctrlKey || e.metaKey) && e.key === 'o') {
-        e.preventDefault();
-        waitingForO = false;
-        if (timer) clearTimeout(timer);
-        const path = await pickFolder();
-        if (path) {
-          openProject(path);
-          await openFolder(path);
+        waitingForSecond = 'k';
+        timer = setTimeout(clearChord, 1000);
+        return;
+      }
+
+      if (waitingForSecond === 'k' && ctrl) {
+        if (e.key === 'o') {
+          // Ctrl+K Ctrl+O → Open Folder
+          e.preventDefault();
+          clearChord();
+          const path = await pickFolder();
+          if (path) {
+            openProject(path);
+            await openFolder(path);
+          }
+          return;
         }
-      } else {
-        waitingForO = false;
+        if (e.key === 'f') {
+          // Ctrl+K F → Close Folder
+          e.preventDefault();
+          clearChord();
+          closeProject();
+          closeFolder();
+          return;
+        }
+      }
+
+      // Reset chord if a non-chord key was pressed
+      if (waitingForSecond) {
+        clearChord();
+      }
+
+      // ── Single key shortcuts ──
+      if (ctrl && e.key === 'n') {
+        // Ctrl+N → New untitled file
+        e.preventDefault();
+        openUntitled();
+        return;
+      }
+
+      if (ctrl && e.key === 'o' && !e.shiftKey) {
+        // Ctrl+O → Open file
+        e.preventDefault();
+        const path = await pickFile();
+        if (path) {
+          const sep = path.includes('/') ? '/' : '\\';
+          const fileName = path.split(sep).pop() ?? 'file';
+          const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+          openTab({
+            id: path,
+            filePath: path,
+            fileName,
+            language: ext || 'plaintext',
+            viewerType: getViewerType(fileName),
+          });
+        }
+        return;
+      }
+
+      if (e.key === 'F4' && ctrl) {
+        // Ctrl+F4 → Close active editor tab
+        e.preventDefault();
+        const activeId = useEditorStore.getState().activeTabId;
+        if (activeId) closeTab(activeId);
+        return;
       }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [openProject, openFolder]);
+  }, [openProject, openFolder, closeProject, closeFolder, openUntitled, openTab, closeTab]);
 
   return (
     <TooltipProvider>

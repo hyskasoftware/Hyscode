@@ -16,6 +16,7 @@ import {
 import { useEditorStore, useFileStore, useSettingsStore } from '../../stores';
 import { useAgentStore } from '../../stores/agent-store';
 import { tauriFs } from '../../lib/tauri-fs';
+import { saveFileDialog } from '../../lib/tauri-dialog';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
 import type * as monacoEditor from 'monaco-editor';
 
@@ -85,6 +86,14 @@ export function EditorArea() {
       return;
     }
 
+    // Untitled files start with empty content — no disk read
+    if (activeTab.filePath.startsWith('untitled:')) {
+      const cached = fileCache.get(activeTab.filePath) ?? '';
+      setContent(cached);
+      contentRef.current = cached;
+      return;
+    }
+
     const cached = fileCache.get(activeTab.filePath);
     if (cached !== undefined) {
       setContent(cached);
@@ -137,6 +146,20 @@ export function EditorArea() {
         if (!activeTab || !isTextViewer) return;
         const currentContent = contentRef.current;
         if (currentContent === null) return;
+
+        // Untitled files → prompt Save As dialog
+        if (activeTab.filePath.startsWith('untitled:')) {
+          const path = await saveFileDialog(activeTab.fileName);
+          if (!path) return;
+          try {
+            await tauriFs.writeFile(path, currentContent);
+            markDirty(activeTab.id, false);
+          } catch (err) {
+            console.error('Failed to save file:', err);
+          }
+          return;
+        }
+
         try {
           await tauriFs.writeFile(activeTab.filePath, currentContent);
           markDirty(activeTab.id, false);
@@ -147,7 +170,7 @@ export function EditorArea() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activeTab?.id, activeTab?.filePath, markDirty]);
+  }, [activeTab?.id, activeTab?.filePath, activeTab?.fileName, markDirty]);
 
   const hasOpenTabs = tabs.length > 0;
 

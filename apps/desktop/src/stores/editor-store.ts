@@ -19,10 +19,13 @@ export interface Tab {
   };
 }
 
+let untitledCounter = 0;
+
 interface EditorState {
   tabs: Tab[];
   activeTabId: string | null;
   openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview' | 'type' | 'diffProps' | 'viewerType' | 'markdownMode'> & { type?: Tab['type']; diffProps?: Tab['diffProps']; viewerType?: ViewerType; markdownMode?: Tab['markdownMode'] }) => void;
+  openUntitled: () => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   markDirty: (id: string, dirty: boolean) => void;
@@ -60,6 +63,26 @@ export const useEditorStore = create<EditorState>()(
           state.tabs.push(newTab);
         }
         state.activeTabId = tab.id;
+      }),
+
+    openUntitled: () =>
+      set((state) => {
+        untitledCounter++;
+        const name = `Untitled-${untitledCounter}`;
+        const id = `untitled:${untitledCounter}`;
+        const newTab: Tab = {
+          id,
+          filePath: id,
+          fileName: name,
+          language: 'plaintext',
+          isDirty: false,
+          isPinned: false,
+          isPreview: false,
+          type: 'file',
+          viewerType: 'code',
+        };
+        state.tabs.push(newTab);
+        state.activeTabId = id;
       }),
 
     closeTab: (id) =>
