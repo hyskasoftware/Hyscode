@@ -1,7 +1,8 @@
-import { X, Circle, GitCompare, Wand2 } from 'lucide-react';
+import { X, Circle, GitCompare, Wand2, Loader2 } from 'lucide-react';
 import { useEditorStore } from '../../stores';
 import { useAgentStore } from '../../stores/agent-store';
 import { useShallow } from 'zustand/shallow';
+import type { AgentEditPhase } from '../../stores/agent-store';
 
 export function EditorTabs() {
   const tabs = useEditorStore((s) => s.tabs);
@@ -9,15 +10,18 @@ export function EditorTabs() {
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const closeTab = useEditorStore((s) => s.closeTab);
 
-  // useShallow performs array-content comparison so this selector is stable
-  const pendingPathsArray = useAgentStore(
-    useShallow((s) =>
-      s.pendingFileChanges
-        .filter((c) => c.status === 'pending')
-        .map((c) => c.filePath),
-    ),
+  // Map filePath → phase for active edit sessions
+  const editPhaseMap = useAgentStore(
+    useShallow((s) => {
+      const map: Record<string, AgentEditPhase> = {};
+      for (const es of s.agentEditSessions) {
+        if (es.phase === 'streaming' || es.phase === 'pending_review') {
+          map[es.filePath] = es.phase;
+        }
+      }
+      return map;
+    }),
   );
-  const pendingPaths = new Set(pendingPathsArray);
 
   if (tabs.length === 0) return null;
 
@@ -26,7 +30,9 @@ export function EditorTabs() {
       {tabs.map((tab) => {
         const isActive = activeTabId === tab.id;
         const isDiff = tab.type === 'diff';
-        const hasPendingChange = tab.filePath ? pendingPaths.has(tab.filePath) : false;
+        const editPhase = tab.filePath ? editPhaseMap[tab.filePath] : undefined;
+        const isStreaming = editPhase === 'streaming';
+        const isPendingReview = editPhase === 'pending_review';
         return (
           <div
             key={tab.id}
@@ -38,8 +44,11 @@ export function EditorTabs() {
             onClick={() => setActiveTab(tab.id)}
           >
             {isDiff && <GitCompare className="h-3 w-3 shrink-0 text-accent" />}
-            {hasPendingChange && !isDiff && (
-              <Wand2 className="h-3 w-3 shrink-0 text-amber-400" />
+            {isStreaming && !isDiff && (
+              <Loader2 className="h-3 w-3 shrink-0 text-purple-400 animate-spin" />
+            )}
+            {isPendingReview && !isDiff && (
+              <Wand2 className="h-3 w-3 shrink-0 text-purple-400" />
             )}
             <span className="truncate max-w-[120px]">{tab.fileName}</span>
             {tab.isDirty && (

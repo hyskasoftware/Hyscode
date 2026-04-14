@@ -7,6 +7,7 @@ import { SddStepper } from './sdd/sdd-stepper';
 import { SddSpecReview } from './sdd/sdd-spec-review';
 import { SddTaskList } from './sdd/sdd-task-list';
 import { AgentTaskList } from './agent-task-list';
+import { AgentChangedFiles } from './agent-changed-files';
 import { useAgentStore } from '@/stores/agent-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { Button } from '@/components/ui/button';
@@ -122,6 +123,9 @@ export function AgentPanel() {
 
           {/* Messages */}
           <AgentMessages />
+
+          {/* Changed files summary (above input) */}
+          <AgentChangedFiles />
 
           {/* Input + selectors at the bottom */}
           <AgentInput />

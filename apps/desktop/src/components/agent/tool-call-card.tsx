@@ -16,7 +16,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, memo, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import type { ToolCallDisplay } from '@/stores/agent-store';
 
@@ -157,14 +157,16 @@ interface ToolCallGroupProps {
   toolCalls: ToolCallDisplay[];
 }
 
-export function ToolCallGroup({ toolCalls }: ToolCallGroupProps) {
+export const ToolCallGroup = memo(function ToolCallGroup({ toolCalls }: ToolCallGroupProps) {
   const [expanded, setExpanded] = useState(true);
 
-  const doneCount = toolCalls.filter((tc) => tc.status === 'success').length;
-  const errorCount = toolCalls.filter((tc) => tc.status === 'error').length;
-  const runningCount = toolCalls.filter((tc) => tc.status === 'running').length;
-  const total = toolCalls.length;
-  const allDone = doneCount + errorCount === total && runningCount === 0;
+  const { doneCount, errorCount, runningCount, total, allDone } = useMemo(() => {
+    const done = toolCalls.filter((tc) => tc.status === 'success').length;
+    const err = toolCalls.filter((tc) => tc.status === 'error').length;
+    const running = toolCalls.filter((tc) => tc.status === 'running').length;
+    const t = toolCalls.length;
+    return { doneCount: done, errorCount: err, runningCount: running, total: t, allDone: done + err === t && running === 0 };
+  }, [toolCalls]);
 
   // Build status label
   let statusLabel: string;
@@ -220,4 +222,4 @@ export function ToolCallGroup({ toolCalls }: ToolCallGroupProps) {
       )}
     </div>
   );
-}
+});

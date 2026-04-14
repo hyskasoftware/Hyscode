@@ -22,7 +22,9 @@ import { McpBridge } from './mcp-bridge';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useSkillsStore } from '@/stores/skills-store';
-import type { ToolCallDisplay, PendingApproval } from '@/stores/agent-store';
+import { useFileStore } from '@/stores/file-store';
+import type { ToolCallDisplay, PendingApproval, AgentEditSession } from '@/stores/agent-store';
+import { computeDiffHunks } from './compute-diff';
 
 // ─── Singleton ──────────────────────────────────────────────────────────────
 
@@ -324,6 +326,69 @@ export class HarnessBridge {
     store.resolveAllPendingFileChanges(accepted);
   }
 
+  /** Accept or revert a single agent edit session */
+  async resolveEditSession(id: string, accepted: boolean): Promise<void> {
+    const store = useAgentStore.getState();
+    const session = store.agentEditSessions.find(
+      (s) => s.id === id && (s.phase === 'streaming' || s.phase === 'pending_review'),
+    );
+    if (!session) return;
+
+    if (!accepted) {
+      try {
+        if (session.originalContent === null) {
+          await tauriFs.deletePath(session.filePath);
+        } else {
+          await tauriFs.writeFile(session.filePath, session.originalContent);
+        }
+      } catch (err) {
+        console.warn('[HarnessBridge] Failed to revert edit session:', err);
+      }
+      // Sync file cache: revert to original or remove entry
+      const fileStore = useFileStore.getState();
+      if (session.originalContent !== null) {
+        fileStore.setFileContent(session.filePath, session.originalContent);
+      }
+    }
+
+    store.resolveEditSession(id, accepted);
+
+    // Also resolve legacy pending file change for the same file
+    const legacy = store.pendingFileChanges.find(
+      (c) => c.filePath === session.filePath && c.status === 'pending',
+    );
+    if (legacy) {
+      store.resolvePendingFileChange(legacy.id, accepted);
+    }
+  }
+
+  /** Accept or revert ALL active agent edit sessions */
+  async resolveAllEditSessions(accepted: boolean): Promise<void> {
+    const store = useAgentStore.getState();
+    const active = store.agentEditSessions.filter(
+      (s) => s.phase === 'streaming' || s.phase === 'pending_review',
+    );
+
+    if (!accepted) {
+      const fileStore = useFileStore.getState();
+      for (const session of active) {
+        try {
+          if (session.originalContent === null) {
+            await tauriFs.deletePath(session.filePath);
+          } else {
+            await tauriFs.writeFile(session.filePath, session.originalContent);
+            fileStore.setFileContent(session.filePath, session.originalContent);
+          }
+        } catch (err) {
+          console.warn('[HarnessBridge] Failed to revert edit session:', err);
+        }
+      }
+    }
+
+    store.resolveAllEditSessions(accepted);
+    store.resolveAllPendingFileChanges(accepted);
+  }
+
   /** Sync conversation ID when restoring a previous session */
   restoreSession(conversationId: string): void {
     this.harness.setConversationId(conversationId);
@@ -437,7 +502,9 @@ export class HarnessBridge {
         const chunk = event.chunk;
         if (chunk.type === 'text_delta') {
           store.appendStreamingText(chunk.text);
-          store.updateLastAssistantContent(store.streamingText + chunk.text);
+        }
+        if (chunk.type === 'thinking_delta') {
+          store.appendThinkingText(chunk.text);
         }
         if (chunk.type === 'usage') {
           store.setTokenUsage({
@@ -551,6 +618,10 @@ export class HarnessBridge {
 
       case 'file_change_pending': {
         const c = event.change;
+        const isNewFile = c.originalContent === null;
+        const hunks = computeDiffHunks(c.originalContent, c.newContent);
+
+        // Legacy pendingFileChanges (backward compat)
         store.addPendingFileChange({
           id: crypto.randomUUID(),
           filePath: c.filePath,
@@ -560,6 +631,46 @@ export class HarnessBridge {
           newContent: c.newContent,
           status: 'pending',
         });
+
+        // New session-based tracking
+        const settings = useSettingsStore.getState();
+        const initialPhase = settings.approvalMode === 'yolo' ? 'streaming' : 'streaming';
+        const session: AgentEditSession = {
+          id: crypto.randomUUID(),
+          filePath: c.filePath,
+          toolName: c.toolName,
+          toolCallId: c.toolCallId,
+          originalContent: c.originalContent,
+          newContent: c.newContent,
+          phase: initialPhase,
+          isNewFile,
+          hunks,
+          createdAt: Date.now(),
+        };
+        store.upsertEditSession(session);
+
+        // Transition to pending_review (in the first cut, the "streaming" phase
+        // is instantaneous since we get the full payload at once)
+        // Use a microtask so the UI renders the streaming state briefly
+        queueMicrotask(() => {
+          const s = useAgentStore.getState();
+          const live = s.agentEditSessions.find(
+            (es) => es.filePath === c.filePath && es.phase === 'streaming',
+          );
+          if (live) {
+            if (settings.approvalMode === 'yolo') {
+              // Auto-accept: go straight to accepted
+              s.resolveEditSession(live.id, true);
+            } else {
+              // manual / custom → pending_review
+              useAgentStore.setState((draft) => {
+                const target = draft.agentEditSessions.find((es) => es.id === live.id);
+                if (target) target.phase = 'pending_review';
+              });
+            }
+          }
+        });
+
         break;
       }
     }

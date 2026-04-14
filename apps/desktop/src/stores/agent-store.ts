@@ -23,6 +23,7 @@ export interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
+  thinking?: string;
   toolCalls?: ToolCallDisplay[];
   timestamp: number;
 }
@@ -42,6 +43,7 @@ export interface TokenUsage {
 
 export type FileChangeStatus = 'pending' | 'accepted' | 'rejected';
 
+/** @deprecated Use AgentEditSession instead */
 export interface PendingFileChange {
   id: string;
   filePath: string;
@@ -51,6 +53,39 @@ export interface PendingFileChange {
   originalContent: string | null;
   newContent: string;
   status: FileChangeStatus;
+}
+
+// ─── Agent Edit Session ─────────────────────────────────────────────────────
+
+export type AgentEditPhase = 'streaming' | 'pending_review' | 'accepted' | 'rejected';
+
+export interface DiffHunk {
+  type: 'add' | 'modify' | 'delete';
+  /** 1-based start line in the new content */
+  newStart: number;
+  newLines: number;
+  /** 1-based start line in the original content */
+  oldStart: number;
+  oldLines: number;
+}
+
+export interface AgentEditSession {
+  id: string;
+  filePath: string;
+  toolName: string;
+  toolCallId: string;
+  /** null when the file was newly created */
+  originalContent: string | null;
+  /** Content as it should appear after the edit */
+  newContent: string;
+  /** Current phase of the edit lifecycle */
+  phase: AgentEditPhase;
+  /** true if the file did not exist before this edit */
+  isNewFile: boolean;
+  /** Precomputed diff hunks for decoration */
+  hunks: DiffHunk[];
+  /** Timestamp of creation */
+  createdAt: number;
 }
 
 export interface SessionSummary {
@@ -81,6 +116,8 @@ interface AgentState {
 
   // Agent file changes (write-through with visual tracking)
   pendingFileChanges: PendingFileChange[];
+  /** New session-based agent edit tracking */
+  agentEditSessions: AgentEditSession[];
 
   // SDD (Spec-Driven Development)
   sddPhase: SddStatus | null;
@@ -115,6 +152,7 @@ interface AgentState {
   addMessage: (message: ChatMessage) => void;
   updateLastAssistantContent: (content: string) => void;
   appendStreamingText: (text: string) => void;
+  appendThinkingText: (text: string) => void;
   flushStreamingText: () => void;
   setStreaming: (streaming: boolean) => void;
   addContextFile: (path: string) => void;
@@ -133,6 +171,11 @@ interface AgentState {
   addPendingFileChange: (change: PendingFileChange) => void;
   resolvePendingFileChange: (id: string, accepted: boolean) => void;
   resolveAllPendingFileChanges: (accepted: boolean) => void;
+
+  // Agent edit sessions
+  upsertEditSession: (session: AgentEditSession) => void;
+  resolveEditSession: (id: string, accepted: boolean) => void;
+  resolveAllEditSessions: (accepted: boolean) => void;
 
   // SDD
   setSddPhase: (phase: SddStatus | null) => void;
@@ -167,6 +210,7 @@ export const useAgentStore = create<AgentState>()(
     pendingToolCalls: [],
     pendingApprovals: [],
     pendingFileChanges: [],
+    agentEditSessions: [],
     contextFiles: [],
     sddPhase: null,
     sddSpec: null,
@@ -215,6 +259,20 @@ export const useAgentStore = create<AgentState>()(
     appendStreamingText: (text) =>
       set((state) => {
         state.streamingText += text;
+        // Also update the last assistant message content in the same mutation
+        // to avoid a second set() call per token
+        const last = state.messages[state.messages.length - 1];
+        if (last?.role === 'assistant') {
+          last.content = state.streamingText;
+        }
+      }),
+
+    appendThinkingText: (text) =>
+      set((state) => {
+        const last = state.messages[state.messages.length - 1];
+        if (last?.role === 'assistant') {
+          last.thinking = (last.thinking ?? '') + text;
+        }
       }),
 
     flushStreamingText: () =>
@@ -261,6 +319,7 @@ export const useAgentStore = create<AgentState>()(
         state.pendingToolCalls = [];
         state.pendingApprovals = [];
         state.pendingFileChanges = [];
+        state.agentEditSessions = [];
         state.contextFiles = [];
         state.streamingText = '';
         state.sddPhase = null;
@@ -335,6 +394,41 @@ export const useAgentStore = create<AgentState>()(
         for (const change of state.pendingFileChanges) {
           if (change.status === 'pending') {
             change.status = accepted ? 'accepted' : 'rejected';
+          }
+        }
+      }),
+
+    // ─── Agent Edit Sessions ─────────────────────────────────────────
+
+    upsertEditSession: (session) =>
+      set((state) => {
+        const existing = state.agentEditSessions.find(
+          (s) =>
+            s.filePath === session.filePath &&
+            (s.phase === 'streaming' || s.phase === 'pending_review'),
+        );
+        if (existing) {
+          existing.newContent = session.newContent;
+          existing.toolCallId = session.toolCallId;
+          existing.hunks = session.hunks;
+        } else {
+          state.agentEditSessions.push(session);
+        }
+      }),
+
+    resolveEditSession: (id, accepted) =>
+      set((state) => {
+        const session = state.agentEditSessions.find((s) => s.id === id);
+        if (session) {
+          session.phase = accepted ? 'accepted' : 'rejected';
+        }
+      }),
+
+    resolveAllEditSessions: (accepted) =>
+      set((state) => {
+        for (const session of state.agentEditSessions) {
+          if (session.phase === 'streaming' || session.phase === 'pending_review') {
+            session.phase = accepted ? 'accepted' : 'rejected';
           }
         }
       }),

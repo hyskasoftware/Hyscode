@@ -56,6 +56,7 @@ export interface TokenUsage {
 
 export type StreamChunk =
   | { type: 'text_delta'; text: string }
+  | { type: 'thinking_delta'; text: string }
   | { type: 'tool_call_start'; id: string; name: string }
   | { type: 'tool_call_delta'; id: string; input: string }
   | { type: 'tool_call_end'; id: string }

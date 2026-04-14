@@ -275,6 +275,9 @@ export class Harness {
             case 'text_delta':
               assistantText += chunk.text;
               break;
+            case 'thinking_delta':
+              // Thinking text is emitted for UI display only — not added to assistantText
+              break;
             case 'tool_call_start':
               toolCalls.push({
                 id: chunk.id,

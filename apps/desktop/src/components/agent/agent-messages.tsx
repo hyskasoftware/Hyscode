@@ -1,5 +1,5 @@
-import { Sparkles, User, Bot, ChevronDown, ChevronRight, Bug, Copy, Check } from 'lucide-react';
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { Sparkles, User, Bot, ChevronDown, ChevronRight, Bug, Copy, Check, Brain } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -8,6 +8,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { ToolCallGroup } from './tool-call-card';
 import { ApprovalDialog } from './approval-dialog';
 import { cn } from '@/lib/utils';
+import type { ChatMessage } from '@/stores/agent-store';
 
 // ─── Code Block with Copy Button ─────────────────────────────────────────────
 
@@ -68,46 +69,95 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
 
 // ─── Markdown Renderer ────────────────────────────────────────────────────────
 
-function MarkdownContent({ content }: { content: string }) {
+// Stable components object — allocated once, never recreated
+const MARKDOWN_COMPONENTS = {
+  code: CodeBlock as any,
+  pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  p: ({ children }: { children?: React.ReactNode }) => <p className="my-1.5">{children}</p>,
+  ul: ({ children }: { children?: React.ReactNode }) => <ul className="my-1.5 ml-4 list-disc space-y-0.5">{children}</ul>,
+  ol: ({ children }: { children?: React.ReactNode }) => <ol className="my-1.5 ml-4 list-decimal space-y-0.5">{children}</ol>,
+  li: ({ children }: { children?: React.ReactNode }) => <li className="text-foreground/85">{children}</li>,
+  h1: ({ children }: { children?: React.ReactNode }) => <h1 className="mb-2 mt-4 text-[15px] font-semibold text-foreground">{children}</h1>,
+  h2: ({ children }: { children?: React.ReactNode }) => <h2 className="mb-1.5 mt-3 text-[14px] font-semibold text-foreground">{children}</h2>,
+  h3: ({ children }: { children?: React.ReactNode }) => <h3 className="mb-1 mt-2.5 text-[13px] font-semibold text-foreground">{children}</h3>,
+  strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-foreground">{children}</strong>,
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+    <a href={href} className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  ),
+  blockquote: ({ children }: { children?: React.ReactNode }) => (
+    <blockquote className="my-2 border-l-2 border-accent/40 pl-3 text-muted-foreground italic">{children}</blockquote>
+  ),
+  table: ({ children }: { children?: React.ReactNode }) => (
+    <div className="my-2 overflow-x-auto rounded-md border border-border/40">
+      <table className="w-full text-[11px]">{children}</table>
+    </div>
+  ),
+  th: ({ children }: { children?: React.ReactNode }) => <th className="border-b border-border/40 bg-surface-raised px-3 py-1.5 text-left font-medium text-foreground">{children}</th>,
+  td: ({ children }: { children?: React.ReactNode }) => <td className="border-b border-border/20 px-3 py-1.5 text-foreground/80">{children}</td>,
+  hr: () => <hr className="my-3 border-border/30" />,
+};
+
+const REMARK_PLUGINS = [remarkGfm];
+const REHYPE_PLUGINS = [rehypeHighlight];
+
+const MarkdownContent = memo(function MarkdownContent({ content }: { content: string }) {
   return (
     <div className="agent-markdown text-[12.5px] leading-[1.7] text-foreground/90">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
-        components={{
-          code: CodeBlock as any,
-          pre: ({ children }) => <>{children}</>,
-          p: ({ children }) => <p className="my-1.5">{children}</p>,
-          ul: ({ children }) => <ul className="my-1.5 ml-4 list-disc space-y-0.5">{children}</ul>,
-          ol: ({ children }) => <ol className="my-1.5 ml-4 list-decimal space-y-0.5">{children}</ol>,
-          li: ({ children }) => <li className="text-foreground/85">{children}</li>,
-          h1: ({ children }) => <h1 className="mb-2 mt-4 text-[15px] font-semibold text-foreground">{children}</h1>,
-          h2: ({ children }) => <h2 className="mb-1.5 mt-3 text-[14px] font-semibold text-foreground">{children}</h2>,
-          h3: ({ children }) => <h3 className="mb-1 mt-2.5 text-[13px] font-semibold text-foreground">{children}</h3>,
-          strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-          a: ({ href, children }) => (
-            <a href={href} className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" target="_blank" rel="noopener noreferrer">
-              {children}
-            </a>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className="my-2 border-l-2 border-accent/40 pl-3 text-muted-foreground italic">{children}</blockquote>
-          ),
-          table: ({ children }) => (
-            <div className="my-2 overflow-x-auto rounded-md border border-border/40">
-              <table className="w-full text-[11px]">{children}</table>
-            </div>
-          ),
-          th: ({ children }) => <th className="border-b border-border/40 bg-surface-raised px-3 py-1.5 text-left font-medium text-foreground">{children}</th>,
-          td: ({ children }) => <td className="border-b border-border/20 px-3 py-1.5 text-foreground/80">{children}</td>,
-          hr: () => <hr className="my-3 border-border/30" />,
-        }}
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={REHYPE_PLUGINS}
+        components={MARKDOWN_COMPONENTS}
       >
         {content}
       </ReactMarkdown>
     </div>
   );
-}
+});
+
+// ─── Thinking Block (collapsible) ─────────────────────────────────────────────
+
+const ThinkingBlock = memo(function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const lineCount = useMemo(() => content.split('\n').length, [content]);
+
+  return (
+    <div className="my-1.5 rounded-md border border-border/30 bg-[#161b22]/60 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
+      >
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+        )}
+        <Brain className="h-3 w-3 shrink-0 text-purple-400/70" />
+        <span className="text-[10px] font-medium text-purple-400/70">Thinking</span>
+        {isStreaming && (
+          <span className="ml-1 flex items-center gap-0.5">
+            <span className="h-1 w-1 animate-pulse rounded-full bg-purple-400/60" />
+            <span className="h-1 w-1 animate-pulse rounded-full bg-purple-400/60 [animation-delay:150ms]" />
+            <span className="h-1 w-1 animate-pulse rounded-full bg-purple-400/60 [animation-delay:300ms]" />
+          </span>
+        )}
+        {!isStreaming && (
+          <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/50">
+            {lineCount} lines
+          </span>
+        )}
+      </button>
+      {expanded && (
+        <div className="border-t border-border/20 px-3 py-2 max-h-[300px] overflow-y-auto">
+          <pre className="whitespace-pre-wrap text-[11px] leading-[1.6] text-muted-foreground/70 font-mono">
+            {content}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+});
 
 // ─── Streaming Cursor ─────────────────────────────────────────────────────────
 
@@ -124,9 +174,142 @@ function StreamingIndicator() {
   );
 }
 
+// ─── Memoized Message Item ────────────────────────────────────────────────────
+
+interface MessageItemProps {
+  msg: ChatMessage;
+  isConsecutiveAssistant: boolean;
+  showSeparator: boolean;
+  /** true only for the very last message when the agent is streaming */
+  isActivelyStreaming: boolean;
+}
+
+const MessageItem = memo(function MessageItem({
+  msg,
+  isConsecutiveAssistant,
+  showSeparator,
+  isActivelyStreaming,
+}: MessageItemProps) {
+  return (
+    <div className="group/msg">
+      {/* User message */}
+      {msg.role === 'user' && (
+        <div className="mb-3 mt-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
+              <User className="h-3 w-3 text-foreground/70" />
+            </div>
+            <span className="text-[11px] font-semibold text-foreground">You</span>
+          </div>
+          <div className="pl-7">
+            <MarkdownContent content={msg.content} />
+          </div>
+        </div>
+      )}
+
+      {/* Assistant message */}
+      {msg.role === 'assistant' && (
+        <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-1')}>
+          {!isConsecutiveAssistant && (
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15">
+                <Bot className="h-3 w-3 text-accent" />
+              </div>
+              <span className="text-[11px] font-semibold text-foreground">HysCode</span>
+            </div>
+          )}
+          <div className="pl-7">
+            {/* Thinking block (collapsible) */}
+            {msg.thinking && (
+              <ThinkingBlock
+                content={msg.thinking}
+                isStreaming={isActivelyStreaming && !msg.content}
+              />
+            )}
+
+            {/* Markdown content */}
+            {msg.content ? (
+              <MarkdownContent content={msg.content} />
+            ) : isActivelyStreaming ? (
+              <StreamingIndicator />
+            ) : null}
+
+            {/* Tool calls */}
+            {msg.toolCalls && msg.toolCalls.length > 0 && (
+              <ToolCallGroup toolCalls={msg.toolCalls} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {showSeparator && <div className="border-b border-border/20 my-2" />}
+    </div>
+  );
+});
+
+// ─── Debug Panel ──────────────────────────────────────────────────────────────
+
+const DebugPanel = memo(function DebugPanel({
+  lines,
+  expanded,
+  onToggle,
+}: {
+  lines: string[];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const debugBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (expanded) {
+      debugBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [lines.length, expanded]);
+
+  if (lines.length === 0) return null;
+
+  return (
+    <div className="mt-3 rounded-md border border-border/30 bg-[#0d1117]/60 text-[10px] font-mono">
+      <button
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-muted-foreground hover:text-foreground transition-colors"
+        onClick={onToggle}
+      >
+        {expanded ? (
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0" />
+        )}
+        <Bug className="h-3 w-3 shrink-0 text-yellow-500/60" />
+        <span className="text-yellow-500/60">Debug</span>
+        <span className="ml-auto rounded-full bg-muted/50 px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground">
+          {lines.length}
+        </span>
+      </button>
+      {expanded && (
+        <div className="max-h-[200px] overflow-y-auto border-t border-border/20 px-2.5 py-1.5">
+          {lines.map((line, i) => (
+            <div
+              key={i}
+              className={cn(
+                'leading-5',
+                line.includes('ERRO') ? 'text-red-400' : 'text-muted-foreground/70',
+              )}
+            >
+              {line}
+            </div>
+          ))}
+          <div ref={debugBottomRef} />
+        </div>
+      )}
+    </div>
+  );
+});
+
 // ─── Agent Messages ───────────────────────────────────────────────────────────
 
 export function AgentMessages() {
+  // Split selectors: messageCount + lastMessageId for knowing WHEN to re-render the list,
+  // but individual messages are read per-item via stable references.
   const messages = useAgentStore((s) => s.messages);
   const isStreaming = useAgentStore((s) => s.isStreaming);
   const pendingApprovals = useAgentStore((s) => s.pendingApprovals);
@@ -134,19 +317,20 @@ export function AgentMessages() {
   const debugExpanded = useAgentStore((s) => s.debugExpanded);
   const setDebugExpanded = useAgentStore((s) => s.setDebugExpanded);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const debugBottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll on new messages
+  const handleToggleDebug = useCallback(() => {
+    setDebugExpanded(!debugExpanded);
+  }, [debugExpanded, setDebugExpanded]);
+
+  // Auto-scroll on new messages (throttled to avoid jank during fast streaming)
+  const lastScrollRef = useRef(0);
   useEffect(() => {
+    const now = Date.now();
+    // Throttle scroll to at most once per 100ms during streaming
+    if (isStreaming && now - lastScrollRef.current < 100) return;
+    lastScrollRef.current = now;
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming, pendingApprovals]);
-
-  // Auto-scroll debug panel when expanded
-  useEffect(() => {
-    if (debugExpanded) {
-      debugBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [debugLines, debugExpanded]);
+  }, [messages.length, isStreaming, pendingApprovals.length]);
 
   // Empty state
   if (messages.length === 0) {
@@ -174,110 +358,36 @@ export function AgentMessages() {
       <ScrollArea className="h-full">
         <div className="flex flex-col gap-0 px-4 py-3">
           {messages.map((msg, idx) => {
-            // Check if previous message was also from the same role (consecutive assistant messages)
             const prevMsg = idx > 0 ? messages[idx - 1] : null;
+            const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
             const isConsecutiveAssistant =
               msg.role === 'assistant' && prevMsg?.role === 'assistant';
+            const showSeparator =
+              msg.role === 'assistant' && nextMsg?.role === 'user';
+            const isLast = idx === messages.length - 1;
 
             return (
-              <div key={msg.id} className="group/msg">
-                {/* User message */}
-                {msg.role === 'user' && (
-                  <div className="mb-3 mt-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
-                        <User className="h-3 w-3 text-foreground/70" />
-                      </div>
-                      <span className="text-[11px] font-semibold text-foreground">You</span>
-                    </div>
-                    <div className="pl-7">
-                      <MarkdownContent content={msg.content} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Assistant message */}
-                {msg.role === 'assistant' && (
-                  <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-1')}>
-                    {/* Only show header for the FIRST assistant message in a sequence */}
-                    {!isConsecutiveAssistant && (
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15">
-                          <Bot className="h-3 w-3 text-accent" />
-                        </div>
-                        <span className="text-[11px] font-semibold text-foreground">HysCode</span>
-                      </div>
-                    )}
-                    <div className="pl-7">
-                      {/* Markdown content */}
-                      {msg.content ? (
-                        <MarkdownContent content={msg.content} />
-                      ) : isStreaming && idx === messages.length - 1 ? (
-                        <StreamingIndicator />
-                      ) : null}
-
-                      {/* Tool calls — collapsed group between text turns */}
-                      {msg.toolCalls && msg.toolCalls.length > 0 && (
-                        <ToolCallGroup toolCalls={msg.toolCalls} />
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Separator — only between user↔assistant boundaries */}
-                {idx < messages.length - 1 &&
-                  msg.role === 'user' &&
-                  messages[idx + 1].role === 'assistant' ? null : // no separator between user→assistant
-                  idx < messages.length - 1 &&
-                  msg.role === 'assistant' &&
-                  messages[idx + 1]?.role === 'user' ? (
-                    <div className="border-b border-border/20 my-2" />
-                  ) : null}
-              </div>
+              <MessageItem
+                key={msg.id}
+                msg={msg}
+                isConsecutiveAssistant={isConsecutiveAssistant}
+                showSeparator={showSeparator}
+                isActivelyStreaming={isStreaming && isLast}
+              />
             );
           })}
 
-          {/* Pending approvals  */}
+          {/* Pending approvals */}
           {pendingApprovals.map((approval) => (
             <ApprovalDialog key={approval.id} approval={approval} />
           ))}
 
           {/* Debug log panel */}
-          {debugLines.length > 0 && (
-            <div className="mt-3 rounded-md border border-border/30 bg-[#0d1117]/60 text-[10px] font-mono">
-              <button
-                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => setDebugExpanded(!debugExpanded)}
-              >
-                {debugExpanded ? (
-                  <ChevronDown className="h-3 w-3 shrink-0" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 shrink-0" />
-                )}
-                <Bug className="h-3 w-3 shrink-0 text-yellow-500/60" />
-                <span className="text-yellow-500/60">Debug</span>
-                <span className="ml-auto rounded-full bg-muted/50 px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground">
-                  {debugLines.length}
-                </span>
-              </button>
-              {debugExpanded && (
-                <div className="max-h-[200px] overflow-y-auto border-t border-border/20 px-2.5 py-1.5">
-                  {debugLines.map((line, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'leading-5',
-                        line.includes('ERRO') ? 'text-red-400' : 'text-muted-foreground/70',
-                      )}
-                    >
-                      {line}
-                    </div>
-                  ))}
-                  <div ref={debugBottomRef} />
-                </div>
-              )}
-            </div>
-          )}
+          <DebugPanel
+            lines={debugLines}
+            expanded={debugExpanded}
+            onToggle={handleToggleDebug}
+          />
 
           {/* Scroll anchor */}
           <div ref={bottomRef} />

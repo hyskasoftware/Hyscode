@@ -126,6 +126,9 @@ function parseAnthropicEvent(data: string): StreamChunk | null {
       return null;
 
     case 'content_block_delta':
+      if (event.delta?.type === 'thinking_delta') {
+        return { type: 'thinking_delta', text: event.delta.thinking };
+      }
       if (event.delta?.type === 'text_delta') {
         return { type: 'text_delta', text: event.delta.text };
       }

@@ -5,6 +5,7 @@ import { EditorWelcome } from './editor-welcome';
 import { DiffViewer } from './diff-viewer';
 import { AgentDiffViewer } from './agent-diff-viewer';
 import { PendingChangesBar } from './pending-changes-bar';
+import { InlineReviewBar } from './inline-review-bar';
 import {
   MarkdownViewer,
   ImageViewer,
@@ -18,6 +19,7 @@ import { useAgentStore } from '../../stores/agent-store';
 import { tauriFs } from '../../lib/tauri-fs';
 import { saveFileDialog } from '../../lib/tauri-dialog';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
+import { useAgentDecorations } from '../../hooks/use-agent-decorations';
 import type * as monacoEditor from 'monaco-editor';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -54,16 +56,26 @@ export function EditorArea() {
   const [loading, setLoading] = useState(false);
   const contentRef = useRef<string | null>(null);
 
-  // Check if the active file has a pending agent change
-  const pendingChange = useAgentStore((s) =>
+  // Agent edit session for the active file (new inline model)
+  const editSession = useAgentStore((s) =>
     activeTab?.filePath
-      ? s.pendingFileChanges.find(
-          (c) => c.filePath === activeTab.filePath && c.status === 'pending',
+      ? s.agentEditSessions.find(
+          (es) =>
+            es.filePath === activeTab.filePath &&
+            (es.phase === 'streaming' || es.phase === 'pending_review'),
         ) ?? null
       : null,
   );
 
-  // Monaco instance refs for git decorations
+  // Toggle for full diff view
+  const [showFullDiff, setShowFullDiff] = useState(false);
+
+  // Reset full diff toggle when active tab or session changes
+  useEffect(() => {
+    setShowFullDiff(false);
+  }, [activeTab?.id, editSession?.id]);
+
+  // Monaco instance refs for decorations
   const editorInstanceRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const monacoInstanceRef = useRef<typeof monacoEditor | null>(null);
 
@@ -73,6 +85,55 @@ export function EditorArea() {
     monacoInstanceRef,
     activeTab?.type === 'file' ? (activeTab?.filePath ?? null) : null,
   );
+
+  // Apply agent edit decorations (glow, gutter markers, minimap)
+  useAgentDecorations(
+    editorInstanceRef,
+    monacoInstanceRef,
+    activeTab?.type === 'file' ? (activeTab?.filePath ?? null) : null,
+  );
+
+  // Push agent edit content to the Monaco model without remounting
+  useEffect(() => {
+    if (!editSession || !editorInstanceRef.current) return;
+    const editor = editorInstanceRef.current;
+    const model = editor.getModel();
+    if (!model) return;
+
+    const currentValue = model.getValue();
+    if (currentValue !== editSession.newContent) {
+      // Preserve cursor and scroll position
+      const position = editor.getPosition();
+      const scrollTop = editor.getScrollTop();
+      const scrollLeft = editor.getScrollLeft();
+
+      // Push an undo stop before agent content so user can Ctrl+Z
+      model.pushStackElement();
+      model.pushEditOperations(
+        [],
+        [
+          {
+            range: model.getFullModelRange(),
+            text: editSession.newContent,
+          },
+        ],
+        () => null,
+      );
+      model.pushStackElement();
+
+      // Restore cursor/scroll
+      if (position) editor.setPosition(position);
+      editor.setScrollTop(scrollTop);
+      editor.setScrollLeft(scrollLeft);
+
+      // Sync cache
+      contentRef.current = editSession.newContent;
+      setContent(editSession.newContent);
+      if (activeTab) {
+        setFileContent(activeTab.filePath, editSession.newContent);
+      }
+    }
+  }, [editSession?.newContent, editSession?.id]);
 
   // Viewer types that are handled as text (Monaco / markdown)
   const isTextViewer =
@@ -208,10 +269,26 @@ export function EditorArea() {
         <PptxViewer filePath={activeTab.filePath} />
       ) : loading ? (
         <EditorLoading />
-      ) : pendingChange ? (
-        <AgentDiffViewer change={pendingChange} />
+      ) : showFullDiff && editSession ? (
+        <AgentDiffViewer change={{
+          id: editSession.id,
+          filePath: editSession.filePath,
+          toolName: editSession.toolName,
+          toolCallId: editSession.toolCallId,
+          originalContent: editSession.originalContent,
+          newContent: editSession.newContent,
+          status: 'pending',
+        }} />
       ) : (
-        <div className="flex-1 overflow-hidden">
+        <>
+          {editSession && (
+            <InlineReviewBar
+              session={editSession}
+              onToggleDiff={() => setShowFullDiff((v) => !v)}
+              showingDiff={showFullDiff}
+            />
+          )}
+          <div className="flex-1 overflow-hidden">
           <Suspense fallback={<EditorLoading />}>
             <MonacoEditor
               key={activeTab.filePath}
@@ -292,6 +369,7 @@ export function EditorArea() {
             />
           </Suspense>
         </div>
+        </>
       )}
       <PendingChangesBar />
     </div>
