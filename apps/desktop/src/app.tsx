@@ -55,7 +55,22 @@ function IDE() {
   useEffect(() => {
     if (!projectRootPath || bridgeInitRef.current) return;
     bridgeInitRef.current = true;
-    HarnessBridge.init(projectRootPath, projectRootPath);
+    const bridge = HarnessBridge.init(projectRootPath, projectRootPath);
+
+    // Bootstrap skills and MCP tools asynchronously
+    (async () => {
+      try {
+        await bridge.loadSkills();
+      } catch (err) {
+        console.warn('[App] Failed to load skills:', err);
+      }
+      try {
+        await bridge.registerMcpTools();
+      } catch (err) {
+        console.warn('[App] Failed to register MCP tools:', err);
+      }
+    })();
+
     return () => {
       HarnessBridge.destroy();
       bridgeInitRef.current = false;

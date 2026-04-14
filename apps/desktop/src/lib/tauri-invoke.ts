@@ -3,6 +3,14 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
+// ─── Shared types ───────────────────────────────────────────────────────────
+
+interface GitFile {
+  path: string;
+  status: string;
+  old_path: string | null;
+}
+
 // ─── Command signatures ─────────────────────────────────────────────────────
 
 interface TauriCommands {
@@ -11,24 +19,30 @@ interface TauriCommands {
   write_file: { args: { path: string; content: string }; ret: void };
   create_file: { args: { path: string; content?: string }; ret: void };
   delete_path: { args: { path: string }; ret: void };
-  list_dir: { args: { path: string }; ret: unknown[] };
-  stat_path: { args: { path: string }; ret: unknown };
-  rename_path: { args: { oldPath: string; newPath: string }; ret: void };
+  list_dir: { args: { path: string }; ret: Array<{ name: string; path: string; is_dir: boolean; size: number }> };
+  stat_path: { args: { path: string }; ret: { path: string; is_dir: boolean; is_file: boolean; size: number; modified: number | null } };
+  rename_path: { args: { from: string; to: string }; ret: void };
   create_directory: { args: { path: string }; ret: void };
-  search_files: { args: { dir: string; pattern: string; maxResults?: number }; ret: unknown[] };
+  search_files: { args: { root: string; query: string; maxResults?: number }; ret: Array<{ path: string; line_number: number; line_content: string }> };
 
   // Git
-  git_status: { args: { path: string }; ret: unknown };
-  git_diff: { args: { path: string; file?: string }; ret: string };
-  git_add: { args: { path: string; files: string[] }; ret: void };
-  git_commit: { args: { path: string; message: string }; ret: string };
-  git_log: { args: { path: string; limit?: number }; ret: unknown[] };
+  git_is_repo: { args: { path: string }; ret: boolean };
+  git_status: { args: { repoPath: string }; ret: { staged: GitFile[]; unstaged: GitFile[]; untracked: GitFile[]; conflicts: GitFile[] } };
+  git_diff_file: { args: { repoPath: string; filePath: string; staged: boolean }; ret: string };
+  git_add: { args: { repoPath: string; paths: string[] }; ret: void };
+  git_add_all: { args: { repoPath: string }; ret: void };
+  git_commit: { args: { repoPath: string; message: string }; ret: string };
+  git_log: { args: { repoPath: string; limit: number }; ret: Array<{ hash: string; short_hash: string; message: string; author: string; email: string; timestamp: number }> };
+  git_checkout: { args: { repoPath: string; branch: string }; ret: void };
+  git_branch_current: { args: { repoPath: string }; ret: string };
+  git_branch_list: { args: { repoPath: string }; ret: Array<{ name: string; is_current: boolean; is_remote: boolean; upstream: string | null }> };
+  git_branch_create: { args: { repoPath: string; name: string; checkout: boolean }; ret: void };
 
-  // PTY
-  pty_spawn: { args: { id: string; shell: string; args: string[]; cwd?: string; cols: number; rows: number; env?: Record<string, string> }; ret: void };
-  pty_write: { args: { id: string; data: string }; ret: void };
-  pty_resize: { args: { id: string; cols: number; rows: number }; ret: void };
-  pty_kill: { args: { id: string }; ret: void };
+  // PTY — spawn returns the pty_id; output arrives via 'pty:data' events
+  pty_spawn: { args: { shell?: string; cwd?: string; env?: Record<string, string> }; ret: string };
+  pty_write: { args: { ptyId: string; data: string }; ret: void };
+  pty_resize: { args: { ptyId: string; cols: number; rows: number }; ret: void };
+  pty_kill: { args: { ptyId: string }; ret: void };
 
   // Keychain
   keychain_set: { args: { service: string; account: string; password: string }; ret: void };

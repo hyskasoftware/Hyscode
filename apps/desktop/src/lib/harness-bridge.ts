@@ -15,6 +15,7 @@ import type {
 } from '@hyscode/agent-harness';
 import type { Message, ToolDefinition } from '@hyscode/ai-providers';
 import { tauriInvokeRaw } from './tauri-invoke';
+import { listen as tauriListen } from '@tauri-apps/api/event';
 import { McpBridge } from './mcp-bridge';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -48,7 +49,7 @@ export class HarnessBridge {
       },
       pathExists: async (path: string) => {
         try {
-          await tauriInvokeRaw('path_exists', { path });
+          await tauriInvokeRaw('stat_path', { path });
           return true;
         } catch {
           return false;
@@ -60,6 +61,10 @@ export class HarnessBridge {
       workspacePath,
       projectId,
       invoke: tauriInvokeRaw,
+      listen: async (event: string, handler: (payload: unknown) => void) => {
+        const unlisten = await tauriListen(event, (e) => handler(e.payload));
+        return unlisten;
+      },
       config: {
         providerId: settings.activeProviderId ?? '',
         modelId: settings.activeModelId ?? '',
@@ -249,6 +254,13 @@ export class HarnessBridge {
       this.approvalResolvers.delete(id);
       useAgentStore.getState().removePendingApproval(id);
     }
+  }
+
+  /** Sync conversation ID when restoring a previous session */
+  restoreSession(conversationId: string): void {
+    this.harness.setConversationId(conversationId);
+    useAgentStore.getState().setConversationId(conversationId);
+    this.debug(`Session restored: ${conversationId}`);
   }
 
   async loadSkills(): Promise<void> {
@@ -464,30 +476,42 @@ export class HarnessBridge {
     if (!conversationId) return;
 
     try {
-      // Upsert conversation metadata
       const title = userMessage.slice(0, 80) + (userMessage.length > 80 ? '…' : '');
-      await tauriInvokeRaw('db_upsert_conversation', {
-        id: conversationId,
-        projectId: this.harness['projectId'],
-        title,
-        mode: store.mode,
-        agentType: store.agentType,
-        providerId: settings.activeProviderId ?? null,
-        modelId: settings.activeModelId ?? null,
-        messageCount: store.messages.length,
-      });
+
+      // Try to update first; if the conversation doesn't exist yet, create it
+      try {
+        await tauriInvokeRaw('db_update_conversation', {
+          conversation_id: conversationId,
+          title,
+        });
+      } catch {
+        // Conversation doesn't exist yet — create it
+        await tauriInvokeRaw('db_create_conversation', {
+          id: conversationId,
+          project_id: this.harness['projectId'],
+          title,
+          mode: store.mode,
+          model_id: settings.activeModelId ?? null,
+          provider_id: settings.activeProviderId ?? null,
+        });
+      }
 
       // Persist individual messages
       const lastTwo = store.messages.slice(-2);
       for (const msg of lastTwo) {
-        await tauriInvokeRaw('db_insert_message', {
-          id: msg.id,
-          conversationId,
-          role: msg.role,
-          content: msg.content,
-          toolCalls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
-          timestamp: msg.timestamp,
-        });
+        try {
+          await tauriInvokeRaw('db_create_message', {
+            id: msg.id,
+            conversation_id: conversationId,
+            role: msg.role,
+            content: msg.content,
+            tool_calls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
+            token_input: 0,
+            token_output: 0,
+          });
+        } catch {
+          // Message may already exist (duplicate insert) — ignore
+        }
       }
     } catch (err) {
       // DB persistence is best-effort; don't break the chat flow

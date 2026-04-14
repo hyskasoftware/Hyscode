@@ -26,6 +26,8 @@ export interface ToolExecutionContext {
   conversationId: string;
   /** Invoke a Tauri command */
   invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  /** Listen to a Tauri event. Returns an unlisten function. */
+  listen?: (event: string, handler: (payload: unknown) => void) => Promise<() => void>;
 }
 
 export interface ToolCallRecord {

@@ -201,21 +201,19 @@ export const searchCodeTool = defineTool(
   false,
   async (input, ctx) => {
     try {
-      const results = await ctx.invoke<Array<{ file: string; line: number; text: string }>>(
+      const results = await ctx.invoke<Array<{ path: string; line_number: number; line_content: string }>>(
         'search_files',
         {
-          path: ctx.workspacePath,
-          query: input.pattern,
-          include_pattern: input.include_pattern,
-          is_regex: input.is_regex ?? false,
-          max_results: input.max_results ?? 50,
+          root: ctx.workspacePath,
+          query: input.pattern as string,
+          max_results: (input.max_results as number) ?? 50,
         },
       );
       if (!results.length) {
         return { success: true, output: 'No matches found.' };
       }
       const formatted = results
-        .map((r) => `${r.file}:${r.line}: ${r.text}`)
+        .map((r) => `${r.path}:${r.line_number}: ${r.line_content}`)
         .join('\n');
       return { success: true, output: formatted };
     } catch (err) {
@@ -245,100 +243,77 @@ export const runTerminalCommandTool = defineTool(
       const command = input.command as string;
       const timeoutMs = (input.timeout_ms as number) || 30_000;
 
-      // Try shell_execute first (synchronous command execution with captured output).
-      // Falls back to PTY-based approach if shell_execute is not available.
-      try {
-        const result = await ctx.invoke<{ stdout: string; stderr: string; exit_code: number }>(
-          'shell_execute',
-          { command, cwd, timeout_ms: timeoutMs },
-        );
-
-        const output = [
-          result.stdout,
-          result.stderr ? `[stderr]\n${result.stderr}` : '',
-        ]
-          .filter(Boolean)
-          .join('\n');
-
+      // If no event listener available, return a clear error
+      if (!ctx.listen) {
         return {
-          success: result.exit_code === 0,
-          output: output || `Command completed with exit code ${result.exit_code}`,
-          error: result.exit_code !== 0
-            ? `Exit code: ${result.exit_code}${result.stderr ? ` — ${result.stderr.slice(0, 500)}` : ''}`
-            : undefined,
-          metadata: { cwd, exitCode: result.exit_code, timeoutMs },
+          success: false,
+          output: '',
+          error: 'Terminal execution requires event listener support. The listen callback is not available.',
         };
-      } catch {
-        // shell_execute not available — fall back to PTY approach
       }
 
-      // Fallback: PTY-based execution with output collection via pty_read
-      const ptyId = `agent-${Date.now()}`;
-      await ctx.invoke('pty_spawn', {
-        id: ptyId,
-        shell: navigator.userAgent?.includes('Win') ? 'powershell.exe' : '/bin/bash',
-        cwd,
-        cols: 120,
-        rows: 30,
+      // Spawn a dedicated PTY for this command
+      const ptyId = await ctx.invoke<string>('pty_spawn', { cwd });
+
+      // Collect output via pty:data events
+      let output = '';
+      let exited = false;
+      let exitCode: number | null = null;
+
+      const unlisten = await ctx.listen('pty:data', (payload: unknown) => {
+        const data = payload as { pty_id: string; data: string };
+        if (data.pty_id === ptyId) {
+          output += data.data;
+        }
+      });
+
+      const unlistenExit = await ctx.listen('pty:exit', (payload: unknown) => {
+        const data = payload as { pty_id: string; code: number | null };
+        if (data.pty_id === ptyId) {
+          exited = true;
+          exitCode = data.code ?? null;
+        }
       });
 
       // Write command followed by an exit marker
       const exitMarker = `__HYSCODE_EXIT_${Date.now()}__`;
-      const isWin = navigator.userAgent?.includes('Win');
+      const isWin = typeof navigator !== 'undefined' && navigator.userAgent?.includes('Win');
       const wrappedCommand = isWin
-        ? `${command}; echo ${exitMarker}; echo EXIT_CODE:$LASTEXITCODE\n`
+        ? `${command}; echo ${exitMarker}; echo EXIT_CODE:$LASTEXITCODE\r\n`
         : `${command}; echo "${exitMarker}"; echo "EXIT_CODE:$?"\n`;
-      await ctx.invoke('pty_write', { id: ptyId, data: wrappedCommand });
+      await ctx.invoke('pty_write', { pty_id: ptyId, data: wrappedCommand });
 
-      // Collect output via polling pty_read
+      // Wait for exit marker or timeout
       const startTime = Date.now();
-      let output = '';
-      let exitCode: number | null = null;
-
-      while (Date.now() - startTime < timeoutMs) {
-        // Small delay between polls
-        await new Promise((r) => setTimeout(r, 150));
-
-        try {
-          const chunk = await ctx.invoke<string>('pty_read', { id: ptyId });
-          if (chunk) output += chunk;
-        } catch {
-          // pty_read may not exist — try pty_output
-          try {
-            const chunk = await ctx.invoke<string>('pty_output', { id: ptyId });
-            if (chunk) output += chunk;
-          } catch {
-            // Neither available — wait for timeout
-          }
-        }
-
+      while (Date.now() - startTime < timeoutMs && !exited) {
         // Check if we've received the exit marker
         if (output.includes(exitMarker)) {
           const exitMatch = output.match(/EXIT_CODE:(\d+)/);
           exitCode = exitMatch ? parseInt(exitMatch[1], 10) : 0;
-          // Clean up output: remove everything after the command's real output
           const markerIdx = output.indexOf(exitMarker);
           output = output.slice(0, markerIdx).trim();
           break;
         }
+        await new Promise((r) => setTimeout(r, 100));
       }
 
-      // Kill the PTY
+      // Cleanup
+      unlisten();
+      unlistenExit();
       try {
-        await ctx.invoke('pty_kill', { id: ptyId });
+        await ctx.invoke('pty_kill', { pty_id: ptyId });
       } catch {
-        // Ignore kill errors
+        // Ignore kill errors if PTY already exited
       }
 
-      // Trim PTY noise (shell prompt echoes, etc.)
-      // Remove the echoed command from the beginning if present
+      // Trim PTY noise (echoed command prompt)
       const lines = output.split('\n');
       const cmdIdx = lines.findIndex((l) => l.includes(command.slice(0, 40)));
       if (cmdIdx >= 0 && cmdIdx < 3) {
         output = lines.slice(cmdIdx + 1).join('\n').trim();
       }
 
-      const timedOut = exitCode === null;
+      const timedOut = !exited && !output.includes(exitMarker) && exitCode === null;
       if (timedOut) {
         return {
           success: false,
@@ -349,9 +324,9 @@ export const runTerminalCommandTool = defineTool(
       }
 
       return {
-        success: exitCode === 0,
+        success: exitCode === 0 || exitCode === null,
         output: output || `Command completed with exit code ${exitCode}`,
-        error: exitCode !== 0 ? `Exit code: ${exitCode}` : undefined,
+        error: exitCode !== null && exitCode !== 0 ? `Exit code: ${exitCode}` : undefined,
         metadata: { cwd, exitCode, timeoutMs },
       };
     } catch (err) {
@@ -371,15 +346,26 @@ export const gitStatusTool = defineTool(
   false,
   async (_input, ctx) => {
     try {
-      const status = await ctx.invoke<Array<{ path: string; status: string }>>(
+      const result = await ctx.invoke<{
+        staged: Array<{ path: string; status: string }>;
+        unstaged: Array<{ path: string; status: string }>;
+        untracked: Array<{ path: string; status: string }>;
+        conflicts: Array<{ path: string; status: string }>;
+      }>(
         'git_status',
-        { path: ctx.workspacePath },
+        { repo_path: ctx.workspacePath },
       );
-      if (!status.length) {
+
+      const lines: string[] = [];
+      for (const f of result.staged) lines.push(`staged    ${f.status} ${f.path}`);
+      for (const f of result.unstaged) lines.push(`unstaged  ${f.status} ${f.path}`);
+      for (const f of result.untracked) lines.push(`untracked ? ${f.path}`);
+      for (const f of result.conflicts) lines.push(`conflict  U ${f.path}`);
+
+      if (lines.length === 0) {
         return { success: true, output: 'Working tree clean.' };
       }
-      const formatted = status.map((s) => `${s.status} ${s.path}`).join('\n');
-      return { success: true, output: formatted };
+      return { success: true, output: lines.join('\n') };
     } catch (err) {
       return { success: false, output: '', error: String(err) };
     }
@@ -398,6 +384,7 @@ export const gitDiffTool = defineTool(
   false,
   async (input, ctx) => {
     try {
+      const staged = (input.staged as boolean) ?? false;
       const filePath = input.path
         ? resolvePath(input.path as string, ctx.workspacePath)
         : undefined;
@@ -406,22 +393,28 @@ export const gitDiffTool = defineTool(
         const diff = await ctx.invoke<string>('git_diff_file', {
           repo_path: ctx.workspacePath,
           file_path: filePath,
+          staged,
         });
         return { success: true, output: diff || 'No changes.' };
       }
 
       // Full diff — get status then diff each file
-      const status = await ctx.invoke<Array<{ path: string; status: string }>>(
+      const result = await ctx.invoke<{
+        staged: Array<{ path: string }>;
+        unstaged: Array<{ path: string }>;
+      }>(
         'git_status',
-        { path: ctx.workspacePath },
+        { repo_path: ctx.workspacePath },
       );
 
+      const filesToDiff = staged ? result.staged : result.unstaged;
       const diffs: string[] = [];
-      for (const file of status) {
+      for (const file of filesToDiff) {
         try {
           const diff = await ctx.invoke<string>('git_diff_file', {
             repo_path: ctx.workspacePath,
             file_path: file.path,
+            staged,
           });
           if (diff) diffs.push(diff);
         } catch {
@@ -455,13 +448,11 @@ export const gitCommitTool = defineTool(
       const paths = input.paths as string[] | undefined;
 
       if (paths && paths.length > 0) {
-        // Stage specific files
-        for (const p of paths) {
-          await ctx.invoke('git_add', {
-            repo_path: ctx.workspacePath,
-            path: resolvePath(p, ctx.workspacePath),
-          });
-        }
+        const resolved = paths.map((p) => resolvePath(p, ctx.workspacePath));
+        await ctx.invoke('git_add', {
+          repo_path: ctx.workspacePath,
+          paths: resolved,
+        });
       }
 
       const result = await ctx.invoke<string>('git_commit', {
@@ -493,12 +484,11 @@ export const gitAddTool = defineTool(
     try {
       const paths = input.paths as string[] | undefined;
       if (paths && paths.length > 0) {
-        for (const p of paths) {
-          await ctx.invoke('git_add', {
-            repo_path: ctx.workspacePath,
-            path: resolvePath(p, ctx.workspacePath),
-          });
-        }
+        const resolved = paths.map((p) => resolvePath(p, ctx.workspacePath));
+        await ctx.invoke('git_add', {
+          repo_path: ctx.workspacePath,
+          paths: resolved,
+        });
         return { success: true, output: `Staged: ${paths.join(', ')}` };
       } else {
         await ctx.invoke('git_add_all', { repo_path: ctx.workspacePath });
@@ -530,14 +520,26 @@ export const gitLogTool = defineTool(
   false,
   async (input, ctx) => {
     try {
-      const maxCount = (input.max_count as number) || 20;
+      const limit = (input.max_count as number) || 20;
       const file = input.file ? resolvePath(input.file as string, ctx.workspacePath) : undefined;
-      const result = await ctx.invoke<string>('git_log', {
-        repo_path: ctx.workspacePath,
-        max_count: maxCount,
-        file,
-      });
-      return { success: true, output: result || 'No commits found.' };
+
+      if (file) {
+        const commits = await ctx.invoke<Array<{ short_hash: string; message: string; author: string; timestamp: number }>>(
+          'git_log_file',
+          { repo_path: ctx.workspacePath, file_path: file, limit },
+        );
+        if (!commits.length) return { success: true, output: 'No commits found.' };
+        const formatted = commits.map(c => `${c.short_hash} ${c.message.split('\n')[0]} (${c.author})`).join('\n');
+        return { success: true, output: formatted };
+      }
+
+      const commits = await ctx.invoke<Array<{ short_hash: string; message: string; author: string; timestamp: number }>>(
+        'git_log',
+        { repo_path: ctx.workspacePath, limit },
+      );
+      if (!commits.length) return { success: true, output: 'No commits found.' };
+      const formatted = commits.map(c => `${c.short_hash} ${c.message.split('\n')[0]} (${c.author})`).join('\n');
+      return { success: true, output: formatted };
     } catch (err) {
       return { success: false, output: '', error: String(err) };
     }
@@ -561,12 +563,21 @@ export const gitCheckoutTool = defineTool(
     try {
       const branch = input.branch as string;
       const create = input.create as boolean | undefined;
-      const result = await ctx.invoke<string>('git_checkout', {
+
+      if (create) {
+        await ctx.invoke('git_branch_create', {
+          repo_path: ctx.workspacePath,
+          name: branch,
+          checkout: true,
+        });
+        return { success: true, output: `Created and switched to branch: ${branch}` };
+      }
+
+      await ctx.invoke('git_checkout', {
         repo_path: ctx.workspacePath,
         branch,
-        create: create ?? false,
       });
-      return { success: true, output: result || `Switched to branch: ${branch}` };
+      return { success: true, output: `Switched to branch: ${branch}` };
     } catch (err) {
       return { success: false, output: '', error: String(err) };
     }

@@ -30,6 +30,8 @@ export interface HarnessOptions {
   projectId: string;
   /** Tauri invoke function */
   invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  /** Tauri event listener function */
+  listen?: (event: string, handler: (payload: unknown) => void) => Promise<() => void>;
   /** Event handler for UI updates */
   onEvent?: HarnessEventHandler;
   /** Approval callback */
@@ -48,12 +50,14 @@ export class Harness {
   private sddEngine: SddEngine | null = null;
   private eventHandler: HarnessEventHandler | null;
   private invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  private listen: ((event: string, handler: (payload: unknown) => void) => Promise<() => void>) | undefined;
   private workspacePath: string;
   private projectId: string;
   private conversationId = '';
   private _mode: ConversationMode = 'agent';
   private agentType: AgentType = 'build';
   private cancelled = false;
+  private abortController: AbortController | null = null;
   private toolCallHistory: ToolCallRecord[] = [];
   private activeSkills: Skill[] = [];
 
@@ -62,6 +66,7 @@ export class Harness {
     this.workspacePath = options.workspacePath;
     this.projectId = options.projectId;
     this.invoke = options.invoke;
+    this.listen = options.listen;
     this.eventHandler = options.onEvent ?? null;
     this.skillLoader = options.skillLoader ?? null;
 
@@ -118,6 +123,7 @@ export class Harness {
 
   cancel(): void {
     this.cancelled = true;
+    this.abortController?.abort();
   }
 
   setConfig(patch: Partial<Pick<HarnessConfig, 'providerId' | 'modelId'>>): void {
@@ -246,20 +252,24 @@ export class Harness {
 
       // Call LLM
       const registry = getProviderRegistry();
+
+      // Turn timeout enforcement
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const abortController = new AbortController();
+      this.abortController = abortController;
+
       const chatParams = {
         model: this.config.modelId,
         messages: snapshot.messages,
         systemPrompt: snapshot.systemPrompt,
         tools: snapshot.tools,
         maxTokens: agentDef.maxOutputTokens,
+        signal: abortController.signal,
       };
 
       let assistantText = '';
       let toolCalls: Array<{ id: string; name: string; input: Record<string, unknown>; _rawInput?: string }> = [];
 
-      // Turn timeout enforcement
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const abortController = new AbortController();
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
           abortController.abort();
@@ -373,6 +383,7 @@ export class Harness {
         workspacePath: this.workspacePath,
         conversationId: this.conversationId,
         invoke: this.invoke,
+        listen: this.listen,
       };
 
       for (const tc of toolCalls) {
