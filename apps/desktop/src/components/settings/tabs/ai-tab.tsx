@@ -4,6 +4,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 import type { McpServerConfig, CustomModel } from '@/stores/settings-store';
 import { Button } from '@/components/ui/button';
 import { tauriInvoke } from '@/lib/tauri-invoke';
+import { reinitProvider } from '@/lib/init-providers';
 import { McpServerForm } from './mcp-server-form';
 
 // ─── Provider & Model Catalog ───────────────────────────────────────────────
@@ -412,6 +413,8 @@ function ApiKeyRow({ providerId, providerName }: { providerId: string; providerN
       account: `${providerId}_api_key`,
       password: value.trim(),
     });
+    // Re-initialize this provider so it picks up the new key immediately
+    await reinitProvider(providerId).catch(console.error);
     setHasExisting(true);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

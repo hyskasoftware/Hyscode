@@ -71,6 +71,10 @@ export class HarnessBridge {
     const settings = useSettingsStore.getState();
 
     // Sync settings → harness config
+    this.harness.setConfig({
+      providerId: settings.activeProviderId ?? '',
+      modelId: settings.activeModelId ?? '',
+    });
     this.harness.setAgentType(settings.agentType);
 
     let mode: ConversationMode = 'agent';

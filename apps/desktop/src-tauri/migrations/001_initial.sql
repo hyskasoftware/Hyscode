@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX idx_conversations_project ON conversations(project_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_project ON conversations(project_id);
 
 -- ─── Messages ───────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX idx_messages_conversation ON messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 
 -- ─── Context Files ──────────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS context_files (
     added_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX idx_context_files_conversation ON context_files(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_context_files_conversation ON context_files(conversation_id);
 
 -- ─── Settings ───────────────────────────────────────────────────────────────
 

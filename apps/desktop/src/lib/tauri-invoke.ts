@@ -14,8 +14,8 @@ interface TauriCommands {
   list_dir: { args: { path: string }; ret: unknown[] };
   stat_path: { args: { path: string }; ret: unknown };
   rename_path: { args: { oldPath: string; newPath: string }; ret: void };
-  copy_path: { args: { source: string; destination: string }; ret: void };
-  search_in_files: { args: { dir: string; pattern: string; maxResults?: number }; ret: unknown[] };
+  create_directory: { args: { path: string }; ret: void };
+  search_files: { args: { dir: string; pattern: string; maxResults?: number }; ret: unknown[] };
 
   // Git
   git_status: { args: { path: string }; ret: unknown };

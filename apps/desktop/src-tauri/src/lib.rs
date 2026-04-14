@@ -6,6 +6,7 @@ mod commands;
 
 use commands::keychain::KeychainState;
 use commands::lsp::LspState;
+use commands::db::DbState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +20,12 @@ pub fn run() {
         .manage(commands::pty::PtyState(Mutex::new(HashMap::new())))
         .manage(LspState(Mutex::new(HashMap::new())))
         .manage(KeychainState(Mutex::new(commands::keychain::load_keychain())))
+        .manage({
+            let app_dir = dirs::data_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("hyscode");
+            DbState(Mutex::new(commands::db::open_database(&app_dir)))
+        })
         .invoke_handler(tauri::generate_handler![
             commands::fs::read_file,
             commands::fs::write_file,
@@ -76,6 +83,14 @@ pub fn run() {
             // AI streaming commands
             commands::ai::ai_stream_request,
             commands::ai::ai_stream_cancel,
+            // Database commands
+            commands::db::db_list_conversations,
+            commands::db::db_get_conversation,
+            commands::db::db_create_conversation,
+            commands::db::db_update_conversation,
+            commands::db::db_delete_conversation,
+            commands::db::db_list_messages,
+            commands::db::db_create_message,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

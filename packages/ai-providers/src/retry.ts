@@ -41,7 +41,9 @@ export async function withRetry<T>(
       }
 
       if (attempt < cfg.maxRetries) {
-        const delay = getDelay(attempt, cfg);
+        const delay = err instanceof ProviderError && err.retryAfterMs != null
+          ? err.retryAfterMs
+          : getDelay(attempt, cfg);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

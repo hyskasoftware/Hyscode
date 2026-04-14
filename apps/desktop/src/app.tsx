@@ -9,8 +9,10 @@ import { SettingsModal } from './components/settings';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from './components/ui/tooltip';
 import { useProjectStore, useFileStore, useSettingsStore } from './stores';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { pickFolder } from './lib/tauri-dialog';
+import { initProviders } from './lib/init-providers';
+import { HarnessBridge } from './lib/harness-bridge';
 
 // ── Theme effect — applies CSS class on <html> whenever themeId changes ──────
 const LIGHT_THEMES = new Set(['hyscode-light']);
@@ -37,6 +39,7 @@ function IDE() {
   const projectRootPath = useProjectStore((s) => s.rootPath);
   const fileRootPath = useFileStore((s) => s.rootPath);
   const openFolder = useFileStore((s) => s.openFolder);
+  const bridgeInitRef = useRef(false);
 
   useThemeEffect();
 
@@ -47,6 +50,17 @@ function IDE() {
       openFolder(projectRootPath).catch(console.error);
     }
   }, []);
+
+  // Initialize HarnessBridge when project is open
+  useEffect(() => {
+    if (!projectRootPath || bridgeInitRef.current) return;
+    bridgeInitRef.current = true;
+    HarnessBridge.init(projectRootPath, projectRootPath);
+    return () => {
+      HarnessBridge.destroy();
+      bridgeInitRef.current = false;
+    };
+  }, [projectRootPath]);
 
   return (
     <div className="flex h-screen w-screen flex-col bg-background text-foreground">
@@ -103,6 +117,16 @@ export function App() {
   const rootPath = useProjectStore((s) => s.rootPath);
   const openProject = useProjectStore((s) => s.openProject);
   const openFolder = useFileStore((s) => s.openFolder);
+
+  // Initialize AI providers on app startup (once)
+  useEffect(() => {
+    initProviders().catch(console.error);
+  }, []);
+
+  // Initialize AI providers on app startup (once)
+  useEffect(() => {
+    initProviders().catch(console.error);
+  }, []);
 
   // Global keyboard shortcut: Ctrl+K Ctrl+O to open folder
   useEffect(() => {

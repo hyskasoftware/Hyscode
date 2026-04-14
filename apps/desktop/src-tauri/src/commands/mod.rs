@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod db;
 pub mod extension;
 pub mod fs;
 pub mod git;

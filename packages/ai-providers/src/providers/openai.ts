@@ -273,11 +273,16 @@ export class OpenAIProvider implements AIProvider {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      const retryAfterHeader = response.headers.get('Retry-After');
+      const retryAfterMs = retryAfterHeader
+        ? parseFloat(retryAfterHeader) * 1_000
+        : undefined;
       throw new ProviderError(
-        `OpenAI API error: ${response.status} ${errorBody}`,
+        `${this.name} API error: ${response.status} ${errorBody}`,
         this.id,
         response.status,
         [429, 500, 502, 503].includes(response.status),
+        retryAfterMs,
       );
     }
 

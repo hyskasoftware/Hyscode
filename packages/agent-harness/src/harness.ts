@@ -119,6 +119,11 @@ export class Harness {
     this.cancelled = true;
   }
 
+  setConfig(patch: Partial<Pick<HarnessConfig, 'providerId' | 'modelId'>>): void {
+    if (patch.providerId !== undefined) this.config.providerId = patch.providerId;
+    if (patch.modelId !== undefined) this.config.modelId = patch.modelId;
+  }
+
   getSddEngine(): SddEngine | null {
     return this.sddEngine;
   }
