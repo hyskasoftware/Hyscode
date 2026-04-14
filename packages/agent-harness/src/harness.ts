@@ -141,6 +141,16 @@ export class Harness {
     this.toolRouter.unregister(name);
   }
 
+  /** Add a context source (e.g. attached file, selection, etc.) */
+  addContextSource(source: import('./types').ContextSource): void {
+    this.contextManager.addSource(source);
+  }
+
+  /** Remove a context source by ID */
+  removeContextSource(id: string): void {
+    this.contextManager.removeSource(id);
+  }
+
   /** Get the skill loader (for external callers to list skills) */
   getSkillLoader(): SkillLoader | null {
     return this.skillLoader;
@@ -246,7 +256,6 @@ export class Harness {
 
       let assistantText = '';
       let toolCalls: Array<{ id: string; name: string; input: Record<string, unknown>; _rawInput?: string }> = [];
-      let stopReason: string | undefined;
 
       // Turn timeout enforcement
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -294,7 +303,8 @@ export class Harness {
               break;
             }
             case 'done':
-              stopReason = chunk.stopReason;
+              // stopReason is tracked by the provider but the loop
+              // relies solely on toolCalls.length to decide continuation.
               break;
             case 'error':
               throw new Error(chunk.error);
@@ -330,8 +340,11 @@ export class Harness {
       };
       this.contextManager.addMessage(assistantMsg);
 
-      // If no tool calls, we're done
-      if (toolCalls.length === 0 || stopReason === 'end_turn') {
+      // If no tool calls, we're done — the LLM gave a final text response.
+      // IMPORTANT: Do NOT check stopReason here. Some providers (Ollama, Gemini)
+      // return 'end_turn' even when tool calls are present. The presence of
+      // tool calls is the only reliable signal that the agent wants to continue.
+      if (toolCalls.length === 0) {
         finalResponse = assistantText;
         break;
       }

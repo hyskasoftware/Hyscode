@@ -124,6 +124,25 @@ export function AgentInput() {
     }
   };
 
+  const handleAttachFile = async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        multiple: true,
+        title: 'Attach context file',
+      });
+      if (selected) {
+        const paths = Array.isArray(selected) ? selected : [selected];
+        const addCtx = useAgentStore.getState().addContextFile;
+        for (const p of paths) {
+          if (typeof p === 'string') addCtx(p);
+        }
+      }
+    } catch {
+      // dialog cancelled or not available
+    }
+  };
+
   const handleAgentChange = (type: AgentType) => {
     try {
       HarnessBridge.get().setAgentType(type);
@@ -263,6 +282,7 @@ export function AgentInput() {
                   variant="ghost"
                   size="icon-xs"
                   className="text-muted-foreground hover:text-foreground"
+                  onClick={handleAttachFile}
                 />
               }
             >

@@ -155,6 +155,8 @@ export class OllamaProvider implements AIProvider {
       );
     }
 
+    let hasToolCalls = false;
+
     for await (const chunk of parseNDJSONStream(response, params.signal)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const obj = chunk as any;
@@ -164,6 +166,7 @@ export class OllamaProvider implements AIProvider {
       }
 
       if (obj.message?.tool_calls) {
+        hasToolCalls = true;
         for (const tc of obj.message.tool_calls) {
           const callId = `ollama_${tc.function.name}_${Date.now()}`;
           yield { type: 'tool_call_start', id: callId, name: tc.function.name };
@@ -187,7 +190,7 @@ export class OllamaProvider implements AIProvider {
             },
           };
         }
-        yield { type: 'done', stopReason: 'end_turn' };
+        yield { type: 'done', stopReason: hasToolCalls ? 'tool_use' : 'end_turn' };
       }
     }
   }

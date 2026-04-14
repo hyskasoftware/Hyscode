@@ -81,10 +81,11 @@ export class HarnessBridge {
     // Use environment-based heuristic. The SkillLoader's pathExists will
     // gracefully return false if the path doesn't exist.
     const isWin = navigator.userAgent?.includes('Windows');
+    const username = (globalThis as Record<string, unknown>).__TAURI_USERNAME__ as string | undefined;
     if (isWin) {
-      return 'C:/Users/' + (globalThis as Record<string, unknown>).__TAURI_USERNAME__ || 'user';
+      return 'C:/Users/' + (username || 'user');
     }
-    return '/home/' + ((globalThis as Record<string, unknown>).__TAURI_USERNAME__ || 'user');
+    return '/home/' + (username || 'user');
   }
 
   // ─── Singleton access ───────────────────────────────────────────────
@@ -140,9 +141,33 @@ export class HarnessBridge {
       this.harness.setConversationId(id);
     }
 
+    // Inject context files into the harness context manager
+    const contextFiles = store.contextFiles;
+    if (contextFiles.length > 0) {
+      dbg(`Injetando ${contextFiles.length} arquivo(s) de contexto`);
+      for (const filePath of contextFiles) {
+        try {
+          const content = await tauriInvokeRaw<string>('read_file', { path: filePath });
+          const fileName = filePath.split(/[\\/]/).pop() ?? filePath;
+          const tokenEstimate = Math.ceil(content.length / 4);
+          this.harness.addContextSource({
+            id: `ctx-file-${filePath}`,
+            type: 'context_chip',
+            priority: 'high',
+            content: `<file path="${filePath}">\n${content}\n</file>`,
+            tokenEstimate,
+            metadata: { filePath, fileName },
+          });
+        } catch (err) {
+          dbg(`Erro ao ler contexto ${filePath}: ${err}`);
+        }
+      }
+    }
+
     // Add user message to store
+    const userMsgId = crypto.randomUUID();
     useAgentStore.getState().addMessage({
-      id: crypto.randomUUID(),
+      id: userMsgId,
       role: 'user',
       content: userMessage,
       timestamp: Date.now(),
@@ -152,8 +177,9 @@ export class HarnessBridge {
     useAgentStore.getState().setStreaming(true);
 
     // Create placeholder assistant message
+    const assistantMsgId = crypto.randomUUID();
     useAgentStore.getState().addMessage({
-      id: crypto.randomUUID(),
+      id: assistantMsgId,
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
@@ -174,6 +200,9 @@ export class HarnessBridge {
 
       // Update the last assistant message with the final response
       useAgentStore.getState().updateLastAssistantContent(response);
+
+      // Persist conversation to DB
+      this.persistConversation(userMessage, response);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       dbg(`ERRO: ${errorMsg}`);
@@ -186,6 +215,24 @@ export class HarnessBridge {
   cancel(): void {
     this.harness.cancel();
     useAgentStore.getState().setStreaming(false);
+  }
+
+  /** Pause SDD execution after the current task finishes */
+  pauseSdd(): void {
+    this.harness.getSddEngine()?.pause();
+    this.debug('SDD paused');
+  }
+
+  /** Resume SDD execution */
+  resumeSdd(): void {
+    this.harness.getSddEngine()?.resume();
+    this.debug('SDD resumed');
+  }
+
+  /** Skip a specific SDD task */
+  skipSddTask(taskId: string): void {
+    this.harness.getSddEngine()?.skipTask(taskId);
+    this.debug(`SDD task skipped: ${taskId}`);
   }
 
   setAgentType(type: AgentType): void {
@@ -277,6 +324,13 @@ export class HarnessBridge {
           store.appendStreamingText(chunk.text);
           store.updateLastAssistantContent(store.streamingText + chunk.text);
         }
+        if (chunk.type === 'usage') {
+          store.setTokenUsage({
+            inputTokens: chunk.usage.inputTokens,
+            outputTokens: chunk.usage.outputTokens,
+            totalTokens: chunk.usage.totalTokens,
+          });
+        }
         break;
       }
 
@@ -314,6 +368,12 @@ export class HarnessBridge {
             error: event.result.error,
             completedAt: Date.now(),
           });
+        }
+
+        // Handle metadata actions from tools
+        const meta = event.result.metadata;
+        if (meta?.action === 'manage_tasks' && Array.isArray(meta.tasks)) {
+          store.setAgentTasks(meta.tasks as Array<{ id: number; title: string; status: string }>);
         }
         break;
       }
@@ -381,5 +441,44 @@ export class HarnessBridge {
       role: msg.role as 'user' | 'assistant',
       content: [{ type: 'text' as const, text: msg.content }],
     }));
+  }
+
+  /** Persist the current conversation turn to the database */
+  private async persistConversation(userMessage: string, _assistantResponse: string): Promise<void> {
+    const store = useAgentStore.getState();
+    const settings = useSettingsStore.getState();
+    const conversationId = store.conversationId;
+    if (!conversationId) return;
+
+    try {
+      // Upsert conversation metadata
+      const title = userMessage.slice(0, 80) + (userMessage.length > 80 ? '…' : '');
+      await tauriInvokeRaw('db_upsert_conversation', {
+        id: conversationId,
+        projectId: this.harness['projectId'],
+        title,
+        mode: store.mode,
+        agentType: store.agentType,
+        providerId: settings.activeProviderId ?? null,
+        modelId: settings.activeModelId ?? null,
+        messageCount: store.messages.length,
+      });
+
+      // Persist individual messages
+      const lastTwo = store.messages.slice(-2);
+      for (const msg of lastTwo) {
+        await tauriInvokeRaw('db_insert_message', {
+          id: msg.id,
+          conversationId,
+          role: msg.role,
+          content: msg.content,
+          toolCalls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
+          timestamp: msg.timestamp,
+        });
+      }
+    } catch (err) {
+      // DB persistence is best-effort; don't break the chat flow
+      console.warn('[HarnessBridge] Failed to persist conversation:', err);
+    }
   }
 }

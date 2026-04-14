@@ -78,6 +78,9 @@ interface AgentState {
   // Token usage
   tokenUsage: TokenUsage | null;
 
+  // Agent task tracking
+  agentTasks: Array<{ id: number; title: string; status: string }>;
+
   // Session history
   sessions: SessionSummary[];
   sessionsLoading: boolean;
@@ -125,6 +128,9 @@ interface AgentState {
   // Token usage
   setTokenUsage: (usage: TokenUsage | null) => void;
 
+  // Agent task tracking
+  setAgentTasks: (tasks: Array<{ id: number; title: string; status: string }>) => void;
+
   // Session history
   setSessions: (sessions: SessionSummary[]) => void;
   setSessionsLoading: (loading: boolean) => void;
@@ -152,6 +158,7 @@ export const useAgentStore = create<AgentState>()(
     sddProgress: 0,
     activeSkills: [],
     tokenUsage: null,
+    agentTasks: [],
     sessions: [],
     sessionsLoading: false,
     historyOpen: false,
@@ -329,6 +336,13 @@ export const useAgentStore = create<AgentState>()(
     setTokenUsage: (usage) =>
       set((state) => {
         state.tokenUsage = usage;
+      }),
+
+    // ─── Agent Task Tracking ─────────────────────────────────────────
+
+    setAgentTasks: (tasks) =>
+      set((state) => {
+        state.agentTasks = tasks;
       }),
 
     // ─── Session History ─────────────────────────────────────────────

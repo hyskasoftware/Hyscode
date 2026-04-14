@@ -4,7 +4,11 @@ import { AgentInput } from './agent-input';
 import { ContextChipsBar } from './context-chips-bar';
 import { SessionHistory } from './session-history';
 import { SddStepper } from './sdd/sdd-stepper';
+import { SddSpecReview } from './sdd/sdd-spec-review';
+import { SddTaskList } from './sdd/sdd-task-list';
+import { AgentTaskList } from './agent-task-list';
 import { useAgentStore } from '@/stores/agent-store';
+import { HarnessBridge } from '@/lib/harness-bridge';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -14,11 +18,31 @@ import {
 
 export function AgentPanel() {
   const sddPhase = useAgentStore((s) => s.sddPhase);
+  const sddSpec = useAgentStore((s) => s.sddSpec);
+  const sddTasks = useAgentStore((s) => s.sddTasks);
   const clearConversation = useAgentStore((s) => s.clearConversation);
   const messageCount = useAgentStore((s) => s.messages.length);
   const tokenUsage = useAgentStore((s) => s.tokenUsage);
   const historyOpen = useAgentStore((s) => s.historyOpen);
   const setHistoryOpen = useAgentStore((s) => s.setHistoryOpen);
+
+  const handleSpecApprove = () => {
+    try {
+      const engine = HarnessBridge.get()['harness'].getSddEngine();
+      if (engine) {
+        // Agent will continue to plan generation when spec is approved
+        useAgentStore.getState().setSddPhase('planning');
+      }
+    } catch {
+      // Bridge not ready
+    }
+  };
+
+  const handleSpecReject = () => {
+    // Reset spec so the agent can regenerate
+    useAgentStore.getState().setSddSpec(null);
+    useAgentStore.getState().setSddPhase('describing');
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -77,8 +101,24 @@ export function AgentPanel() {
           {/* SDD Stepper (only visible in active SDD session) */}
           {sddPhase && <SddStepper />}
 
+          {/* SDD Spec Review — shown when spec is ready for user approval */}
+          {sddPhase === 'specifying' && sddSpec && (
+            <SddSpecReview
+              onApprove={handleSpecApprove}
+              onReject={handleSpecReject}
+            />
+          )}
+
+          {/* SDD Task List — shown during planning/executing phases */}
+          {(sddPhase === 'planning' || sddPhase === 'executing') && sddTasks.length > 0 && (
+            <SddTaskList />
+          )}
+
           {/* Context chips */}
           <ContextChipsBar />
+
+          {/* Agent task tracking (shown when agent creates tasks) */}
+          <AgentTaskList />
 
           {/* Messages */}
           <AgentMessages />

@@ -1,5 +1,9 @@
-import { Check, Circle, Loader2, AlertCircle, SkipForward } from 'lucide-react';
+import { Check, Circle, Loader2, AlertCircle, SkipForward, Pause, Play } from 'lucide-react';
+import { useState } from 'react';
 import { useAgentStore } from '@/stores/agent-store';
+import { HarnessBridge } from '@/lib/harness-bridge';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { SddTaskStatus } from '@hyscode/agent-harness';
 
@@ -14,17 +18,57 @@ const STATUS_ICONS: Record<SddTaskStatus, { icon: typeof Check; color: string; a
 export function SddTaskList() {
   const tasks = useAgentStore((s) => s.sddTasks);
   const sddProgress = useAgentStore((s) => s.sddProgress);
+  const [paused, setPaused] = useState(false);
 
   if (tasks.length === 0) return null;
 
+  const handlePauseResume = () => {
+    try {
+      const bridge = HarnessBridge.get();
+      if (paused) {
+        bridge.resumeSdd();
+      } else {
+        bridge.pauseSdd();
+      }
+      setPaused(!paused);
+    } catch {
+      // bridge not ready
+    }
+  };
+
+  const handleSkipTask = (taskId: string) => {
+    try {
+      HarnessBridge.get().skipSddTask(taskId);
+    } catch {
+      // bridge not ready
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-surface-raised bg-background p-3">
-      {/* Header with progress */}
+      {/* Header with progress + controls */}
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold text-foreground">Tasks</span>
-        <span className="text-[10px] tabular-nums text-muted-foreground">
-          {sddProgress}%
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] tabular-nums text-muted-foreground">
+            {sddProgress}%
+          </span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={handlePauseResume}
+                  className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                />
+              }
+            >
+              {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+            </TooltipTrigger>
+            <TooltipContent side="top">{paused ? 'Resume' : 'Pause'}</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Progress bar */}
@@ -40,10 +84,11 @@ export function SddTaskList() {
         {tasks.map((task, i) => {
           const statusConfig = STATUS_ICONS[task.status];
           const Icon = statusConfig.icon;
+          const canSkip = task.status === 'pending' || task.status === 'in_progress';
           return (
             <div
               key={task.id}
-              className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-surface-raised"
+              className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-surface-raised"
             >
               <Icon
                 className={cn(
@@ -74,6 +119,23 @@ export function SddTaskList() {
                   </div>
                 )}
               </div>
+              {canSkip && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => handleSkipTask(task.id)}
+                        className="h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-yellow-400"
+                      />
+                    }
+                  >
+                    <SkipForward className="h-3 w-3" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Skip task</TooltipContent>
+                </Tooltip>
+              )}
             </div>
           );
         })}

@@ -92,7 +92,7 @@ export interface ContextSnapshot {
 
 // ─── Agent Definitions ──────────────────────────────────────────────────────
 
-export type AgentType = 'chat' | 'build' | 'review' | 'refactor' | 'debug' | 'test';
+export type AgentType = 'chat' | 'build' | 'review' | 'refactor' | 'debug' | 'test' | 'architect' | 'docs';
 
 export interface AgentDefinition {
   type: AgentType;
@@ -238,4 +238,18 @@ export interface Skill {
   content: string;
   filePath: string;
   active: boolean;
+}
+
+// ─── Agent Task System ──────────────────────────────────────────────────────
+// Lightweight in-conversation task tracking (similar to how Copilot tracks todos).
+
+export type AgentTaskStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked';
+
+export interface AgentTask {
+  id: number;
+  title: string;
+  status: AgentTaskStatus;
+  detail?: string;
+  createdAt: string;
+  updatedAt: string;
 }

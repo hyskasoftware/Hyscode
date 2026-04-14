@@ -112,21 +112,35 @@ function* parseGeminiResponse(data: string): Iterable<StreamChunk> {
   const parts = candidate.content?.parts as any[];
 
   if (parts) {
+    let hasFunctionCalls = false;
     for (const part of parts) {
       if (part.text) {
         yield { type: 'text_delta', text: part.text };
       }
       if (part.functionCall) {
+        hasFunctionCalls = true;
         const callId = `gemini_${part.functionCall.name}_${Date.now()}`;
         yield { type: 'tool_call_start', id: callId, name: part.functionCall.name };
         yield { type: 'tool_call_delta', id: callId, input: JSON.stringify(part.functionCall.args ?? {}) };
         yield { type: 'tool_call_end', id: callId };
       }
     }
-  }
 
-  // Check finish reason
-  if (candidate.finishReason) {
+    // Check finish reason — override to 'tool_use' if function calls were present
+    if (candidate.finishReason) {
+      if (hasFunctionCalls) {
+        yield { type: 'done', stopReason: 'tool_use' };
+      } else {
+        const reasonMap: Record<string, StopReason> = {
+          STOP: 'end_turn',
+          MAX_TOKENS: 'max_tokens',
+          SAFETY: 'end_turn',
+          RECITATION: 'end_turn',
+        };
+        yield { type: 'done', stopReason: reasonMap[candidate.finishReason] ?? 'end_turn' };
+      }
+    }
+  } else if (candidate.finishReason) {
     const reasonMap: Record<string, StopReason> = {
       STOP: 'end_turn',
       MAX_TOKENS: 'max_tokens',

@@ -242,8 +242,37 @@ export const runTerminalCommandTool = defineTool(
       const cwd = input.cwd
         ? resolvePath(input.cwd as string, ctx.workspacePath)
         : ctx.workspacePath;
+      const command = input.command as string;
+      const timeoutMs = (input.timeout_ms as number) || 30_000;
 
-      // Use PTY to run command and capture output
+      // Try shell_execute first (synchronous command execution with captured output).
+      // Falls back to PTY-based approach if shell_execute is not available.
+      try {
+        const result = await ctx.invoke<{ stdout: string; stderr: string; exit_code: number }>(
+          'shell_execute',
+          { command, cwd, timeout_ms: timeoutMs },
+        );
+
+        const output = [
+          result.stdout,
+          result.stderr ? `[stderr]\n${result.stderr}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        return {
+          success: result.exit_code === 0,
+          output: output || `Command completed with exit code ${result.exit_code}`,
+          error: result.exit_code !== 0
+            ? `Exit code: ${result.exit_code}${result.stderr ? ` — ${result.stderr.slice(0, 500)}` : ''}`
+            : undefined,
+          metadata: { cwd, exitCode: result.exit_code, timeoutMs },
+        };
+      } catch {
+        // shell_execute not available — fall back to PTY approach
+      }
+
+      // Fallback: PTY-based execution with output collection via pty_read
       const ptyId = `agent-${Date.now()}`;
       await ctx.invoke('pty_spawn', {
         id: ptyId,
@@ -253,31 +282,46 @@ export const runTerminalCommandTool = defineTool(
         rows: 30,
       });
 
-      // Write command
-      const command = input.command as string;
-      await ctx.invoke('pty_write', { id: ptyId, data: command + '\n' });
+      // Write command followed by an exit marker
+      const exitMarker = `__HYSCODE_EXIT_${Date.now()}__`;
+      const isWin = navigator.userAgent?.includes('Win');
+      const wrappedCommand = isWin
+        ? `${command}; echo ${exitMarker}; echo EXIT_CODE:$LASTEXITCODE\n`
+        : `${command}; echo "${exitMarker}"; echo "EXIT_CODE:$?"\n`;
+      await ctx.invoke('pty_write', { id: ptyId, data: wrappedCommand });
 
-      // Wait for completion (simplified — in production use proper signaling)
-      const timeoutMs = (input.timeout_ms as number) || 30_000;
+      // Collect output via polling pty_read
       const startTime = Date.now();
       let output = '';
+      let exitCode: number | null = null;
 
-      // Poll for output with timeout
-      await new Promise<void>((resolve) => {
-        const checkInterval = setInterval(async () => {
-          if (Date.now() - startTime > timeoutMs) {
-            clearInterval(checkInterval);
-            resolve();
+      while (Date.now() - startTime < timeoutMs) {
+        // Small delay between polls
+        await new Promise((r) => setTimeout(r, 150));
+
+        try {
+          const chunk = await ctx.invoke<string>('pty_read', { id: ptyId });
+          if (chunk) output += chunk;
+        } catch {
+          // pty_read may not exist — try pty_output
+          try {
+            const chunk = await ctx.invoke<string>('pty_output', { id: ptyId });
+            if (chunk) output += chunk;
+          } catch {
+            // Neither available — wait for timeout
           }
-          // In real implementation, collect output from PTY events
-        }, 100);
+        }
 
-        // Simple timeout-based approach
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          resolve();
-        }, Math.min(timeoutMs, 5000));
-      });
+        // Check if we've received the exit marker
+        if (output.includes(exitMarker)) {
+          const exitMatch = output.match(/EXIT_CODE:(\d+)/);
+          exitCode = exitMatch ? parseInt(exitMatch[1], 10) : 0;
+          // Clean up output: remove everything after the command's real output
+          const markerIdx = output.indexOf(exitMarker);
+          output = output.slice(0, markerIdx).trim();
+          break;
+        }
+      }
 
       // Kill the PTY
       try {
@@ -286,10 +330,29 @@ export const runTerminalCommandTool = defineTool(
         // Ignore kill errors
       }
 
+      // Trim PTY noise (shell prompt echoes, etc.)
+      // Remove the echoed command from the beginning if present
+      const lines = output.split('\n');
+      const cmdIdx = lines.findIndex((l) => l.includes(command.slice(0, 40)));
+      if (cmdIdx >= 0 && cmdIdx < 3) {
+        output = lines.slice(cmdIdx + 1).join('\n').trim();
+      }
+
+      const timedOut = exitCode === null;
+      if (timedOut) {
+        return {
+          success: false,
+          output: output || '',
+          error: `Command timed out after ${Math.round(timeoutMs / 1000)}s`,
+          metadata: { cwd, timeoutMs, timedOut: true },
+        };
+      }
+
       return {
-        success: true,
-        output: output || `Command executed: ${command}`,
-        metadata: { cwd, timeoutMs },
+        success: exitCode === 0,
+        output: output || `Command completed with exit code ${exitCode}`,
+        error: exitCode !== 0 ? `Exit code: ${exitCode}` : undefined,
+        metadata: { cwd, exitCode, timeoutMs },
       };
     } catch (err) {
       return { success: false, output: '', error: String(err) };
@@ -447,6 +510,174 @@ export const gitAddTool = defineTool(
   },
 );
 
+// ─── Extended Git Tools ─────────────────────────────────────────────────────
+
+export const gitLogTool = defineTool(
+  'git_log',
+  'Show recent git commit history.',
+  {
+    max_count: {
+      type: 'number',
+      description: 'Max number of commits to return (default: 20).',
+    },
+    file: {
+      type: 'string',
+      description: 'Optionally limit to commits affecting this file path.',
+    },
+  },
+  [],
+  'git',
+  false,
+  async (input, ctx) => {
+    try {
+      const maxCount = (input.max_count as number) || 20;
+      const file = input.file ? resolvePath(input.file as string, ctx.workspacePath) : undefined;
+      const result = await ctx.invoke<string>('git_log', {
+        repo_path: ctx.workspacePath,
+        max_count: maxCount,
+        file,
+      });
+      return { success: true, output: result || 'No commits found.' };
+    } catch (err) {
+      return { success: false, output: '', error: String(err) };
+    }
+  },
+);
+
+export const gitCheckoutTool = defineTool(
+  'git_checkout',
+  'Switch to a branch or create a new branch.',
+  {
+    branch: { type: 'string', description: 'Branch name to switch to.' },
+    create: {
+      type: 'boolean',
+      description: 'If true, create the branch before switching (git checkout -b).',
+    },
+  },
+  ['branch'],
+  'git',
+  true,
+  async (input, ctx) => {
+    try {
+      const branch = input.branch as string;
+      const create = input.create as boolean | undefined;
+      const result = await ctx.invoke<string>('git_checkout', {
+        repo_path: ctx.workspacePath,
+        branch,
+        create: create ?? false,
+      });
+      return { success: true, output: result || `Switched to branch: ${branch}` };
+    } catch (err) {
+      return { success: false, output: '', error: String(err) };
+    }
+  },
+);
+
+// ─── Code Tools ─────────────────────────────────────────────────────────────
+
+export const getDiagnosticsTool = defineTool(
+  'get_diagnostics',
+  'Get compiler/linter diagnostics (errors and warnings) from the editor for a file or the entire workspace.',
+  {
+    file: {
+      type: 'string',
+      description: 'File path to get diagnostics for. Omit for all workspace diagnostics.',
+    },
+  },
+  [],
+  'code',
+  false,
+  async (input, ctx) => {
+    try {
+      const file = input.file ? resolvePath(input.file as string, ctx.workspacePath) : undefined;
+      const diagnostics = await ctx.invoke<Array<{
+        file: string;
+        line: number;
+        col: number;
+        severity: string;
+        message: string;
+        source?: string;
+      }>>('get_diagnostics', { path: file });
+
+      if (!diagnostics || diagnostics.length === 0) {
+        return { success: true, output: file ? 'No diagnostics for this file.' : 'No diagnostics in workspace.' };
+      }
+
+      const formatted = diagnostics.map(
+        (d) => `${d.file}:${d.line}:${d.col} [${d.severity}] ${d.message}${d.source ? ` (${d.source})` : ''}`,
+      ).join('\n');
+
+      return {
+        success: true,
+        output: `${diagnostics.length} diagnostic(s):\n${formatted}`,
+        metadata: { count: diagnostics.length },
+      };
+    } catch (err) {
+      return { success: false, output: '', error: String(err) };
+    }
+  },
+);
+
+// ─── Browser Tools ──────────────────────────────────────────────────────────
+
+export const webFetchTool = defineTool(
+  'web_fetch',
+  'Fetch the text content of a web page or API endpoint. Useful for reading documentation, API responses, or web content relevant to the task.',
+  {
+    url: { type: 'string', description: 'The URL to fetch.' },
+    max_length: {
+      type: 'number',
+      description: 'Max characters to return (default: 10000).',
+    },
+  },
+  ['url'],
+  'browser',
+  false,
+  async (input, ctx) => {
+    try {
+      const url = input.url as string;
+      const maxLen = (input.max_length as number) || 10_000;
+
+      // Validate URL to prevent SSRF — only allow http/https
+      let parsed: URL;
+      try {
+        parsed = new URL(url);
+      } catch {
+        return { success: false, output: '', error: 'Invalid URL format.' };
+      }
+
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return { success: false, output: '', error: 'Only http and https URLs are allowed.' };
+      }
+
+      // Block internal/private IPs
+      const hostname = parsed.hostname;
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '0.0.0.0' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.') ||
+        hostname === '::1' ||
+        hostname === '[::1]'
+      ) {
+        return { success: false, output: '', error: 'Fetching internal/private addresses is not allowed.' };
+      }
+
+      const result = await ctx.invoke<string>('web_fetch', { url, max_length: maxLen });
+      const text = result?.slice(0, maxLen) ?? '';
+      return {
+        success: true,
+        output: text || '(empty response)',
+        metadata: { url, length: text.length, truncated: text.length >= maxLen },
+      };
+    } catch (err) {
+      return { success: false, output: '', error: String(err) };
+    }
+  },
+);
+
 // ─── Meta Tools ─────────────────────────────────────────────────────────────
 
 export const activateSkillTool = defineTool(
@@ -484,6 +715,43 @@ export const listSkillsTool = defineTool(
   },
 );
 
+// ─── Task Management Tool ───────────────────────────────────────────────────
+
+export const manageTasksTool = defineTool(
+  'manage_tasks',
+  'Create, update, and track a task list for the current conversation. Use this to plan multi-step work, track progress, and give the user visibility into what you are doing. Provide the FULL task list each time (existing + new items). Mark tasks in_progress before starting, completed when done.',
+  {
+    tasks: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'number', description: 'Sequential task ID (1, 2, 3...)' },
+          title: { type: 'string', description: 'Short task title (3-7 words)' },
+          status: {
+            type: 'string',
+            description: 'not_started | in_progress | completed | blocked',
+          },
+        },
+        required: ['id', 'title', 'status'],
+      },
+      description: 'The complete list of tasks. Must include ALL items (existing and new).',
+    },
+  },
+  ['tasks'],
+  'meta',
+  false,
+  async (input, _ctx) => {
+    const tasks = input.tasks as Array<{ id: number; title: string; status: string }>;
+    // The harness bridge reads the metadata action and forwards to the store
+    return {
+      success: true,
+      output: `Task list updated (${tasks.length} tasks, ${tasks.filter((t) => t.status === 'completed').length} completed).`,
+      metadata: { action: 'manage_tasks', tasks },
+    };
+  },
+);
+
 // ─── Export All Tools ───────────────────────────────────────────────────────
 
 export function getAllBuiltinTools(): ToolHandler[] {
@@ -502,8 +770,15 @@ export function getAllBuiltinTools(): ToolHandler[] {
     gitDiffTool,
     gitCommitTool,
     gitAddTool,
+    gitLogTool,
+    gitCheckoutTool,
+    // Code
+    getDiagnosticsTool,
+    // Browser
+    webFetchTool,
     // Meta
     activateSkillTool,
     listSkillsTool,
+    manageTasksTool,
   ];
 }

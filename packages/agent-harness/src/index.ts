@@ -27,6 +27,8 @@ export type {
   SkillActivation,
   SkillFrontmatter,
   Skill,
+  AgentTaskStatus,
+  AgentTask,
 } from './types';
 export { DEFAULT_HARNESS_CONFIG } from './types';
 

@@ -124,6 +124,14 @@ export class PlanManager {
     });
   }
 
+  /** Persist resolved dependencies for a task */
+  async updateTaskDependencies(taskId: string, dependencies: string[]): Promise<void> {
+    await this.db.updateTask(taskId, {
+      dependencies,
+      updatedAt: now(),
+    });
+  }
+
   async completeSession(sessionId: string): Promise<void> {
     await this.db.updateSession(sessionId, {
       status: 'completed',
@@ -295,8 +303,9 @@ Order tasks so dependencies come first.`;
         .map((idx) => tasks[idx].id);
 
       if (deps.length > 0) {
-        await this.planManager.updateTaskStatus(tasks[i].id, 'pending');
         tasks[i].dependencies = deps;
+        // Persist resolved dependencies back to DB
+        await this.planManager.updateTaskDependencies(tasks[i].id, deps);
       }
     }
 
