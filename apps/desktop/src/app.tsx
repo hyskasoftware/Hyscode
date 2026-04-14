@@ -9,6 +9,7 @@ import { SettingsModal } from './components/settings';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from './components/ui/tooltip';
 import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
+import { useSkillsStore } from './stores/skills-store';
 import { useEffect, useRef } from 'react';
 import { pickFolder, pickFile } from './lib/tauri-dialog';
 import { initProviders } from './lib/init-providers';
@@ -56,19 +57,17 @@ function IDE() {
   useEffect(() => {
     if (!projectRootPath || bridgeInitRef.current) return;
     bridgeInitRef.current = true;
-    const bridge = HarnessBridge.init(projectRootPath, projectRootPath);
 
-    // Bootstrap skills and MCP tools asynchronously
+    // HarnessBridge.init is async (resolves home dir via Rust)
     (async () => {
       try {
-        await bridge.loadSkills();
-      } catch (err) {
-        console.warn('[App] Failed to load skills:', err);
-      }
-      try {
+        const bridge = await HarnessBridge.init(projectRootPath, projectRootPath);
+        const skills = await bridge.loadSkills();
+        // Populate the skills store with discovered skills
+        useSkillsStore.getState().setDiscoveredSkills(skills);
         await bridge.registerMcpTools();
       } catch (err) {
-        console.warn('[App] Failed to register MCP tools:', err);
+        console.warn('[App] Failed to initialize harness:', err);
       }
     })();
 

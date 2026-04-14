@@ -36,6 +36,8 @@ pub fn run() {
             commands::fs::search_files,
             commands::fs::rename_path,
             commands::fs::create_directory,
+            commands::fs::get_home_dir,
+            commands::fs::list_dir_all,
             // Git commands
             commands::git::git_is_repo,
             commands::git::git_init,

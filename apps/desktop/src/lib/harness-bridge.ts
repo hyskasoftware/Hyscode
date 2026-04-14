@@ -7,6 +7,7 @@ import type {
   HarnessEvent,
   AgentType,
   ConversationMode,
+  Skill,
   SddTask,
   ToolHandler,
   ToolResult,
@@ -20,6 +21,7 @@ import { listen as tauriListen } from '@tauri-apps/api/event';
 import { McpBridge } from './mcp-bridge';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useSkillsStore } from '@/stores/skills-store';
 import type { ToolCallDisplay, PendingApproval } from '@/stores/agent-store';
 
 // ─── Singleton ──────────────────────────────────────────────────────────────
@@ -30,17 +32,18 @@ export class HarnessBridge {
   private harness: Harness;
   private approvalResolvers = new Map<string, (approved: boolean) => void>();
 
-  private constructor(workspacePath: string, projectId: string) {
+  private constructor(workspacePath: string, projectId: string, homePath: string) {
     const settings = useSettingsStore.getState();
 
     // Create SkillLoader with Tauri-backed file system callbacks
     const skillLoader = new SkillLoader({
       builtInPath: `${workspacePath}/node_modules/@hyscode/skills/dist`,
-      globalPath: `${HarnessBridge.getHomePath()}/.hyscode/skills`,
+      globalPath: `${homePath}/.agents/skills`,
       workspacePath,
       readDir: async (path: string) => {
         try {
-          return await tauriInvokeRaw<Array<{ name: string; is_dir: boolean }>>('list_dir', { path });
+          // Use list_dir_all to include hidden entries and skill folders
+          return await tauriInvokeRaw<Array<{ name: string; is_dir: boolean }>>('list_dir_all', { path });
         } catch {
           return [];
         }
@@ -81,11 +84,10 @@ export class HarnessBridge {
     });
   }
 
-  /** Get users home directory path (best-effort; the actual path is resolved by pathExists fallback) */
-  private static getHomePath(): string {
-    // In the Tauri webview we don't have Node's os.homedir().
-    // Use environment-based heuristic. The SkillLoader's pathExists will
-    // gracefully return false if the path doesn't exist.
+  private static _homePathCache: string | null = null;
+
+  /** Fallback home path when Tauri command is not available */
+  private static getHomePathFallback(): string {
     const isWin = navigator.userAgent?.includes('Windows');
     const username = (globalThis as Record<string, unknown>).__TAURI_USERNAME__ as string | undefined;
     if (isWin) {
@@ -94,11 +96,26 @@ export class HarnessBridge {
     return '/home/' + (username || 'user');
   }
 
+  /** Get the resolved home path (available after init) */
+  static getHomePath(): string {
+    return HarnessBridge._homePathCache ?? HarnessBridge.getHomePathFallback();
+  }
+
   // ─── Singleton access ───────────────────────────────────────────────
 
-  static init(workspacePath: string, projectId: string): HarnessBridge {
+  static async init(workspacePath: string, projectId: string): Promise<HarnessBridge> {
     if (_instance) return _instance;
-    _instance = new HarnessBridge(workspacePath, projectId);
+
+    // Resolve home directory via Rust (reliable cross-platform)
+    let homePath: string;
+    try {
+      homePath = await tauriInvokeRaw<string>('get_home_dir', {});
+    } catch {
+      homePath = HarnessBridge.getHomePathFallback();
+    }
+    HarnessBridge._homePathCache = homePath;
+
+    _instance = new HarnessBridge(workspacePath, projectId, homePath);
     return _instance;
   }
 
@@ -142,6 +159,11 @@ export class HarnessBridge {
     if (store.mode === 'build' && store.sddPhase) harnessMode = 'sdd';
     this.harness.setMode(harnessMode);
     dbg(`Modo: ${harnessMode} (agent: ${store.mode})`);
+
+    // Sync active skills from skills store → harness (respects per-mode assignments)
+    const activeForMode = useSkillsStore.getState().getActiveForMode(store.mode as AgentType);
+    this.syncActiveSkills(activeForMode.map((s) => s.name));
+    dbg(`Skills ativas: ${activeForMode.length}`);
 
     if (!store.conversationId) {
       const id = crypto.randomUUID();
@@ -309,13 +331,35 @@ export class HarnessBridge {
     this.debug(`Session restored: ${conversationId}`);
   }
 
-  async loadSkills(): Promise<void> {
+  async loadSkills(): Promise<Skill[]> {
     try {
       await this.harness.loadSkills();
-      this.debug('Skills loaded successfully');
+      const loader = this.harness.getSkillLoader();
+      const all = loader?.getAll() ?? [];
+      this.debug(`Skills loaded: ${all.length} total`);
+      return all;
     } catch (err) {
       this.debug(`Failed to load skills: ${err instanceof Error ? err.message : String(err)}`);
+      return [];
     }
+  }
+
+  /** Sync the active skill set from the skills store to the harness before a run */
+  syncActiveSkills(activeSkillNames: string[]): void {
+    const loader = this.harness.getSkillLoader();
+    if (!loader) return;
+    // Deactivate all, then activate only the ones from the store
+    for (const skill of loader.getAll()) {
+      skill.active = false;
+    }
+    for (const name of activeSkillNames) {
+      loader.activate(name);
+    }
+    // Update context manager
+    const active = loader.getActive();
+    this.harness['activeSkills'] = active;
+    this.harness['contextManager'].setActiveSkills(active);
+    this.harness['contextManager'].setAllSkills(loader.getAll());
   }
 
   /** Register all tools from connected MCP servers as native tool handlers */
@@ -445,6 +489,34 @@ export class HarnessBridge {
         const meta = event.result.metadata;
         if (meta?.action === 'manage_tasks' && Array.isArray(meta.tasks)) {
           store.setAgentTasks(meta.tasks as Array<{ id: number; title: string; status: string }>);
+        }
+        if (meta?.action === 'activate_skill' && meta.skillName) {
+          // Enable the skill in the store (single source of truth)
+          const skillsStore = useSkillsStore.getState();
+          const skill = skillsStore.skills.find(
+            (s) => s.name === meta.skillName || s.id === meta.skillName,
+          );
+          if (skill && !skill.enabled) {
+            skillsStore.toggleSkill(skill.id);
+          }
+          // Re-sync store → harness so the skill is actually active
+          const activeForMode = skillsStore.getActiveForMode(
+            useAgentStore.getState().mode as AgentType,
+          );
+          this.syncActiveSkills(activeForMode.map((s) => s.name));
+        }
+        if (meta?.action === 'create_skill' && meta.filePath) {
+          // Add the newly created skill to the skills store
+          useSkillsStore.getState().addSkill({
+            id: `workspace:${meta.skillName as string}`,
+            name: meta.skillName as string,
+            description: (meta.skillDescription as string) || '',
+            scope: (meta.skillScope as string) === 'global' ? 'global' : 'workspace',
+            enabled: true,
+            filePath: meta.filePath as string,
+            content: (meta.skillContent as string) || '',
+            modes: [],
+          });
         }
         break;
       }

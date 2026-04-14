@@ -118,8 +118,14 @@ export class SkillLoader {
 
     let workspace: Skill[] = [];
     if (this.config.workspacePath) {
-      const wsSkillsPath = `${this.config.workspacePath}/.hyscode/skills`;
+      // Primary: .agents/skills (matches VS Code convention)
+      const wsSkillsPath = `${this.config.workspacePath}/.agents/skills`;
       workspace = await this.loadFromDir(wsSkillsPath, 'workspace');
+      // Fallback: .hyscode/skills (backwards compat)
+      if (workspace.length === 0) {
+        const legacyPath = `${this.config.workspacePath}/.hyscode/skills`;
+        workspace = await this.loadFromDir(legacyPath, 'workspace');
+      }
     }
 
     // Merge: workspace > global > built-in (by name)
@@ -223,24 +229,54 @@ export class SkillLoader {
       const skills: Skill[] = [];
 
       for (const entry of entries) {
-        if (entry.is_dir || !entry.name.endsWith('.md')) continue;
+        // ── Flat file: skill.md ──
+        if (!entry.is_dir && entry.name.endsWith('.md')) {
+          try {
+            const filePath = `${dirPath}/${entry.name}`;
+            const content = await this.config.readFile(filePath);
+            const { frontmatter: fm, body } = parseFrontmatter(content);
+            const frontmatter = validateFrontmatter(fm, filePath);
+            frontmatter.scope = scope;
 
-        try {
-          const filePath = `${dirPath}/${entry.name}`;
-          const content = await this.config.readFile(filePath);
-          const { frontmatter: fm, body } = parseFrontmatter(content);
-          const frontmatter = validateFrontmatter(fm, filePath);
-          frontmatter.scope = scope;
+            skills.push({
+              id: `${scope}:${frontmatter.name}`,
+              frontmatter,
+              content: body.trim(),
+              filePath,
+              active: frontmatter.activation === 'always',
+            });
+          } catch {
+            // Skip invalid skill files
+          }
+          continue;
+        }
 
-          skills.push({
-            id: `${scope}:${frontmatter.name}`,
-            frontmatter,
-            content: body.trim(),
-            filePath,
-            active: frontmatter.activation === 'always',
-          });
-        } catch {
-          // Skip invalid skill files
+        // ── Folder-per-skill: <name>/SKILL.md ──
+        if (entry.is_dir) {
+          try {
+            const skillMdPath = `${dirPath}/${entry.name}/SKILL.md`;
+            const skillMdExists = await this.config.pathExists(skillMdPath);
+            if (!skillMdExists) continue;
+
+            const content = await this.config.readFile(skillMdPath);
+            const { frontmatter: fm, body } = parseFrontmatter(content);
+            const frontmatter = validateFrontmatter(fm, skillMdPath);
+            // Use directory name as fallback skill name
+            if (frontmatter.name === 'unknown') {
+              frontmatter.name = entry.name;
+            }
+            frontmatter.scope = scope;
+
+            skills.push({
+              id: `${scope}:${frontmatter.name}`,
+              frontmatter,
+              content: body.trim(),
+              filePath: skillMdPath,
+              active: frontmatter.activation === 'always',
+            });
+          } catch {
+            // Skip invalid skill folders
+          }
         }
       }
 

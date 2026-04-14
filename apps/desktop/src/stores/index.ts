@@ -6,3 +6,4 @@ export { useProjectStore } from './project-store';
 export { useGitStore } from './git-store';
 export { useTerminalStore } from './terminal-store';
 export { useExtensionStore } from './extension-store';
+export { useSkillsStore } from './skills-store';

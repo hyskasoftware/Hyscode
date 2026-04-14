@@ -168,20 +168,10 @@ export class Harness {
     if (!this.skillLoader) return;
     await this.skillLoader.loadAll();
 
-    // Activate always-active skills for current agent
-    const alwaysActive = this.skillLoader.getAlwaysActive(this.agentType);
-    for (const skill of alwaysActive) {
-      skill.active = true;
-    }
-
-    // Activate agent's default skills
-    const agentDef = getAgentDefinition(this.agentType);
-    if (agentDef.defaultSkills) {
-      for (const name of agentDef.defaultSkills) {
-        this.skillLoader.activate(name);
-      }
-    }
-
+    // NOTE: We do NOT auto-activate skills here.
+    // The skills store (frontend) is the single source of truth for which
+    // skills are enabled. HarnessBridge.syncActiveSkills() is called before
+    // each run() to push the store state into the harness.
     this.activeSkills = this.skillLoader.getActive();
     this.contextManager.setActiveSkills(this.activeSkills);
     this.contextManager.setAllSkills(this.skillLoader.getAll());
@@ -208,15 +198,10 @@ export class Harness {
       this.setAgentType('chat');
     }
 
-    // Check for skill triggers
-    if (this.skillLoader) {
-      const triggered = this.skillLoader.checkTriggers(userMessage);
-      for (const skill of triggered) {
-        skill.active = true;
-        this.activeSkills.push(skill);
-      }
-      this.contextManager.setActiveSkills(this.activeSkills);
-    }
+    // NOTE: Skill triggers are intentionally skipped here.
+    // The skills store controls which skills are active. Trigger-based
+    // auto-activation would bypass user preferences. The agent can still
+    // use the activate_skill tool to request skill activation.
 
     // Set conversation history
     this.contextManager.setHistory(history);
@@ -405,12 +390,19 @@ export class Harness {
         // Handle special meta-tool actions
         if (record.output.metadata?.action === 'activate_skill' && this.skillLoader) {
           const skillName = record.output.metadata.skillName as string;
-          const activated = this.skillLoader.activate(skillName);
-          if (activated) {
-            this.activeSkills = this.skillLoader.getActive();
-            this.contextManager.setActiveSkills(this.activeSkills);
-            this.contextManager.setAllSkills(this.skillLoader.getAll());
-            record.output.output = `Skill "${skillName}" activated successfully. Its instructions are now part of your context.`;
+          const skill = this.skillLoader.getByName(skillName);
+          if (skill) {
+            // Only activate if the skill is enabled in the store.
+            // The bridge event handler will sync store → harness on the
+            // 'activate_skill' metadata so the store stays authoritative.
+            const activated = this.skillLoader.activate(skillName);
+            if (activated) {
+              this.activeSkills = this.skillLoader.getActive();
+              this.contextManager.setActiveSkills(this.activeSkills);
+              this.contextManager.setAllSkills(this.skillLoader.getAll());
+            }
+            record.output.output = `Skill "${skillName}" activation requested. The skill store will be updated.`;
+            record.output.metadata = { ...record.output.metadata, action: 'activate_skill', skillName };
           } else {
             record.output.output = `Skill "${skillName}" not found. Use list_skills to see available skills.`;
             record.output.success = false;
@@ -427,8 +419,26 @@ export class Harness {
             scope: s.frontmatter.scope,
           }));
           record.output.output = skillList.length > 0
-            ? `Available skills:\n${skillList.map(s => `- **${s.name}** (${s.active ? 'ACTIVE' : 'inactive'}, ${s.scope}): ${s.description}`).join('\n')}`
+            ? `Available skills (only ENABLED skills are injected into context):\n${skillList.map(s => `- **${s.name}** [${s.active ? 'ENABLED' : 'DISABLED'}] (${s.scope}): ${s.description}`).join('\n')}\n\nTo use a disabled skill, call activate_skill first.`
             : 'No skills are currently loaded.';
+        }
+
+        if (record.output.metadata?.action === 'create_skill') {
+          const { skillName, skillContent, skillScope } = record.output.metadata as Record<string, string>;
+          try {
+            const basePath = skillScope === 'global'
+              ? `${this.skillLoader?.['config']?.globalPath ?? ''}`
+              : `${this.workspacePath}/.agents/skills`;
+            const filePath = `${basePath}/${skillName}.md`;
+            // Write skill file via Tauri invoke
+            await executionContext.invoke('create_directory', { path: basePath });
+            await executionContext.invoke('write_file', { path: filePath, content: skillContent });
+            record.output.output = `Skill "${skillName}" created at ${filePath}. It will be available after refreshing skills.`;
+            record.output.metadata = { ...record.output.metadata, filePath };
+          } catch (err) {
+            record.output.output = `Failed to create skill "${skillName}": ${err instanceof Error ? err.message : String(err)}`;
+            record.output.success = false;
+          }
         }
 
         toolResults.content.push({

@@ -1,31 +1,26 @@
-import { useState, useEffect } from 'react';
-import { Puzzle, ToggleLeft, ToggleRight, Globe, FolderOpen, Package, Pencil, Plus } from 'lucide-react';
-import { useAgentStore } from '@/stores/agent-store';
+import { useState, useMemo, useCallback } from 'react';
+import {
+  ToggleLeft,
+  ToggleRight,
+  Globe,
+  FolderOpen,
+  Package,
+  FileCode,
+  Plus,
+  ChevronRight,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react';
+import { useSkillsStore, type SkillEntry } from '@/stores/skills-store';
+import { useEditorStore } from '@/stores/editor-store';
 import { useProjectStore } from '@/stores/project-store';
-import { SkillEditor } from './skill-editor';
-import { getBuiltinSkillContent } from '@hyscode/skills';
-import type { SkillScope } from '@hyscode/agent-harness';
+import { HarnessBridge } from '@/lib/harness-bridge';
+import { tauriInvoke } from '@/lib/tauri-invoke';
+import type { AgentType, SkillScope } from '@hyscode/agent-harness';
+import { getViewerType } from '@/lib/utils';
 
-interface SkillDisplay {
-  id: string;
-  name: string;
-  description: string;
-  scope: SkillScope;
-  enabled: boolean;
-  content?: string;
-  filePath?: string | null;
-}
-
-// ─── Default built-in skills (from @hyscode/skills package) ─────────────────
-
-const BUILTIN_SKILLS: SkillDisplay[] = [
-  { id: 'code-style', name: 'Code Style', description: 'Enforce consistent coding patterns and best practices', scope: 'built-in', enabled: true },
-  { id: 'testing', name: 'Testing', description: 'Guide test writing with framework-aware patterns', scope: 'built-in', enabled: true },
-  { id: 'security', name: 'Security', description: 'Detect and prevent security vulnerabilities', scope: 'built-in', enabled: true },
-  { id: 'git-workflow', name: 'Git Workflow', description: 'Smart commit messages, branch naming, and PR descriptions', scope: 'built-in', enabled: true },
-  { id: 'performance', name: 'Performance', description: 'Identify and fix performance bottlenecks', scope: 'built-in', enabled: false },
-  { id: 'documentation', name: 'Documentation', description: 'Auto-generate docs, comments, and READMEs', scope: 'built-in', enabled: false },
-];
+// ─── Constants ──────────────────────────────────────────────────────────────
 
 const SCOPE_ICONS: Record<SkillScope, typeof Globe> = {
   'built-in': Package,
@@ -35,93 +30,150 @@ const SCOPE_ICONS: Record<SkillScope, typeof Globe> = {
 
 const SCOPE_LABELS: Record<SkillScope, string> = {
   'built-in': 'Built-in',
-  global: 'Global',
-  workspace: 'Workspace',
+  global: 'Global (~/.agents/skills)',
+  workspace: 'Workspace (.agents/skills)',
 };
 
-// ─── Editing state ──────────────────────────────────────────────────────────
+const AGENT_MODES: { value: AgentType; label: string }[] = [
+  { value: 'chat', label: 'Chat' },
+  { value: 'build', label: 'Build' },
+  { value: 'review', label: 'Review' },
+  { value: 'debug', label: 'Debug' },
+  { value: 'plan', label: 'Plan' },
+];
 
-type EditorTarget =
-  | null
-  | { type: 'new' }
-  | { type: 'edit'; skill: SkillDisplay };
+const NEW_SKILL_TEMPLATE = `---
+name: my-skill
+description: Describe what this skill does.
+version: 1.0.0
+scope: workspace
+activation: manual
+---
+
+# My Skill
+
+## Instructions
+
+Add your skill instructions here.
+`;
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export function SkillsView() {
-  const [skills, setSkills] = useState<SkillDisplay[]>(BUILTIN_SKILLS);
-  const [editing, setEditing] = useState<EditorTarget>(null);
-  const activeSkills = useAgentStore((s) => s.activeSkills);
-  const workspacePath = useProjectStore((s) => s.rootPath ?? '');
+  const skills = useSkillsStore((s) => s.skills);
+  const loading = useSkillsStore((s) => s.loading);
+  const toggleSkill = useSkillsStore((s) => s.toggleSkill);
+  const setSkillModes = useSkillsStore((s) => s.setSkillModes);
+  const addSkill = useSkillsStore((s) => s.addSkill);
 
-  // Sync active state from store
-  useEffect(() => {
-    setSkills((prev) =>
-      prev.map((s) => ({
-        ...s,
-        enabled: activeSkills.includes(s.id) || (s.scope === 'built-in' && s.enabled),
-      })),
-    );
-  }, [activeSkills]);
+  const [collapsedScopes, setCollapsedScopes] = useState<Set<string>>(new Set());
+  const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const toggleSkill = (id: string) => {
-    setSkills((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
-    );
-    const skill = skills.find((s) => s.id === id);
-    if (skill) {
-      const currentActive = useAgentStore.getState().activeSkills;
-      if (skill.enabled) {
-        useAgentStore.getState().setActiveSkills(currentActive.filter((s) => s !== id));
-      } else {
-        useAgentStore.getState().setActiveSkills([...currentActive, id]);
-      }
+  // Group skills by scope
+  const grouped = useMemo(() => {
+    const groups: Record<string, SkillEntry[]> = {};
+    for (const s of skills) {
+      (groups[s.scope] ??= []).push(s);
     }
-  };
+    return groups;
+  }, [skills]);
 
-  const openEditor = (skill: SkillDisplay) => {
-    // For built-in skills, load content from package
-    const content = skill.scope === 'built-in'
-      ? getBuiltinSkillContent(skill.id) ?? ''
-      : skill.content ?? '';
-    setEditing({
-      type: 'edit',
-      skill: { ...skill, content },
+  const enabledCount = useMemo(() => skills.filter((s) => s.enabled).length, [skills]);
+
+  // ─── Handlers ─────────────────────────────────────────────────────
+
+  const toggleScope = useCallback((scope: string) => {
+    setCollapsedScopes((prev) => {
+      const next = new Set(prev);
+      if (next.has(scope)) next.delete(scope);
+      else next.add(scope);
+      return next;
     });
-  };
+  }, []);
 
-  // ─── Editor mode ────────────────────────────────────────────────────
+  const handleOpenInEditor = useCallback((skill: SkillEntry) => {
+    if (!skill.filePath) return;
+    const fileName = skill.filePath.split('/').pop() ?? skill.name;
+    useEditorStore.getState().openTab({
+      id: skill.filePath,
+      fileName,
+      filePath: skill.filePath,
+      language: 'markdown',
+      viewerType: getViewerType(fileName),
+    });
+  }, []);
 
-  if (editing) {
+  const handleModeToggle = useCallback((skillId: string, mode: AgentType, currentModes: AgentType[]) => {
+    const next = currentModes.includes(mode)
+      ? currentModes.filter((m) => m !== mode)
+      : [...currentModes, mode];
+    setSkillModes(skillId, next);
+  }, [setSkillModes]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const bridge = HarnessBridge.get();
+      const discovered = await bridge.loadSkills();
+      useSkillsStore.getState().setDiscoveredSkills(discovered);
+    } catch (err) {
+      console.warn('[SkillsView] Refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  const handleCreateSkill = useCallback(async () => {
+    const workspacePath = useProjectStore.getState().rootPath;
+    if (!workspacePath) return;
+
+    const skillName = `new-skill-${Date.now()}`;
+    const dirPath = `${workspacePath}/.agents/skills`;
+    const filePath = `${dirPath}/${skillName}.md`;
+
+    try {
+      // Ensure directory exists
+      try {
+        await tauriInvoke('create_directory', { path: dirPath });
+      } catch { /* may exist */ }
+
+      await tauriInvoke('write_file', { path: filePath, content: NEW_SKILL_TEMPLATE });
+
+      // Add to store
+      addSkill({
+        id: `workspace:${skillName}`,
+        name: skillName,
+        description: 'New skill',
+        scope: 'workspace',
+        enabled: true,
+        filePath,
+        content: NEW_SKILL_TEMPLATE,
+        modes: [],
+      });
+
+      // Open in editor
+      useEditorStore.getState().openTab({
+        id: filePath,
+        fileName: `${skillName}.md`,
+        filePath,
+        language: 'markdown',
+        viewerType: 'code',
+      });
+    } catch (err) {
+      console.error('[SkillsView] Failed to create skill:', err);
+    }
+  }, [addSkill]);
+
+  // ─── Render ───────────────────────────────────────────────────────
+
+  if (loading) {
     return (
-      <SkillEditor
-        skill={
-          editing.type === 'edit'
-            ? {
-                id: editing.skill.id,
-                name: editing.skill.name,
-                description: editing.skill.description,
-                scope: editing.skill.scope,
-                activation: 'manual',
-                content: editing.skill.content ?? '',
-                filePath: editing.skill.filePath ?? null,
-              }
-            : null
-        }
-        workspacePath={workspacePath}
-        onBack={() => setEditing(null)}
-        onSaved={() => setEditing(null)}
-      />
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
     );
   }
-
-  // ─── List mode ──────────────────────────────────────────────────────
-
-  const grouped = skills.reduce<Record<string, SkillDisplay[]>>((acc, s) => {
-    if (!acc[s.scope]) acc[s.scope] = [];
-    acc[s.scope].push(s);
-    return acc;
-  }, {});
-
-  const enabledCount = skills.filter((s) => s.enabled).length;
 
   return (
     <div className="flex h-full flex-col">
@@ -130,77 +182,180 @@ export function SkillsView() {
         <span className="text-[10px] text-muted-foreground">
           {enabledCount}/{skills.length} active
         </span>
-        <button
-          onClick={() => setEditing({ type: 'new' })}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Plus className="h-3 w-3" />
-          New
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            title="Refresh skills"
+          >
+            <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={handleCreateSkill}
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Create new workspace skill"
+          >
+            <Plus className="h-3 w-3" />
+            New
+          </button>
+        </div>
       </div>
 
       {/* Skills list */}
       <div className="flex-1 overflow-auto">
+        {skills.length === 0 && (
+          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+            <Package className="h-8 w-8 text-muted-foreground/40" />
+            <p className="text-[11px] text-muted-foreground">
+              No skills discovered yet.
+            </p>
+            <p className="text-[10px] text-muted-foreground/60">
+              Open a project or add skills to ~/.agents/skills/
+            </p>
+          </div>
+        )}
+
         {(['built-in', 'global', 'workspace'] as const).map((scope) => {
           const scopeSkills = grouped[scope];
           if (!scopeSkills || scopeSkills.length === 0) return null;
 
           const ScopeIcon = SCOPE_ICONS[scope];
+          const isCollapsed = collapsedScopes.has(scope);
 
           return (
             <div key={scope}>
-              <div className="flex items-center gap-1.5 px-2 py-1">
+              {/* Scope header */}
+              <button
+                onClick={() => toggleScope(scope)}
+                className="flex w-full items-center gap-1.5 px-2 py-1 hover:bg-muted/50"
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                )}
                 <ScopeIcon className="h-3 w-3 text-muted-foreground" />
                 <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   {SCOPE_LABELS[scope]}
                 </span>
-              </div>
+                <span className="ml-auto text-[9px] text-muted-foreground/60">
+                  {scopeSkills.filter((s) => s.enabled).length}/{scopeSkills.length}
+                </span>
+              </button>
 
-              {scopeSkills.map((skill) => (
-                <div
-                  key={skill.id}
-                  className="group flex w-full items-start gap-2 px-2 py-1.5 text-left transition-colors hover:bg-muted"
-                >
-                  <button
-                    onClick={() => toggleSkill(skill.id)}
-                    className="mt-0.5 shrink-0"
-                  >
-                    {skill.enabled ? (
-                      <ToggleRight className="h-4 w-4 text-accent" />
-                    ) : (
-                      <ToggleLeft className="h-4 w-4 text-muted-foreground opacity-50" />
-                    )}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className={`text-[11px] font-medium ${skill.enabled ? 'text-foreground' : 'text-muted-foreground'}`}
-                    >
-                      {skill.name}
-                    </div>
-                    <div className="truncate text-[10px] text-muted-foreground">
-                      {skill.description}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => openEditor(skill)}
-                    className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface-raised hover:text-accent group-hover:opacity-100"
-                    title={skill.scope === 'built-in' ? 'View skill' : 'Edit skill'}
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+              {/* Skill items */}
+              {!isCollapsed &&
+                scopeSkills.map((skill) => (
+                  <SkillItem
+                    key={skill.id}
+                    skill={skill}
+                    isExpanded={expandedSkill === skill.id}
+                    onToggle={() => toggleSkill(skill.id)}
+                    onExpand={() =>
+                      setExpandedSkill(expandedSkill === skill.id ? null : skill.id)
+                    }
+                    onOpenEditor={() => handleOpenInEditor(skill)}
+                    onModeToggle={(mode) => handleModeToggle(skill.id, mode, skill.modes)}
+                  />
+                ))}
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
 
-        {skills.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Puzzle className="mb-3 h-8 w-8 opacity-30" />
-            <p className="text-xs">No skills installed</p>
-          </div>
+// ─── Skill Item ─────────────────────────────────────────────────────────────
+
+interface SkillItemProps {
+  skill: SkillEntry;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onExpand: () => void;
+  onOpenEditor: () => void;
+  onModeToggle: (mode: AgentType) => void;
+}
+
+function SkillItem({ skill, isExpanded, onToggle, onExpand, onOpenEditor, onModeToggle }: SkillItemProps) {
+  return (
+    <div className="border-b border-border/30 last:border-b-0">
+      <div className="group flex w-full items-start gap-2 px-2 py-1.5 text-left transition-colors hover:bg-muted">
+        {/* Toggle */}
+        <button onClick={onToggle} className="mt-0.5 shrink-0" title={skill.enabled ? 'Disable' : 'Enable'}>
+          {skill.enabled ? (
+            <ToggleRight className="h-4 w-4 text-accent" />
+          ) : (
+            <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+
+        {/* Info + expand */}
+        <button onClick={onExpand} className="min-w-0 flex-1 text-left">
+          <div className="truncate text-[11px] font-medium text-foreground">{skill.name}</div>
+          <div className="truncate text-[10px] text-muted-foreground">{skill.description}</div>
+          {/* Mode badges */}
+          {skill.modes.length > 0 && (
+            <div className="mt-0.5 flex flex-wrap gap-0.5">
+              {skill.modes.map((m) => (
+                <span
+                  key={m}
+                  className="rounded bg-accent/10 px-1 py-0 text-[8px] font-medium text-accent"
+                >
+                  {m}
+                </span>
+              ))}
+            </div>
+          )}
+        </button>
+
+        {/* Open in editor */}
+        {skill.filePath && (
+          <button
+            onClick={onOpenEditor}
+            className="mt-0.5 shrink-0 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
+            title="Open in editor"
+          >
+            <FileCode className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
         )}
       </div>
+
+      {/* Expanded: per-mode assignment */}
+      {isExpanded && (
+        <div className="border-t border-border/20 bg-muted/30 px-3 py-2">
+          <div className="mb-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            Active in modes {skill.modes.length === 0 && '(all)'}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {AGENT_MODES.map(({ value, label }) => {
+              const active = skill.modes.length === 0 || skill.modes.includes(value);
+              return (
+                <button
+                  key={value}
+                  onClick={() => onModeToggle(value)}
+                  className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    active
+                      ? 'bg-accent/15 text-accent hover:bg-accent/25'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {skill.modes.length > 0 && (
+            <button
+              onClick={() => useSkillsStore.getState().setSkillModes(skill.id, [])}
+              className="mt-1.5 text-[9px] text-muted-foreground hover:text-foreground"
+            >
+              Reset to all modes
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

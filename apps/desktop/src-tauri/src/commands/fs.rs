@@ -234,3 +234,41 @@ pub fn create_directory(path: String) -> Result<(), String> {
     }
     fs::create_dir_all(&dir_path).map_err(|e| format!("Failed to create directory: {}", e))
 }
+
+#[tauri::command]
+pub fn get_home_dir() -> Result<String, String> {
+    dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "Could not determine home directory".to_string())
+}
+
+/// Like list_dir but includes hidden entries (files/dirs starting with '.')
+/// Used by the skills loader to scan ~/.agents/skills/ etc.
+#[tauri::command]
+pub fn list_dir_all(path: String) -> Result<Vec<FileEntry>, String> {
+    let path = PathBuf::from(&path);
+    if !path.is_dir() {
+        return Err(format!("Not a directory: {}", path.display()));
+    }
+
+    let mut entries = Vec::new();
+    let read_dir = fs::read_dir(&path).map_err(|e| format!("Failed to read directory: {}", e))?;
+
+    for entry in read_dir {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| format!("Failed to read metadata: {}", e))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        entries.push(FileEntry {
+            name,
+            path: entry.path().to_string_lossy().to_string(),
+            is_dir: metadata.is_dir(),
+            size: metadata.len(),
+        });
+    }
+
+    entries.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then(a.name.cmp(&b.name)));
+    Ok(entries)
+}

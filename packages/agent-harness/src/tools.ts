@@ -757,7 +757,7 @@ export const activateSkillTool = defineTool(
 
 export const listSkillsTool = defineTool(
   'list_skills',
-  'List all available skills with their names, descriptions, and activation status. Use this to discover which skills you can activate for the current task. Always check available skills before specialized work.',
+  'List all available skills with their names, descriptions, scope, and activation status. Use this to discover which skills you can activate for the current task. Always check available skills before specialized work.',
   {},
   [],
   'meta',
@@ -768,6 +768,38 @@ export const listSkillsTool = defineTool(
       success: true,
       output: 'Skills list requested.',
       metadata: { action: 'list_skills' },
+    };
+  },
+);
+
+export const createSkillTool = defineTool(
+  'create_skill',
+  'Create a new skill file in the workspace. Skills are markdown files with YAML frontmatter that provide domain-specific instructions to the agent. The skill will be saved to .agents/skills/ in the workspace.',
+  {
+    name: { type: 'string', description: 'Skill name (kebab-case, e.g. "react-patterns")' },
+    description: { type: 'string', description: 'One-line description of the skill' },
+    content: { type: 'string', description: 'Full markdown content including YAML frontmatter (---\\nname: ...\\n---) and instructions' },
+    scope: { type: 'string', description: 'Where to save: "workspace" (project .agents/skills/) or "global" (~/.agents/skills/). Default: workspace' },
+  },
+  ['name', 'content'],
+  'meta',
+  true, // requires approval since it writes files
+  async (input, _ctx) => {
+    const name = String(input.name);
+    const description = String(input.description ?? '');
+    const content = String(input.content);
+    const scope = String(input.scope ?? 'workspace');
+
+    return {
+      success: true,
+      output: `Skill creation requested: "${name}" (${scope})`,
+      metadata: {
+        action: 'create_skill',
+        skillName: name,
+        skillDescription: description,
+        skillContent: content,
+        skillScope: scope,
+      },
     };
   },
 );
@@ -836,6 +868,7 @@ export function getAllBuiltinTools(): ToolHandler[] {
     // Meta
     activateSkillTool,
     listSkillsTool,
+    createSkillTool,
     manageTasksTool,
   ];
 }

@@ -88,9 +88,6 @@ interface AgentState {
   sddTasks: SddTask[];
   sddProgress: number; // 0-100
 
-  // Skills
-  activeSkills: string[];
-
   // Token usage
   tokenUsage: TokenUsage | null;
 
@@ -144,9 +141,6 @@ interface AgentState {
   updateSddTask: (id: string, patch: Partial<SddTask>) => void;
   setSddProgress: (progress: number) => void;
 
-  // Skills
-  setActiveSkills: (skills: string[]) => void;
-
   // Token usage
   setTokenUsage: (usage: TokenUsage | null) => void;
 
@@ -178,7 +172,6 @@ export const useAgentStore = create<AgentState>()(
     sddSpec: null,
     sddTasks: [],
     sddProgress: 0,
-    activeSkills: [],
     tokenUsage: null,
     agentTasks: [],
     sessions: [],
@@ -378,13 +371,6 @@ export const useAgentStore = create<AgentState>()(
     setSddProgress: (progress) =>
       set((state) => {
         state.sddProgress = progress;
-      }),
-
-    // ─── Skills ──────────────────────────────────────────────────────
-
-    setActiveSkills: (skills) =>
-      set((state) => {
-        state.activeSkills = skills;
       }),
 
     // ─── Token Usage ─────────────────────────────────────────────────
