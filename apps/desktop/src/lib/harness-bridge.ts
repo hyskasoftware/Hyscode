@@ -15,6 +15,7 @@ import type {
 } from '@hyscode/agent-harness';
 import type { Message, ToolDefinition } from '@hyscode/ai-providers';
 import { tauriInvokeRaw } from './tauri-invoke';
+import { tauriFs } from './tauri-fs';
 import { listen as tauriListen } from '@tauri-apps/api/event';
 import { McpBridge } from './mcp-bridge';
 import { useAgentStore } from '@/stores/agent-store';
@@ -209,7 +210,7 @@ export class HarnessBridge {
       useAgentStore.getState().updateLastAssistantContent(response);
 
       // Persist conversation to DB
-      this.persistConversation(userMessage, response);
+      await this.persistConversation(userMessage, response);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       dbg(`ERRO: ${errorMsg}`);
@@ -255,6 +256,50 @@ export class HarnessBridge {
       this.approvalResolvers.delete(id);
       useAgentStore.getState().removePendingApproval(id);
     }
+  }
+
+  /** Accept or revert a single pending file change */
+  async resolveFileChange(id: string, accepted: boolean): Promise<void> {
+    const store = useAgentStore.getState();
+    const change = store.pendingFileChanges.find((c) => c.id === id);
+    if (!change || change.status !== 'pending') return;
+
+    if (!accepted) {
+      // Revert: restore original content or delete newly-created file
+      try {
+        if (change.originalContent === null) {
+          await tauriFs.deletePath(change.filePath);
+        } else {
+          await tauriFs.writeFile(change.filePath, change.originalContent);
+        }
+      } catch (err) {
+        console.warn('[HarnessBridge] Failed to revert file change:', err);
+      }
+    }
+
+    store.resolvePendingFileChange(id, accepted);
+  }
+
+  /** Accept or revert ALL pending file changes in bulk */
+  async resolveAllFileChanges(accepted: boolean): Promise<void> {
+    const store = useAgentStore.getState();
+    const pending = store.pendingFileChanges.filter((c) => c.status === 'pending');
+
+    if (!accepted) {
+      for (const change of pending) {
+        try {
+          if (change.originalContent === null) {
+            await tauriFs.deletePath(change.filePath);
+          } else {
+            await tauriFs.writeFile(change.filePath, change.originalContent);
+          }
+        } catch (err) {
+          console.warn('[HarnessBridge] Failed to revert file change:', err);
+        }
+      }
+    }
+
+    store.resolveAllPendingFileChanges(accepted);
   }
 
   /** Sync conversation ID when restoring a previous session */
@@ -431,6 +476,20 @@ export class HarnessBridge {
         } as Partial<SddTask>);
         break;
       }
+
+      case 'file_change_pending': {
+        const c = event.change;
+        store.addPendingFileChange({
+          id: crypto.randomUUID(),
+          filePath: c.filePath,
+          toolName: c.toolName,
+          toolCallId: c.toolCallId,
+          originalContent: c.originalContent,
+          newContent: c.newContent,
+          status: 'pending',
+        });
+        break;
+      }
     }
   }
 
@@ -463,7 +522,7 @@ export class HarnessBridge {
   // ─── Helpers ────────────────────────────────────────────────────────
 
   private buildHistory(messages: Array<{ role: string; content: string }>): Message[] {
-    return messages.slice(0, -1).map((msg) => ({
+    return messages.map((msg) => ({
       role: msg.role as 'user' | 'assistant',
       content: [{ type: 'text' as const, text: msg.content }],
     }));
@@ -479,21 +538,26 @@ export class HarnessBridge {
     try {
       const title = userMessage.slice(0, 80) + (userMessage.length > 80 ? '…' : '');
 
-      // Try to update first; if the conversation doesn't exist yet, create it
+      const projectId = this.harness['projectId'] as string;
+
+      // Ensure the project row exists before inserting the conversation (FK requirement)
+      await tauriInvokeRaw('db_ensure_project', { id: projectId, path: projectId });
+
+      // Try to create the conversation; if it already exists (duplicate PK), update it
       try {
-        await tauriInvokeRaw('db_update_conversation', {
-          conversationId,
-          title,
-        });
-      } catch {
-        // Conversation doesn't exist yet — create it
         await tauriInvokeRaw('db_create_conversation', {
           id: conversationId,
-          projectId: this.harness['projectId'],
+          projectId,
           title,
           mode: store.mode,
           modelId: settings.activeModelId ?? null,
           providerId: settings.activeProviderId ?? null,
+        });
+      } catch {
+        // Conversation already exists — update title and timestamp
+        await tauriInvokeRaw('db_update_conversation', {
+          conversationId,
+          title,
         });
       }
 

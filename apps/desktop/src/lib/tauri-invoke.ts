@@ -54,6 +54,9 @@ interface TauriCommands {
   ai_stream_request: { args: { requestId: string; provider: string; url: string; headers: Record<string, string>; body: string; timeoutMs?: number }; ret: void };
   ai_stream_cancel: { args: { requestId: string }; ret: void };
 
+  // Database: Projects
+  db_ensure_project: { args: { id: string; path: string }; ret: void };
+
   // Database: Conversations
   db_list_conversations: { args: { projectId: string }; ret: Array<{ id: string; title: string; mode: string; model_id: string | null; provider_id: string | null; message_count: number; created_at: string; updated_at: string }> };
   db_get_conversation: { args: { conversationId: string }; ret: { id: string; title: string; mode: string; model_id: string | null; provider_id: string | null; created_at: string; updated_at: string } | null };

@@ -84,6 +84,7 @@ pub fn run() {
             commands::ai::ai_stream_request,
             commands::ai::ai_stream_cancel,
             // Database commands
+            commands::db::db_ensure_project,
             commands::db::db_list_conversations,
             commands::db::db_get_conversation,
             commands::db::db_create_conversation,

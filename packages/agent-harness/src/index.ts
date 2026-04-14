@@ -23,6 +23,7 @@ export type {
   HarnessConfig,
   HarnessEvent,
   HarnessEventHandler,
+  FileChangePending,
   SkillScope,
   SkillActivation,
   SkillFrontmatter,

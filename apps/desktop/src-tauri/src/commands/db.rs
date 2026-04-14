@@ -15,6 +15,10 @@ pub fn open_database(app_dir: &std::path::Path) -> Connection {
         .expect("failed to set pragmas");
     conn.execute_batch(include_str!("../../migrations/001_initial.sql"))
         .expect("failed to run migration 001");
+    conn.execute_batch(include_str!("../../migrations/002_extensions.sql"))
+        .expect("failed to run migration 002");
+    conn.execute_batch(include_str!("../../migrations/003_fix_mode_constraint.sql"))
+        .expect("failed to run migration 003");
     conn
 }
 
@@ -117,6 +121,28 @@ pub fn db_get_conversation(
         })
         .ok();
     Ok(row)
+}
+
+#[tauri::command]
+pub fn db_ensure_project(
+    state: State<'_, DbState>,
+    id: String,
+    path: String,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    // Derive a display name from the last path segment
+    let name = path
+        .trim_end_matches(['/', '\\'])
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(&path)
+        .to_string();
+    conn.execute(
+        "INSERT OR IGNORE INTO projects (id, name, path) VALUES (?1, ?2, ?3)",
+        params![id, name, path],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

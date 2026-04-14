@@ -382,11 +382,18 @@ export class Harness {
       const executionContext: ToolExecutionContext = {
         workspacePath: this.workspacePath,
         conversationId: this.conversationId,
+        toolCallId: '', // set per-call below
         invoke: this.invoke,
         listen: this.listen,
+        onFileChange: (change) => {
+          this.emit({ type: 'file_change_pending', change });
+        },
       };
 
       for (const tc of toolCalls) {
+        // Set the per-call toolCallId before execution
+        executionContext.toolCallId = tc.id;
+
         const record = await this.toolRouter.execute(
           tc.name,
           tc.id,

@@ -3,6 +3,8 @@ import { Loader2 } from 'lucide-react';
 import { EditorTabs } from './editor-tabs';
 import { EditorWelcome } from './editor-welcome';
 import { DiffViewer } from './diff-viewer';
+import { AgentDiffViewer } from './agent-diff-viewer';
+import { PendingChangesBar } from './pending-changes-bar';
 import {
   MarkdownViewer,
   ImageViewer,
@@ -12,6 +14,7 @@ import {
   PptxViewer,
 } from './viewers';
 import { useEditorStore, useFileStore, useSettingsStore } from '../../stores';
+import { useAgentStore } from '../../stores/agent-store';
 import { tauriFs } from '../../lib/tauri-fs';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
 import type * as monacoEditor from 'monaco-editor';
@@ -49,6 +52,15 @@ export function EditorArea() {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const contentRef = useRef<string | null>(null);
+
+  // Check if the active file has a pending agent change
+  const pendingChange = useAgentStore((s) =>
+    activeTab?.filePath
+      ? s.pendingFileChanges.find(
+          (c) => c.filePath === activeTab.filePath && c.status === 'pending',
+        ) ?? null
+      : null,
+  );
 
   // Monaco instance refs for git decorations
   const editorInstanceRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
@@ -173,6 +185,8 @@ export function EditorArea() {
         <PptxViewer filePath={activeTab.filePath} />
       ) : loading ? (
         <EditorLoading />
+      ) : pendingChange ? (
+        <AgentDiffViewer change={pendingChange} />
       ) : (
         <div className="flex-1 overflow-hidden">
           <Suspense fallback={<EditorLoading />}>
@@ -256,6 +270,7 @@ export function EditorArea() {
           </Suspense>
         </div>
       )}
+      <PendingChangesBar />
     </div>
   );
 }

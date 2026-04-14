@@ -40,6 +40,19 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export type FileChangeStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface PendingFileChange {
+  id: string;
+  filePath: string;
+  toolName: string;
+  toolCallId: string;
+  /** null when the file was newly created */
+  originalContent: string | null;
+  newContent: string;
+  status: FileChangeStatus;
+}
+
 export interface SessionSummary {
   id: string;
   title: string;
@@ -65,6 +78,9 @@ interface AgentState {
   // Tool calls & approval
   pendingToolCalls: ToolCallDisplay[];
   pendingApprovals: PendingApproval[];
+
+  // Agent file changes (write-through with visual tracking)
+  pendingFileChanges: PendingFileChange[];
 
   // SDD (Spec-Driven Development)
   sddPhase: SddStatus | null;
@@ -116,6 +132,11 @@ interface AgentState {
   addPendingApproval: (approval: PendingApproval) => void;
   removePendingApproval: (id: string) => void;
 
+  // File changes
+  addPendingFileChange: (change: PendingFileChange) => void;
+  resolvePendingFileChange: (id: string, accepted: boolean) => void;
+  resolveAllPendingFileChanges: (accepted: boolean) => void;
+
   // SDD
   setSddPhase: (phase: SddStatus | null) => void;
   setSddSpec: (spec: string | null) => void;
@@ -151,6 +172,7 @@ export const useAgentStore = create<AgentState>()(
     streamingText: '',
     pendingToolCalls: [],
     pendingApprovals: [],
+    pendingFileChanges: [],
     contextFiles: [],
     sddPhase: null,
     sddSpec: null,
@@ -245,6 +267,7 @@ export const useAgentStore = create<AgentState>()(
         state.conversationId = null;
         state.pendingToolCalls = [];
         state.pendingApprovals = [];
+        state.pendingFileChanges = [];
         state.contextFiles = [];
         state.streamingText = '';
         state.sddPhase = null;
@@ -288,6 +311,39 @@ export const useAgentStore = create<AgentState>()(
     removePendingApproval: (id) =>
       set((state) => {
         state.pendingApprovals = state.pendingApprovals.filter((a) => a.id !== id);
+      }),
+
+    // ─── File Changes ────────────────────────────────────────────────
+
+    addPendingFileChange: (change) =>
+      set((state) => {
+        // Collapse: if same filePath already pending, update newContent in place
+        const existing = state.pendingFileChanges.find(
+          (c) => c.filePath === change.filePath && c.status === 'pending',
+        );
+        if (existing) {
+          existing.newContent = change.newContent;
+          existing.toolCallId = change.toolCallId;
+        } else {
+          state.pendingFileChanges.push(change);
+        }
+      }),
+
+    resolvePendingFileChange: (id, accepted) =>
+      set((state) => {
+        const change = state.pendingFileChanges.find((c) => c.id === id);
+        if (change) {
+          change.status = accepted ? 'accepted' : 'rejected';
+        }
+      }),
+
+    resolveAllPendingFileChanges: (accepted) =>
+      set((state) => {
+        for (const change of state.pendingFileChanges) {
+          if (change.status === 'pending') {
+            change.status = accepted ? 'accepted' : 'rejected';
+          }
+        }
       }),
 
     // ─── SDD ─────────────────────────────────────────────────────────

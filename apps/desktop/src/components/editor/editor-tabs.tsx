@@ -1,11 +1,23 @@
-import { X, Circle, GitCompare } from 'lucide-react';
+import { X, Circle, GitCompare, Wand2 } from 'lucide-react';
 import { useEditorStore } from '../../stores';
+import { useAgentStore } from '../../stores/agent-store';
+import { useShallow } from 'zustand/shallow';
 
 export function EditorTabs() {
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const closeTab = useEditorStore((s) => s.closeTab);
+
+  // useShallow performs array-content comparison so this selector is stable
+  const pendingPathsArray = useAgentStore(
+    useShallow((s) =>
+      s.pendingFileChanges
+        .filter((c) => c.status === 'pending')
+        .map((c) => c.filePath),
+    ),
+  );
+  const pendingPaths = new Set(pendingPathsArray);
 
   if (tabs.length === 0) return null;
 
@@ -14,6 +26,7 @@ export function EditorTabs() {
       {tabs.map((tab) => {
         const isActive = activeTabId === tab.id;
         const isDiff = tab.type === 'diff';
+        const hasPendingChange = tab.filePath ? pendingPaths.has(tab.filePath) : false;
         return (
           <div
             key={tab.id}
@@ -25,6 +38,9 @@ export function EditorTabs() {
             onClick={() => setActiveTab(tab.id)}
           >
             {isDiff && <GitCompare className="h-3 w-3 shrink-0 text-accent" />}
+            {hasPendingChange && !isDiff && (
+              <Wand2 className="h-3 w-3 shrink-0 text-amber-400" />
+            )}
             <span className="truncate max-w-[120px]">{tab.fileName}</span>
             {tab.isDirty && (
               <Circle className="h-2 w-2 shrink-0 fill-accent text-accent" />

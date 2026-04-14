@@ -83,7 +83,25 @@ export const writeFileTool = defineTool(
   async (input, ctx) => {
     try {
       const filePath = resolvePath(input.path as string, ctx.workspacePath);
-      await ctx.invoke('write_file', { path: filePath, content: input.content });
+      const newContent = input.content as string;
+
+      // Capture original content before overwriting (null if file doesn't exist)
+      let originalContent: string | null = null;
+      try {
+        originalContent = await ctx.invoke<string>('read_file', { path: filePath });
+      } catch { /* file doesn't exist yet */ }
+
+      await ctx.invoke('write_file', { path: filePath, content: newContent });
+
+      // Notify UI about the file change
+      ctx.onFileChange?.({
+        toolCallId: ctx.toolCallId,
+        toolName: 'write_file',
+        filePath,
+        originalContent,
+        newContent,
+      });
+
       return { success: true, output: `File written: ${input.path}` };
     } catch (err) {
       return { success: false, output: '', error: String(err) };
@@ -105,28 +123,45 @@ export const editFileTool = defineTool(
   async (input, ctx) => {
     try {
       const filePath = resolvePath(input.path as string, ctx.workspacePath);
-      const content = await ctx.invoke<string>('read_file', { path: filePath });
+      const rawContent = await ctx.invoke<string>('read_file', { path: filePath });
       const oldStr = input.old_string as string;
       const newStr = input.new_string as string;
 
+      // Normalize line endings to LF for matching (files may have CRLF on Windows)
+      const content = rawContent.replace(/\r\n/g, '\n');
+      const normalizedOldStr = oldStr.replace(/\r\n/g, '\n');
+
       // Find occurrences
-      const occurrences = content.split(oldStr).length - 1;
+      const occurrences = content.split(normalizedOldStr).length - 1;
       if (occurrences === 0) {
-        return { success: false, output: '', error: 'old_string not found in file.' };
+        return {
+          success: false,
+          output: '',
+          error: `old_string not found in file. Make sure the string matches the file content exactly (including whitespace and indentation). Read the file first to confirm the exact content.`,
+        };
       }
       if (occurrences > 1) {
         return {
           success: false,
           output: '',
-          error: `old_string matches ${occurrences} locations. Include more context to make it unique.`,
+          error: `old_string matches ${occurrences} locations. Include more surrounding context lines to make it unique.`,
         };
       }
 
-      const newContent = content.replace(oldStr, newStr);
+      const newContent = content.replace(normalizedOldStr, newStr.replace(/\r\n/g, '\n'));
       await ctx.invoke('write_file', { path: filePath, content: newContent });
 
+      // Notify UI about the file change
+      ctx.onFileChange?.({
+        toolCallId: ctx.toolCallId,
+        toolName: 'edit_file',
+        filePath,
+        originalContent: content,
+        newContent,
+      });
+
       // Find the line range affected
-      const beforeLines = content.slice(0, content.indexOf(oldStr)).split('\n').length;
+      const beforeLines = content.slice(0, content.indexOf(normalizedOldStr)).split('\n').length;
       const newLines = newStr.split('\n').length;
       return {
         success: true,
@@ -151,7 +186,18 @@ export const createFileTool = defineTool(
   async (input, ctx) => {
     try {
       const filePath = resolvePath(input.path as string, ctx.workspacePath);
-      await ctx.invoke('create_file', { path: filePath, content: input.content });
+      const newContent = input.content as string;
+      await ctx.invoke('create_file', { path: filePath, content: newContent });
+
+      // Notify UI — originalContent is null for brand-new files
+      ctx.onFileChange?.({
+        toolCallId: ctx.toolCallId,
+        toolName: 'create_file',
+        filePath,
+        originalContent: null,
+        newContent,
+      });
+
       return { success: true, output: `File created: ${input.path}` };
     } catch (err) {
       return { success: false, output: '', error: String(err) };

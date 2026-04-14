@@ -24,10 +24,24 @@ export interface ToolHandler {
 export interface ToolExecutionContext {
   workspacePath: string;
   conversationId: string;
+  /** The ID of the current tool call (set per-call by the harness) */
+  toolCallId: string;
   /** Invoke a Tauri command */
   invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
   /** Listen to a Tauri event. Returns an unlisten function. */
   listen?: (event: string, handler: (payload: unknown) => void) => Promise<() => void>;
+  /** Callback fired when a file-writing tool mutates a file on disk */
+  onFileChange?: (change: FileChangePending) => void;
+}
+
+/** Emitted when a tool writes/edits/creates a file so the UI can track it */
+export interface FileChangePending {
+  toolCallId: string;
+  toolName: string;
+  filePath: string;
+  /** null when the file is newly created */
+  originalContent: string | null;
+  newContent: string;
 }
 
 export interface ToolCallRecord {
@@ -214,7 +228,8 @@ export type HarnessEvent =
   | { type: 'context_overflow'; droppedMessages: number }
   | { type: 'sdd_phase_change'; phase: SddStatus }
   | { type: 'sdd_task_start'; task: SddTask }
-  | { type: 'sdd_task_complete'; task: SddTask };
+  | { type: 'sdd_task_complete'; task: SddTask }
+  | { type: 'file_change_pending'; change: FileChangePending };
 
 export type HarnessEventHandler = (event: HarnessEvent) => void;
 

@@ -9,9 +9,11 @@ import {
   Trash2,
   ArrowRight,
   Loader2,
+  Plus,
 } from 'lucide-react';
 import { useAgentStore } from '@/stores/agent-store';
 import { useProjectStore } from '@/stores/project-store';
+import { HarnessBridge } from '@/lib/harness-bridge';
 import { tauriInvoke } from '@/lib/tauri-invoke';
 import { cn } from '@/lib/utils';
 import type { AgentMode, SessionSummary, ChatMessage } from '@/stores/agent-store';
@@ -59,9 +61,17 @@ export function SessionHistory() {
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <History className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-medium text-foreground">Session History</span>
-        <span className="ml-auto text-[10px] text-muted-foreground">
+        <span className="text-[10px] text-muted-foreground">
           {sessions.length} session{sessions.length !== 1 ? 's' : ''}
         </span>
+        <button
+          onClick={startNewSession}
+          title="New session"
+          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Plus className="h-3 w-3" />
+          New
+        </button>
       </div>
 
       {/* List */}
@@ -194,13 +204,23 @@ async function restoreSession(conversationId: string): Promise<void> {
     for (const msg of messages) {
       store.addMessage(msg);
     }
+
+    // Sync the Harness's internal conversationId so subsequent messages
+    // are persisted under the correct session.
+    try {
+      HarnessBridge.get().restoreSession(conversationId);
+    } catch {
+      // Bridge not yet initialized — the conversationId set in the store
+      // will be picked up when the bridge is next initialized.
+    }
+
     store.setHistoryOpen(false);
   } catch {
     // Failed to load messages
   }
 }
 
-async function deleteSession(conversationId: string, projectId?: string): Promise<void> {
+async function deleteSession(conversationId: string, _projectId?: string): Promise<void> {
   try {
     await tauriInvoke('db_delete_conversation', { conversationId });
     useAgentStore.getState().deleteSession(conversationId);
@@ -211,4 +231,18 @@ async function deleteSession(conversationId: string, projectId?: string): Promis
   } catch {
     // Silently fail
   }
+}
+
+function startNewSession(): void {
+  const store = useAgentStore.getState();
+  store.clearConversation();
+  // Assign a fresh conversation ID so the next message is persisted as a new session
+  const newId = crypto.randomUUID();
+  store.setConversationId(newId);
+  try {
+    HarnessBridge.get().restoreSession(newId);
+  } catch {
+    // Bridge not yet ready — store ID is enough; bridge will pick it up on next sendMessage
+  }
+  store.setHistoryOpen(false);
 }
