@@ -18,7 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(commands::pty::PtyState(Mutex::new(HashMap::new())))
         .manage(LspState(Mutex::new(HashMap::new())))
-        .manage(KeychainState(Mutex::new(HashMap::new())))
+        .manage(KeychainState(Mutex::new(commands::keychain::load_keychain())))
         .invoke_handler(tauri::generate_handler![
             commands::fs::read_file,
             commands::fs::write_file,

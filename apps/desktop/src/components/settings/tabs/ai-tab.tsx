@@ -1,61 +1,289 @@
-import { useState } from 'react';
-import { Key, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Key, Plus, Trash2, Eye, EyeOff, ToggleLeft, ToggleRight, X } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settings-store';
-import type { McpServerConfig } from '@/stores/settings-store';
+import type { McpServerConfig, CustomModel } from '@/stores/settings-store';
 import { Button } from '@/components/ui/button';
 import { tauriInvoke } from '@/lib/tauri-invoke';
 import { McpServerForm } from './mcp-server-form';
 
-// ─── Provider definitions (static) ─────────────────────────────────────────
+// ─── Provider & Model Catalog ───────────────────────────────────────────────
 
-const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic', models: ['claude-sonnet-4-5', 'claude-sonnet-4-20250514', 'claude-haiku-4-20250414'] },
-  { id: 'openai', name: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'] },
-  { id: 'gemini', name: 'Google Gemini', models: ['gemini-2.0-flash', 'gemini-2.0-pro', 'gemini-1.5-pro'] },
-  { id: 'openrouter', name: 'OpenRouter', models: ['anthropic/claude-sonnet-4-5', 'openai/gpt-4o', 'meta-llama/llama-3.3-70b'] },
-  { id: 'ollama', name: 'Ollama (local)', models: ['llama3.3', 'codellama', 'deepseek-coder'] },
+interface ModelInfo {
+  id: string;
+  name: string;
+}
+
+interface ProviderInfo {
+  id: string;
+  name: string;
+  models: ModelInfo[];
+  needsKey: boolean;
+  supportsCustomModels?: boolean;
+}
+
+const PROVIDERS: ProviderInfo[] = [
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    needsKey: true,
+    models: [
+      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6' },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' },
+    ],
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    needsKey: true,
+    models: [
+      { id: 'gpt-5.4', name: 'GPT-5.4' },
+      { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' },
+      { id: 'gpt-5.4-nano', name: 'GPT-5.4 Nano' },
+    ],
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    needsKey: true,
+    models: [
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
+    ],
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    needsKey: true,
+    supportsCustomModels: true,
+    models: [
+      { id: 'anthropic/claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+      { id: 'anthropic/claude-opus-4-6', name: 'Claude Opus 4.6' },
+      { id: 'openai/gpt-5.4', name: 'GPT-5.4' },
+      { id: 'openai/gpt-5.4-mini', name: 'GPT-5.4 Mini' },
+      { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { id: 'meta-llama/llama-4-scout', name: 'Llama 4 Scout' },
+      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1' },
+    ],
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama (local)',
+    needsKey: false,
+    supportsCustomModels: true,
+    models: [
+      { id: 'llama4', name: 'Llama 4' },
+      { id: 'qwen3', name: 'Qwen 3' },
+      { id: 'deepseek-r1', name: 'DeepSeek R1' },
+      { id: 'deepseek-coder-v2', name: 'DeepSeek Coder V2' },
+    ],
+  },
 ];
+
+/** Get all models for a provider (catalog + user custom) */
+function getProviderModels(provider: ProviderInfo, customModels: CustomModel[]): ModelInfo[] {
+  const customs = customModels
+    .filter((c) => c.providerId === provider.id)
+    .map((c) => ({ id: c.modelId, name: c.name }));
+  return [...provider.models, ...customs];
+}
+
+/** Check if a model is enabled for a provider */
+function isModelEnabled(
+  enabledModels: Record<string, string[]>,
+  providerId: string,
+  modelId: string,
+): boolean {
+  const explicit = enabledModels[providerId];
+  // No explicit list = all catalog models enabled by default
+  if (!explicit) return true;
+  return explicit.includes(modelId);
+}
 
 export function AiTab() {
   const store = useSettingsStore();
   const [showingMcpForm, setShowingMcpForm] = useState(false);
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  const [customModelInput, setCustomModelInput] = useState('');
+
+  /** Get enabled models as flat list for a given provider */
+  const getEnabledModelsForProvider = (providerId: string): ModelInfo[] => {
+    const provider = PROVIDERS.find((p) => p.id === providerId);
+    if (!provider) return [];
+    const all = getProviderModels(provider, store.customModels);
+    return all.filter((m) => isModelEnabled(store.enabledModels, providerId, m.id));
+  };
+
+  const handleToggleModel = (provider: ProviderInfo, modelId: string) => {
+    const all = getProviderModels(provider, store.customModels);
+    const explicit = store.enabledModels[provider.id];
+    if (!explicit) {
+      // First toggle: materialize the full list minus this model
+      const allIds = all.map((m) => m.id).filter((id) => id !== modelId);
+      store.setEnabledModels(provider.id, allIds);
+    } else {
+      store.toggleModel(provider.id, modelId);
+    }
+  };
+
+  const handleAddCustomModel = (providerId: string) => {
+    const trimmed = customModelInput.trim();
+    if (!trimmed) return;
+    const name = trimmed.split('/').pop()?.replace(/:.*$/, '') ?? trimmed;
+    store.addCustomModel({ providerId, modelId: trimmed, name });
+    setCustomModelInput('');
+  };
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ─── Provider & Model ───────────────────────────────────────────── */}
-      <Section title="Provider & Model">
+      {/* ─── Active Provider & Model ────────────────────────────────── */}
+      <Section title="Active Provider & Model">
         <Row label="Provider">
           <SelectInput
             value={store.activeProviderId ?? ''}
             onChange={(v) => {
-              const provider = PROVIDERS.find((p) => p.id === v);
-              store.setActiveProvider(v, provider?.models[0] ?? '');
+              const enabled = getEnabledModelsForProvider(v);
+              store.setActiveProvider(v, enabled[0]?.id ?? '');
             }}
             options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
           />
         </Row>
         <Row label="Model">
-          <SelectInput
-            value={store.activeModelId ?? ''}
-            onChange={(v) => store.set('activeModelId', v)}
-            options={
-              (PROVIDERS.find((p) => p.id === store.activeProviderId)?.models ?? []).map((m) => ({
-                value: m,
-                label: m,
-              }))
-            }
-          />
+          {store.activeProviderId === 'openrouter' ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={store.activeModelId ?? ''}
+                onChange={(e) => store.set('activeModelId', e.target.value)}
+                placeholder="provider/model-name"
+                className="h-7 w-52 rounded-md bg-muted px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+              />
+            </div>
+          ) : (
+            <SelectInput
+              value={store.activeModelId ?? ''}
+              onChange={(v) => store.set('activeModelId', v)}
+              options={getEnabledModelsForProvider(store.activeProviderId ?? '').map((m) => ({
+                value: m.id,
+                label: m.name,
+              }))}
+            />
+          )}
         </Row>
       </Section>
 
-      {/* ─── API Keys ──────────────────────────────────────────────────── */}
+      {/* ─── Models per Provider ────────────────────────────────────── */}
+      <Section title="Models">
+        <p className="text-[10px] text-muted-foreground -mt-1 mb-1">
+          Enable or disable models for each provider. Enabled models appear in the model selector.
+        </p>
+        {PROVIDERS.map((provider) => {
+          const all = getProviderModels(provider, store.customModels);
+          const enabledCount = all.filter((m) =>
+            isModelEnabled(store.enabledModels, provider.id, m.id),
+          ).length;
+          const isExpanded = expandedProvider === provider.id;
+
+          return (
+            <div key={provider.id} className="rounded-lg bg-surface-raised overflow-hidden">
+              <button
+                onClick={() => setExpandedProvider(isExpanded ? null : provider.id)}
+                className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+              >
+                <span className="text-[12px] font-medium text-foreground">{provider.name}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {enabledCount}/{all.length} models
+                </span>
+              </button>
+
+              {isExpanded && (
+                <div className="border-t border-border px-3 py-2 flex flex-col gap-1">
+                  {all.map((model) => {
+                    const isCustom = store.customModels.some(
+                      (c) => c.providerId === provider.id && c.modelId === model.id,
+                    );
+                    const enabled = isModelEnabled(store.enabledModels, provider.id, model.id);
+
+                    return (
+                      <div
+                        key={model.id}
+                        className="flex items-center justify-between gap-2 py-1"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[11px] text-foreground">{model.name}</span>
+                          <span className="ml-1.5 text-[9px] text-muted-foreground">{model.id}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {isCustom && (
+                            <button
+                              onClick={() => store.removeCustomModel(provider.id, model.id)}
+                              className="rounded p-0.5 text-muted-foreground hover:text-red-400"
+                              title="Remove custom model"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleToggleModel(provider, model.id)}
+                            className="shrink-0"
+                          >
+                            {enabled ? (
+                              <ToggleRight className="h-4 w-4 text-accent" />
+                            ) : (
+                              <ToggleLeft className="h-4 w-4 text-muted-foreground opacity-50" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Custom model input */}
+                  {provider.supportsCustomModels && (
+                    <div className="mt-1 flex items-center gap-1.5 border-t border-border pt-2">
+                      <input
+                        type="text"
+                        value={expandedProvider === provider.id ? customModelInput : ''}
+                        onChange={(e) => setCustomModelInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddCustomModel(provider.id);
+                        }}
+                        placeholder={
+                          provider.id === 'openrouter'
+                            ? 'e.g. z-ai/glm-4.5-air:free'
+                            : 'e.g. my-model:latest'
+                        }
+                        className="h-7 flex-1 rounded-md bg-muted px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleAddCustomModel(provider.id)}
+                        disabled={!customModelInput.trim()}
+                        className="h-7 px-2 text-[10px]"
+                      >
+                        <Plus className="mr-1 h-3 w-3" />
+                        Add
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </Section>
+
+      {/* ─── API Keys ──────────────────────────────────────────────── */}
       <Section title="API Keys">
-        {PROVIDERS.filter((p) => p.id !== 'ollama').map((provider) => (
+        {PROVIDERS.filter((p) => p.needsKey).map((provider) => (
           <ApiKeyRow key={provider.id} providerId={provider.id} providerName={provider.name} />
         ))}
       </Section>
 
-      {/* ─── Generation Settings ───────────────────────────────────────── */}
+      {/* ─── Generation Settings ───────────────────────────────────── */}
       <Section title="Generation">
         <Row label="Temperature">
           <NumberInput
@@ -73,6 +301,15 @@ export function AiTab() {
             min={256}
             max={32768}
             step={256}
+          />
+        </Row>
+        <Row label="Top P" description="Nucleus sampling (leave empty for default)">
+          <NumberInput
+            value={store.topP ?? 1}
+            onChange={(v) => store.set('topP', v)}
+            min={0}
+            max={1}
+            step={0.05}
           />
         </Row>
         <Row label="Max Iterations">
@@ -151,8 +388,22 @@ export function AiTab() {
 
 function ApiKeyRow({ providerId, providerName }: { providerId: string; providerName: string }) {
   const [value, setValue] = useState('');
+  const [hasExisting, setHasExisting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [visible, setVisible] = useState(false);
+
+  // Load existing key on mount
+  useEffect(() => {
+    tauriInvoke<string | null>('keychain_get', {
+      service: 'hyscode',
+      account: `${providerId}_api_key`,
+    }).then((existing) => {
+      if (existing) {
+        setValue(existing);
+        setHasExisting(true);
+      }
+    });
+  }, [providerId]);
 
   const handleSave = async () => {
     if (!value.trim()) return;
@@ -161,6 +412,7 @@ function ApiKeyRow({ providerId, providerName }: { providerId: string; providerN
       account: `${providerId}_api_key`,
       password: value.trim(),
     });
+    setHasExisting(true);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -170,13 +422,16 @@ function ApiKeyRow({ providerId, providerName }: { providerId: string; providerN
       <div className="flex items-center gap-2">
         <Key className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[12px] text-foreground">{providerName}</span>
+        {hasExisting && !saved && (
+          <span className="text-[9px] text-accent">● configured</span>
+        )}
       </div>
       <div className="flex items-center gap-1.5">
         <div className="relative">
           <input
             type={visible ? 'text' : 'password'}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => { setValue(e.target.value); setHasExisting(false); }}
             placeholder="sk-..."
             className="h-7 w-44 rounded-md bg-muted px-2 pr-7 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
           />
@@ -193,7 +448,7 @@ function ApiKeyRow({ providerId, providerName }: { providerId: string; providerN
           disabled={!value.trim()}
           className="h-7 px-2.5 text-[10px]"
         >
-          {saved ? 'Saved ✓' : 'Save'}
+          {saved ? 'Saved ✓' : hasExisting ? 'Update' : 'Save'}
         </Button>
       </div>
     </div>

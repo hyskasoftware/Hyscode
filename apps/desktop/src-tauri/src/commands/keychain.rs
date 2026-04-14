@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
 
-/// In-memory encrypted key store.
-/// For production, this should be backed by tauri-plugin-stronghold.
-/// Current implementation uses an in-memory HashMap as a secure placeholder
-/// that can be swapped for stronghold without changing the API.
+/// File-backed key store. Keys are persisted as a JSON file in the app's
+/// local data directory. For production, swap for tauri-plugin-stronghold.
 pub struct KeychainState(pub Mutex<HashMap<String, String>>);
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,16 +14,42 @@ pub struct KeychainEntry {
     pub account: String,
 }
 
+fn keychain_path() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+        .join("hyscode")
+        .join("keychain.json")
+}
+
+pub fn load_keychain() -> HashMap<String, String> {
+    let path = keychain_path();
+    let Ok(data) = std::fs::read_to_string(&path) else {
+        return HashMap::new();
+    };
+    serde_json::from_str(&data).unwrap_or_default()
+}
+
+fn persist_keychain(store: &HashMap<String, String>) {
+    let path = keychain_path();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(data) = serde_json::to_string(store) {
+        let _ = std::fs::write(&path, data);
+    }
+}
+
 #[tauri::command]
 pub async fn keychain_set(
     state: State<'_, KeychainState>,
     service: String,
     account: String,
-    secret: String,
+    password: String,
 ) -> Result<(), String> {
     let key = format!("{}:{}", service, account);
     let mut store = state.0.lock().map_err(|e| e.to_string())?;
-    store.insert(key, secret);
+    store.insert(key, password);
+    persist_keychain(&store);
     Ok(())
 }
 
@@ -47,7 +72,9 @@ pub async fn keychain_delete(
 ) -> Result<bool, String> {
     let key = format!("{}:{}", service, account);
     let mut store = state.0.lock().map_err(|e| e.to_string())?;
-    Ok(store.remove(&key).is_some())
+    let existed = store.remove(&key).is_some();
+    persist_keychain(&store);
+    Ok(existed)
 }
 
 #[tauri::command]
