@@ -283,11 +283,16 @@ export class AnthropicProvider implements AIProvider {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      const retryAfterHeader = response.headers.get('Retry-After');
+      const retryAfterMs = retryAfterHeader
+        ? parseFloat(retryAfterHeader) * 1_000
+        : undefined;
       throw new ProviderError(
         `Anthropic API error: ${response.status} ${errorBody}`,
         'anthropic',
         response.status,
         [429, 500, 502, 503, 529].includes(response.status),
+        retryAfterMs,
       );
     }
 

@@ -1,4 +1,4 @@
-import { Sparkles, User, Bot, Loader2 } from 'lucide-react';
+import { Sparkles, User, Bot, Loader2, ChevronDown, ChevronRight, Bug } from 'lucide-react';
 import { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,12 +13,23 @@ export function AgentMessages() {
   const messages = useAgentStore((s) => s.messages);
   const isStreaming = useAgentStore((s) => s.isStreaming);
   const pendingApprovals = useAgentStore((s) => s.pendingApprovals);
+  const debugLines = useAgentStore((s) => s.debugLines);
+  const debugExpanded = useAgentStore((s) => s.debugExpanded);
+  const setDebugExpanded = useAgentStore((s) => s.setDebugExpanded);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const debugBottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming, pendingApprovals]);
+
+  // Auto-scroll debug panel when expanded
+  useEffect(() => {
+    if (debugExpanded) {
+      debugBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [debugLines, debugExpanded]);
 
   // Empty state
   if (messages.length === 0) {
@@ -102,6 +113,41 @@ export function AgentMessages() {
           {pendingApprovals.map((approval) => (
             <ApprovalDialog key={approval.id} approval={approval} />
           ))}
+
+          {/* Debug log panel */}
+          {debugLines.length > 0 && (
+            <div className="mt-2 rounded-md border border-border/40 bg-background/60 text-[10px] font-mono">
+              <button
+                className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-muted-foreground hover:text-foreground"
+                onClick={() => setDebugExpanded(!debugExpanded)}
+              >
+                {debugExpanded ? (
+                  <ChevronDown className="h-3 w-3 shrink-0" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 shrink-0" />
+                )}
+                <Bug className="h-3 w-3 shrink-0 text-yellow-500/70" />
+                <span className="text-yellow-500/70">Debug log</span>
+                <span className="ml-auto rounded bg-muted px-1 tabular-nums">{debugLines.length}</span>
+              </button>
+              {debugExpanded && (
+                <div className="max-h-[200px] overflow-y-auto border-t border-border/30 px-2 py-1.5">
+                  {debugLines.map((line, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        'leading-5',
+                        line.includes('ERRO') ? 'text-red-400' : 'text-muted-foreground',
+                      )}
+                    >
+                      {line}
+                    </div>
+                  ))}
+                  <div ref={debugBottomRef} />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Scroll anchor */}
           <div ref={bottomRef} />

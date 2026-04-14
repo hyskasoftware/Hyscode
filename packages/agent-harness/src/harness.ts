@@ -229,11 +229,23 @@ export class Harness {
       let toolCalls: Array<{ id: string; name: string; input: Record<string, unknown>; _rawInput?: string }> = [];
       let stopReason: string | undefined;
 
+      // Turn timeout enforcement
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const abortController = new AbortController();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          abortController.abort();
+          reject(new Error(`Turn timeout after ${Math.round(this.config.turnTimeoutMs / 1000)}s`));
+        }, this.config.turnTimeoutMs);
+      });
+
       try {
-        for await (const chunk of registry.chat({
-          ...chatParams,
-          providerId: this.config.providerId || undefined,
-        })) {
+        await Promise.race([
+          (async () => {
+            for await (const chunk of registry.chat({
+              ...chatParams,
+              providerId: this.config.providerId || undefined,
+            })) {
           this.emit({ type: 'stream_chunk', chunk });
 
           switch (chunk.type) {
@@ -269,13 +281,19 @@ export class Harness {
               throw new Error(chunk.error);
           }
         }
+          })(),
+          timeoutPromise,
+        ]);
       } catch (err) {
+        if (timeoutId) clearTimeout(timeoutId);
         this.emit({
           type: 'turn_end',
           reason: 'error',
           error: err instanceof Error ? err.message : String(err),
         });
         throw err;
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
 
       // Add assistant response to history

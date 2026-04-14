@@ -232,22 +232,30 @@ export class GeminiProvider implements AIProvider {
     if (params.stopSequences?.length) generationConfig.stopSequences = params.stopSequences;
     if (Object.keys(generationConfig).length) body.generationConfig = generationConfig;
 
-    const url = `${this.baseUrl}/models/${params.model}:streamGenerateContent?key=${this.apiKey}&alt=sse`;
+    const url = `${this.baseUrl}/models/${params.model}:streamGenerateContent?alt=sse`;
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': this.apiKey,
+      },
       body: JSON.stringify(body),
       signal: params.signal,
     });
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      const retryAfterHeader = response.headers.get('Retry-After');
+      const retryAfterMs = retryAfterHeader
+        ? parseFloat(retryAfterHeader) * 1_000
+        : undefined;
       throw new ProviderError(
         `Gemini API error: ${response.status} ${errorBody}`,
         'gemini',
         response.status,
         [429, 500, 502, 503].includes(response.status),
+        retryAfterMs,
       );
     }
 

@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS sdd_tasks (
     completed_at TEXT
 );
 
-CREATE INDEX idx_sdd_tasks_session ON sdd_tasks(session_id);
+CREATE INDEX IF NOT EXISTS idx_sdd_tasks_session ON sdd_tasks(session_id);
 
 -- ─── Telemetry (local only) ─────────────────────────────────────────────────
 
@@ -136,5 +136,5 @@ CREATE TABLE IF NOT EXISTS telemetry (
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX idx_telemetry_event ON telemetry(event);
-CREATE INDEX idx_telemetry_created ON telemetry(created_at);
+CREATE INDEX IF NOT EXISTS idx_telemetry_event ON telemetry(event);
+CREATE INDEX IF NOT EXISTS idx_telemetry_created ON telemetry(created_at);

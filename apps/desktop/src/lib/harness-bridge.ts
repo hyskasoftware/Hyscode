@@ -70,17 +70,26 @@ export class HarnessBridge {
     const store = useAgentStore.getState();
     const settings = useSettingsStore.getState();
 
+    const providerId = settings.activeProviderId ?? '';
+    const modelId = settings.activeModelId ?? '';
+
     // Sync settings → harness config
-    this.harness.setConfig({
-      providerId: settings.activeProviderId ?? '',
-      modelId: settings.activeModelId ?? '',
-    });
+    this.harness.setConfig({ providerId, modelId });
     this.harness.setAgentType(settings.agentType);
+
+    const dbg = (msg: string) => {
+      const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      console.log('[HarnessBridge]', msg);
+      useAgentStore.getState().addDebugLine(line);
+    };
+
+    dbg(`Iniciando com provider="${providerId || '(default)'}" model="${modelId || '(default)'}"`);
 
     let mode: ConversationMode = 'agent';
     if (store.mode === 'chat') mode = 'chat';
     if (store.mode === 'build' && store.sddPhase) mode = 'sdd';
     this.harness.setMode(mode);
+    dbg(`Modo: ${mode}`);
 
     if (!store.conversationId) {
       const id = crypto.randomUUID();
@@ -108,10 +117,14 @@ export class HarnessBridge {
     });
 
     try {
-      // Build history from store messages (convert to provider Message format)
-      const history = this.buildHistory(store.messages);
+      // Build history from store messages (use fresh state after addMessage calls)
+      const history = this.buildHistory(useAgentStore.getState().messages.slice(0, -2));
+
+      dbg(`Enviando para LLM (${history.length} msgs no histórico)...`);
 
       const { response } = await this.harness.run(userMessage, history);
+
+      dbg(`Resposta recebida (${response.length} chars)`);
 
       // Flush any remaining streaming text
       useAgentStore.getState().flushStreamingText();
@@ -120,7 +133,8 @@ export class HarnessBridge {
       useAgentStore.getState().updateLastAssistantContent(response);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      useAgentStore.getState().updateLastAssistantContent(`Error: ${errorMsg}`);
+      dbg(`ERRO: ${errorMsg}`);
+      useAgentStore.getState().updateLastAssistantContent(`❌ ${errorMsg}`);
     } finally {
       useAgentStore.getState().setStreaming(false);
     }
@@ -153,10 +167,20 @@ export class HarnessBridge {
 
   // ─── Event Handling ─────────────────────────────────────────────────
 
+  private debug(msg: string): void {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    console.log('[Harness]', msg);
+    useAgentStore.getState().addDebugLine(line);
+  }
+
   private handleEvent(event: HarnessEvent): void {
     const store = useAgentStore.getState();
 
     switch (event.type) {
+      case 'turn_start':
+        this.debug(`Iteração ${event.iteration} — aguardando LLM...`);
+        break;
+
       case 'stream_chunk': {
         const chunk = event.chunk;
         if (chunk.type === 'text_delta') {
@@ -167,6 +191,7 @@ export class HarnessBridge {
       }
 
       case 'tool_call_start': {
+        this.debug(`Ferramenta: ${event.toolName}`);
         const tc: ToolCallDisplay = {
           id: crypto.randomUUID(),
           name: event.toolName,
@@ -185,6 +210,8 @@ export class HarnessBridge {
       }
 
       case 'tool_call_result': {
+        const label = event.result.success ? '✓' : '✗';
+        this.debug(`${label} ${event.toolName} (${event.durationMs}ms)`);
         // Find running tool call with matching name (most recent)
         const agentState = useAgentStore.getState();
         const running = [...agentState.pendingToolCalls]
@@ -202,6 +229,11 @@ export class HarnessBridge {
       }
 
       case 'turn_end': {
+        if (event.reason === 'error' && event.error) {
+          this.debug(`ERRO na iteração: ${event.error}`);
+        } else {
+          this.debug(`Turno encerrado: ${event.reason}`);
+        }
         useAgentStore.getState().flushStreamingText();
         break;
       }

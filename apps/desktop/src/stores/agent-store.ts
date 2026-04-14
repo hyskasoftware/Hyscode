@@ -83,6 +83,13 @@ interface AgentState {
   sessionsLoading: boolean;
   historyOpen: boolean;
 
+  // ─── Debug ────────────────────────────────────────────────────────────
+  debugLines: string[];
+  debugExpanded: boolean;
+  addDebugLine: (line: string) => void;
+  clearDebugLines: () => void;
+  setDebugExpanded: (v: boolean) => void;
+
   // ─── Actions ──────────────────────────────────────────────────────────
 
   setMode: (mode: AgentMode) => void;
@@ -148,6 +155,10 @@ export const useAgentStore = create<AgentState>()(
     sessions: [],
     sessionsLoading: false,
     historyOpen: false,
+
+    // Debug
+    debugLines: [],
+    debugExpanded: false,
 
     // ─── Core Actions ─────────────────────────────────────────────────
 
@@ -340,6 +351,27 @@ export const useAgentStore = create<AgentState>()(
     deleteSession: (id) =>
       set((state) => {
         state.sessions = state.sessions.filter((s) => s.id !== id);
+      }),
+
+    // ─── Debug ───────────────────────────────────────────────────────
+
+    addDebugLine: (line) =>
+      set((state) => {
+        state.debugLines.push(line);
+        // Keep only last 100 lines
+        if (state.debugLines.length > 100) {
+          state.debugLines = state.debugLines.slice(-100);
+        }
+      }),
+
+    clearDebugLines: () =>
+      set((state) => {
+        state.debugLines = [];
+      }),
+
+    setDebugExpanded: (v) =>
+      set((state) => {
+        state.debugExpanded = v;
       }),
   })),
 );
