@@ -30,6 +30,8 @@ export type {
   Skill,
   AgentTaskStatus,
   AgentTask,
+  TurnRecord,
+  EnvironmentContext,
 } from './types';
 export { DEFAULT_HARNESS_CONFIG } from './types';
 
@@ -42,6 +44,10 @@ export { ToolRouter } from './tool-router';
 export { SkillLoader } from './skill-loader';
 export type { SkillLoaderConfig } from './skill-loader';
 
+// ─── Middleware ──────────────────────────────────────────────────────────────
+export type { MiddlewareContext, PreCompletionHook, PostToolHook } from './middleware';
+export { verificationMiddleware, LoopDetectionMiddleware, compactToolOutput } from './middleware';
+
 // ─── Agents ─────────────────────────────────────────────────────────────────
 export { getAgentDefinition, getAllAgentDefinitions, getAgentTypes } from './agents';
 
@@ -50,4 +56,21 @@ export { getAllBuiltinTools } from './tools';
 
 // ─── SDD Engine ─────────────────────────────────────────────────────────────
 export { SddEngine, PlanManager } from './sdd-engine';
-export type { SddDatabase, SddEngineConfig } from './sdd-engine';;
+export type { SddDatabase, SddEngineConfig } from './sdd-engine';
+
+// ─── Tracing ────────────────────────────────────────────────────────────────
+export { TraceRecorder, analyzeTraces } from './trace-recorder';
+export type { Trace, TraceIteration, TraceAnalysisSummary } from './trace-recorder';
+
+// ─── Mode Policies ──────────────────────────────────────────────────────────
+export {
+  getModePolicy,
+  getAllModePolicies,
+  getDefaultPolicy,
+  applyPolicyOverride,
+  resetPolicy,
+  resetAllPolicies,
+  adjustPolicyForModel,
+  getModelProfile,
+} from './mode-policies';
+export type { ModePolicy, ModelProfile } from './mode-policies';

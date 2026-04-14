@@ -270,3 +270,51 @@ export interface AgentTask {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Turn Record ────────────────────────────────────────────────────────────
+// Structured record of a complete agent turn for observability and tracing.
+
+export interface TurnRecord {
+  id: string;
+  conversationId: string;
+  /** Agent mode used for this turn */
+  mode: AgentType;
+  /** Number of LLM iterations within this turn */
+  iterations: number;
+  /** All tool calls executed during this turn */
+  toolCalls: ToolCallRecord[];
+  /** Token usage for this turn */
+  tokenUsage: { input: number; output: number };
+  /** Why the turn ended */
+  stopReason: 'complete' | 'max_iterations' | 'cancelled' | 'error';
+  /** Whether the agent performed verification (test/lint/diff) */
+  verificationPerformed: boolean;
+  /** Whether verification was forced by middleware */
+  verificationForced: boolean;
+  /** Files modified during this turn */
+  filesModified: string[];
+  /** Total wall-clock duration in ms */
+  durationMs: number;
+  /** ISO timestamp */
+  timestamp: string;
+  /** Full structured trace (attached by the harness after finalization) */
+  trace?: import('./trace-recorder').Trace;
+}
+
+// ─── Environment Context ────────────────────────────────────────────────────
+// Deterministic context package assembled at the start of each agent turn.
+
+export interface EnvironmentContext {
+  /** Current working directory / workspace root */
+  workspacePath: string;
+  /** Active file open in the editor (if any) */
+  activeFile?: { path: string; content: string; language: string };
+  /** Current text selection in the editor (if any) */
+  selection?: { text: string; filePath: string; startLine: number; endLine: number };
+  /** Top-level directory structure */
+  directoryTree?: string;
+  /** Git branch and summary of uncommitted changes */
+  gitState?: { branch: string; uncommittedFiles: number; summary: string };
+  /** Last terminal command and its output snippet */
+  lastTerminalCommand?: { command: string; output: string; exitCode: number | null };
+}

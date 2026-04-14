@@ -67,6 +67,14 @@ interface TauriCommands {
   // Database: Messages
   db_list_messages: { args: { conversationId: string }; ret: Array<{ id: string; role: string; content: string; tool_calls: string | null; token_input: number; token_output: number; created_at: string }> };
   db_create_message: { args: { id: string; conversationId: string; role: string; content: string; toolCalls?: string; tokenInput?: number; tokenOutput?: number }; ret: void };
+
+  // Database: Traces
+  db_create_trace: { args: { id: string; conversationId: string; mode: string; provider: string; model: string; systemPromptHash?: string; systemPromptPreview?: string; systemPromptTokens?: number; toolCount?: number; iterations: string; tokenInput: number; tokenOutput: number; stopReason: string; verificationPerformed: boolean; verificationForced: boolean; filesModified?: string; errors?: string; loopWarnings?: string; durationMs: number }; ret: void };
+  db_list_traces: { args: { conversationId: string }; ret: Array<{ id: string; conversation_id: string; mode: string; provider: string; model: string; system_prompt_hash: string | null; iterations: string; token_input: number; token_output: number; stop_reason: string; verification_performed: boolean; verification_forced: boolean; files_modified: string | null; errors: string | null; loop_warnings: string | null; duration_ms: number; created_at: string }> };
+
+  // Database: Mode Policies
+  db_list_mode_policies: { args: Record<string, never>; ret: Array<{ mode: string; max_iterations: number; max_input_tokens: number; max_output_tokens: number; turn_timeout_ms: number; approval_mode: string; verification_required: boolean; allowed_tool_categories: string; tool_overrides: string | null; skill_triggers: string | null }> };
+  db_update_mode_policy: { args: { mode: string; maxIterations?: number; maxInputTokens?: number; maxOutputTokens?: number; turnTimeoutMs?: number; approvalMode?: string; verificationRequired?: boolean; allowedToolCategories?: string; toolOverrides?: string; skillTriggers?: string }; ret: void };
 }
 
 // ─── Typed invoke ───────────────────────────────────────────────────────────

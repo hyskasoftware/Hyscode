@@ -142,14 +142,16 @@ export class ContextManager {
       parts.push('</active_skills>');
     }
 
-    // Skill directory: list ALL available skills so the agent knows what it can activate
+    // Skill directory: compact listing of available skills.
+    // Instead of dumping full descriptions of every inactive skill (which causes
+    // context rot), we use progressive disclosure: a one-liner list so the agent
+    // knows what exists, and the `list_skills` tool for full details.
     const inactiveSkills = this.allSkills.filter(s => !s.active);
     if (inactiveSkills.length > 0) {
-      parts.push('\n<available_skills>');
-      parts.push('The following skills are available but not yet activated. Use `activate_skill` to enable any that are relevant to the current task:');
-      for (const skill of inactiveSkills) {
-        parts.push(`- **${skill.frontmatter.name}**: ${skill.frontmatter.description}`);
-      }
+      const names = inactiveSkills.map(s => s.frontmatter.name).join(', ');
+      parts.push(`\n<available_skills count="${inactiveSkills.length}">`);
+      parts.push(`Available but inactive: ${names}`);
+      parts.push('Use `list_skills` for details or `activate_skill` to enable one.');
       parts.push('</available_skills>');
     }
 

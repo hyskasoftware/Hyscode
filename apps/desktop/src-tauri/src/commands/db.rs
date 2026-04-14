@@ -19,6 +19,8 @@ pub fn open_database(app_dir: &std::path::Path) -> Connection {
         .expect("failed to run migration 002");
     conn.execute_batch(include_str!("../../migrations/003_fix_mode_constraint.sql"))
         .expect("failed to run migration 003");
+    conn.execute_batch(include_str!("../../migrations/004_traces_and_policies.sql"))
+        .expect("failed to run migration 004");
     conn
 }
 
@@ -261,5 +263,213 @@ pub fn db_create_message(
         params![conversation_id],
     )
     .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ─── Trace commands ─────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct TraceRow {
+    pub id: String,
+    pub conversation_id: String,
+    pub mode: String,
+    pub provider: String,
+    pub model: String,
+    pub system_prompt_hash: Option<String>,
+    pub iterations: String,
+    pub token_input: i64,
+    pub token_output: i64,
+    pub stop_reason: String,
+    pub verification_performed: bool,
+    pub verification_forced: bool,
+    pub files_modified: Option<String>,
+    pub errors: Option<String>,
+    pub loop_warnings: Option<String>,
+    pub duration_ms: i64,
+    pub created_at: String,
+}
+
+#[tauri::command]
+pub fn db_create_trace(
+    state: State<'_, DbState>,
+    id: String,
+    conversation_id: String,
+    mode: String,
+    provider: String,
+    model: String,
+    system_prompt_hash: Option<String>,
+    system_prompt_preview: Option<String>,
+    system_prompt_tokens: Option<i64>,
+    tool_count: Option<i64>,
+    iterations: String,
+    token_input: i64,
+    token_output: i64,
+    stop_reason: String,
+    verification_performed: bool,
+    verification_forced: bool,
+    files_modified: Option<String>,
+    errors: Option<String>,
+    loop_warnings: Option<String>,
+    duration_ms: i64,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO traces (id, conversation_id, mode, provider, model, system_prompt_hash, system_prompt_preview, system_prompt_tokens, tool_count, iterations, token_input, token_output, stop_reason, verification_performed, verification_forced, files_modified, errors, loop_warnings, duration_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+        params![
+            id,
+            conversation_id,
+            mode,
+            provider,
+            model,
+            system_prompt_hash,
+            system_prompt_preview,
+            system_prompt_tokens.unwrap_or(0),
+            tool_count.unwrap_or(0),
+            iterations,
+            token_input,
+            token_output,
+            stop_reason,
+            verification_performed,
+            verification_forced,
+            files_modified,
+            errors,
+            loop_warnings,
+            duration_ms,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn db_list_traces(
+    state: State<'_, DbState>,
+    conversation_id: String,
+) -> Result<Vec<TraceRow>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, conversation_id, mode, provider, model, system_prompt_hash, iterations,
+                    token_input, token_output, stop_reason, verification_performed, verification_forced,
+                    files_modified, errors, loop_warnings, duration_ms, created_at
+             FROM traces
+             WHERE conversation_id = ?1
+             ORDER BY created_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![conversation_id], |row| {
+            Ok(TraceRow {
+                id: row.get(0)?,
+                conversation_id: row.get(1)?,
+                mode: row.get(2)?,
+                provider: row.get(3)?,
+                model: row.get(4)?,
+                system_prompt_hash: row.get(5)?,
+                iterations: row.get(6)?,
+                token_input: row.get(7)?,
+                token_output: row.get(8)?,
+                stop_reason: row.get(9)?,
+                verification_performed: row.get(10)?,
+                verification_forced: row.get(11)?,
+                files_modified: row.get(12)?,
+                errors: row.get(13)?,
+                loop_warnings: row.get(14)?,
+                duration_ms: row.get(15)?,
+                created_at: row.get(16)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+// ─── Mode policy commands ───────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct ModePolicyRow {
+    pub mode: String,
+    pub max_iterations: i64,
+    pub max_input_tokens: i64,
+    pub max_output_tokens: i64,
+    pub turn_timeout_ms: i64,
+    pub approval_mode: String,
+    pub verification_required: bool,
+    pub allowed_tool_categories: String,
+    pub tool_overrides: Option<String>,
+    pub skill_triggers: Option<String>,
+}
+
+#[tauri::command]
+pub fn db_list_mode_policies(
+    state: State<'_, DbState>,
+) -> Result<Vec<ModePolicyRow>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT mode, max_iterations, max_input_tokens, max_output_tokens, turn_timeout_ms,
+                    approval_mode, verification_required, allowed_tool_categories, tool_overrides, skill_triggers
+             FROM mode_policies
+             ORDER BY mode",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(ModePolicyRow {
+                mode: row.get(0)?,
+                max_iterations: row.get(1)?,
+                max_input_tokens: row.get(2)?,
+                max_output_tokens: row.get(3)?,
+                turn_timeout_ms: row.get(4)?,
+                approval_mode: row.get(5)?,
+                verification_required: row.get(6)?,
+                allowed_tool_categories: row.get(7)?,
+                tool_overrides: row.get(8)?,
+                skill_triggers: row.get(9)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn db_update_mode_policy(
+    state: State<'_, DbState>,
+    mode: String,
+    max_iterations: Option<i64>,
+    max_input_tokens: Option<i64>,
+    max_output_tokens: Option<i64>,
+    turn_timeout_ms: Option<i64>,
+    approval_mode: Option<String>,
+    verification_required: Option<bool>,
+    allowed_tool_categories: Option<String>,
+    tool_overrides: Option<String>,
+    skill_triggers: Option<String>,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    // Build dynamic SET clause for non-null fields
+    let mut sets = Vec::new();
+    let mut values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    if let Some(v) = max_iterations { sets.push("max_iterations = ?"); values.push(Box::new(v)); }
+    if let Some(v) = max_input_tokens { sets.push("max_input_tokens = ?"); values.push(Box::new(v)); }
+    if let Some(v) = max_output_tokens { sets.push("max_output_tokens = ?"); values.push(Box::new(v)); }
+    if let Some(v) = turn_timeout_ms { sets.push("turn_timeout_ms = ?"); values.push(Box::new(v)); }
+    if let Some(ref v) = approval_mode { sets.push("approval_mode = ?"); values.push(Box::new(v.clone())); }
+    if let Some(v) = verification_required { sets.push("verification_required = ?"); values.push(Box::new(v)); }
+    if let Some(ref v) = allowed_tool_categories { sets.push("allowed_tool_categories = ?"); values.push(Box::new(v.clone())); }
+    if let Some(ref v) = tool_overrides { sets.push("tool_overrides = ?"); values.push(Box::new(v.clone())); }
+    if let Some(ref v) = skill_triggers { sets.push("skill_triggers = ?"); values.push(Box::new(v.clone())); }
+    if sets.is_empty() {
+        return Ok(());
+    }
+    sets.push("updated_at = datetime('now')");
+    values.push(Box::new(mode));
+    let sql = format!("UPDATE mode_policies SET {} WHERE mode = ?", sets.join(", "));
+    let params: Vec<&dyn rusqlite::types::ToSql> = values.iter().map(|b| b.as_ref()).collect();
+    conn.execute(&sql, params.as_slice()).map_err(|e| e.to_string())?;
     Ok(())
 }

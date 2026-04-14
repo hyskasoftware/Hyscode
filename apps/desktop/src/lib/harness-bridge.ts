@@ -2,7 +2,7 @@
 // Singleton that owns the Harness instance and wires its events → Zustand stores.
 // Lives outside React to avoid re-renders during streaming.
 
-import { Harness, SkillLoader } from '@hyscode/agent-harness';
+import { Harness, SkillLoader, applyPolicyOverride } from '@hyscode/agent-harness';
 import type {
   HarnessEvent,
   AgentType,
@@ -13,6 +13,8 @@ import type {
   ToolResult,
   ToolExecutionContext,
   ToolCategory,
+  EnvironmentContext,
+  TurnRecord,
 } from '@hyscode/agent-harness';
 import type { Message, ToolDefinition, MessageContent } from '@hyscode/ai-providers';
 import { tauriInvokeRaw } from './tauri-invoke';
@@ -23,6 +25,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useSkillsStore } from '@/stores/skills-store';
 import { useFileStore } from '@/stores/file-store';
+import { useEditorStore } from '@/stores/editor-store';
 import type { ToolCallDisplay, PendingApproval, AgentEditSession } from '@/stores/agent-store';
 import { computeDiffHunks } from './compute-diff';
 
@@ -122,6 +125,10 @@ export class HarnessBridge {
     HarnessBridge._homePathCache = homePath;
 
     _instance = new HarnessBridge(workspacePath, projectId, homePath);
+
+    // Load mode policy overrides from the database (best-effort)
+    await _instance.loadModePolicies();
+
     return _instance;
   }
 
@@ -230,11 +237,18 @@ export class HarnessBridge {
       this.currentIterationToolCalls = [];
       this.pendingToolResults = [];
 
+      // ── Inject deterministic environment context ──
+      // Gives the agent awareness of the current workspace state before it starts
+      await this.injectEnvironmentContext();
+
       dbg(`Enviando para LLM (${history.length} msgs no histórico)...`);
 
-      const { response } = await this.harness.run(userMessage, history);
+      const { response, turnRecord } = await this.harness.run(userMessage, history);
 
-      dbg(`Resposta recebida (${response.length} chars)`);
+      dbg(`Resposta recebida (${response.length} chars, ${turnRecord.iterations} iterações, ${turnRecord.toolCalls.length} tool calls)`);
+
+      // Persist the structured turn record
+      await this.persistTurnRecord(turnRecord);
 
       // Flush any remaining streaming text
       useAgentStore.getState().flushStreamingText();
@@ -908,6 +922,194 @@ export class HarnessBridge {
       // Skip messages with no content and no blocks (e.g. empty tool_result placeholders)
     }
     return result;
+  }
+
+  // ─── Environment Context Assembly ───────────────────────────────────
+
+  /**
+   * Build and inject a deterministic environment context package.
+   * Gives the agent awareness of: active file, selection, directory tree,
+   * git state, and last terminal command — reducing discovery errors.
+   */
+  private async injectEnvironmentContext(): Promise<void> {
+    const env: EnvironmentContext = {
+      workspacePath: this.harness['workspacePath'] as string,
+    };
+
+    // Active file from editor + file store
+    try {
+      const editorState = useEditorStore.getState();
+      const activeTab = editorState.tabs.find((t) => t.id === editorState.activeTabId);
+      if (activeTab?.filePath) {
+        const activePath = activeTab.filePath;
+        const fileStore = useFileStore.getState();
+        const content = fileStore.getFileContent(activePath);
+        if (content) {
+          env.activeFile = {
+            path: activePath,
+            content,
+            language: activeTab.language,
+          };
+        }
+      }
+    } catch {
+      // File store may not have data yet — that's fine
+    }
+
+    // Directory tree (top-level only, cheap)
+    try {
+      const entries = await tauriInvokeRaw<Array<{ name: string; is_dir: boolean }>>(
+        'list_dir',
+        { path: env.workspacePath },
+      );
+      const tree = entries
+        .filter((e) => !e.name.startsWith('.') && e.name !== 'node_modules' && e.name !== 'target')
+        .map((e) => (e.is_dir ? `${e.name}/` : e.name))
+        .join('\n');
+      env.directoryTree = tree;
+    } catch {
+      // No directory access — skip
+    }
+
+    // Git state
+    try {
+      const branch = await tauriInvokeRaw<string>('git_current_branch', {
+        repoPath: env.workspacePath,
+      });
+      const status = await tauriInvokeRaw<{
+        staged: Array<{ path: string; status: string }>;
+        unstaged: Array<{ path: string; status: string }>;
+        untracked: Array<{ path: string }>;
+      }>('git_status', { repoPath: env.workspacePath });
+
+      const total = status.staged.length + status.unstaged.length + status.untracked.length;
+      const summaryParts: string[] = [];
+      if (status.staged.length > 0)
+        summaryParts.push(`${status.staged.length} staged`);
+      if (status.unstaged.length > 0)
+        summaryParts.push(`${status.unstaged.length} modified`);
+      if (status.untracked.length > 0)
+        summaryParts.push(`${status.untracked.length} untracked`);
+
+      env.gitState = {
+        branch,
+        uncommittedFiles: total,
+        summary: total > 0 ? summaryParts.join(', ') : 'Working tree clean',
+      };
+    } catch {
+      // Git not available — skip
+    }
+
+    this.harness.injectEnvironmentContext(env);
+  }
+
+  // ─── Turn Record Persistence ────────────────────────────────────────
+
+  /**
+   * Load mode policy overrides from the database.
+   * Falls back silently if the table doesn't exist yet.
+   */
+  private async loadModePolicies(): Promise<void> {
+    try {
+      const rows = await tauriInvokeRaw<Array<{
+        mode: string;
+        max_iterations: number;
+        max_input_tokens: number;
+        max_output_tokens: number;
+        turn_timeout_ms: number;
+        approval_mode: string;
+        verification_required: boolean;
+        allowed_tool_categories: string;
+        tool_overrides: string | null;
+        skill_triggers: string | null;
+      }>>('db_list_mode_policies', {});
+
+      for (const row of rows) {
+        applyPolicyOverride(row.mode as AgentType, {
+          maxIterations: row.max_iterations,
+          maxInputTokens: row.max_input_tokens,
+          maxOutputTokens: row.max_output_tokens,
+          turnTimeoutMs: row.turn_timeout_ms,
+          verificationRequired: row.verification_required,
+          allowedToolCategories: JSON.parse(row.allowed_tool_categories) as ToolCategory[],
+          toolOverrides: row.tool_overrides ? JSON.parse(row.tool_overrides) : undefined,
+          skillTriggers: row.skill_triggers ? JSON.parse(row.skill_triggers) : undefined,
+        });
+      }
+
+      console.log('[HarnessBridge] Loaded mode policies:', rows.length, 'rows');
+    } catch {
+      // Best-effort — table may not exist on first run before migration
+      console.warn('[HarnessBridge] Failed to load mode policies (first run?)');
+    }
+  }
+
+  /**
+   * Persist a structured turn record to the database for observability/tracing.
+   */
+  private async persistTurnRecord(record: TurnRecord): Promise<void> {
+    const store = useAgentStore.getState();
+    const conversationId = store.conversationId;
+    if (!conversationId) return;
+
+    try {
+      // Enrich with token usage from store (populated by stream events)
+      const tokenUsage = store.tokenUsage;
+      if (tokenUsage) {
+        record.tokenUsage = {
+          input: tokenUsage.inputTokens,
+          output: tokenUsage.outputTokens,
+        };
+      }
+
+      await tauriInvokeRaw('db_create_turn_record', {
+        id: record.id,
+        conversationId,
+        mode: record.mode,
+        iterations: record.iterations,
+        toolCalls: JSON.stringify(record.toolCalls),
+        tokenInput: record.tokenUsage.input,
+        tokenOutput: record.tokenUsage.output,
+        stopReason: record.stopReason,
+        verificationPerformed: record.verificationPerformed,
+        verificationForced: record.verificationForced,
+        filesModified: JSON.stringify(record.filesModified),
+        durationMs: record.durationMs,
+        timestamp: record.timestamp,
+      });
+
+      // Persist the structured trace (if attached by the harness)
+      if (record.trace) {
+        try {
+          await tauriInvokeRaw('db_create_trace', {
+            id: record.trace.id,
+            conversationId,
+            mode: record.trace.mode,
+            provider: record.trace.provider,
+            model: record.trace.model,
+            systemPromptHash: record.trace.systemPromptHash,
+            systemPromptPreview: record.trace.systemPromptPreview,
+            systemPromptTokens: record.trace.systemPromptTokens,
+            toolCount: record.trace.toolCount,
+            iterations: JSON.stringify(record.trace.iterations),
+            tokenInput: record.trace.tokenUsage.input,
+            tokenOutput: record.trace.tokenUsage.output,
+            stopReason: record.trace.stopReason,
+            verificationPerformed: record.trace.verificationPerformed,
+            verificationForced: record.trace.verificationForced,
+            filesModified: JSON.stringify(record.trace.filesModified),
+            errors: JSON.stringify(record.trace.errors),
+            loopWarnings: JSON.stringify(record.trace.loopWarnings),
+            durationMs: record.trace.durationMs,
+          });
+        } catch {
+          console.warn('[HarnessBridge] Failed to persist trace');
+        }
+      }
+    } catch {
+      // Turn record persistence is best-effort
+      console.warn('[HarnessBridge] Failed to persist turn record');
+    }
   }
 
   /** Persist the current conversation turn to the database */

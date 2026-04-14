@@ -23,6 +23,12 @@ import { getAgentDefinition } from './agents';
 import { SkillLoader } from './skill-loader';
 import type { SddDatabase } from './sdd-engine';
 import { SddEngine } from './sdd-engine';
+import type { PreCompletionHook, PostToolHook, MiddlewareContext } from './middleware';
+import { verificationMiddleware, LoopDetectionMiddleware, compactToolOutput } from './middleware';
+import type { TurnRecord } from './types';
+import { TraceRecorder } from './trace-recorder';
+import type { ModePolicy } from './mode-policies';
+import { getModePolicy, adjustPolicyForModel } from './mode-policies';
 
 export interface HarnessOptions {
   config?: Partial<HarnessConfig>;
@@ -61,6 +67,15 @@ export class Harness {
   private toolCallHistory: ToolCallRecord[] = [];
   private activeSkills: Skill[] = [];
 
+  // ─── Middleware ────────────────────────────────────────────────────
+  private preCompletionHooks: PreCompletionHook[] = [verificationMiddleware];
+  private postToolHooks: PostToolHook[] = [];
+  private loopDetection = new LoopDetectionMiddleware();
+
+  // ─── Tracing & Policies ───────────────────────────────────────────
+  private traceRecorder = new TraceRecorder();
+  private _effectivePolicy: ModePolicy | null = null;
+
   constructor(options: HarnessOptions) {
     this.config = { ...DEFAULT_HARNESS_CONFIG, ...options.config };
     this.workspacePath = options.workspacePath;
@@ -95,6 +110,9 @@ export class Harness {
       this.toolRouter.register(tool);
     }
 
+    // Register post-tool hooks
+    this.postToolHooks.push(this.loopDetection);
+
     // Initialize SDD engine if database provided
     if (options.sddDb) {
       this.sddEngine = new SddEngine({
@@ -113,6 +131,7 @@ export class Harness {
 
   setAgentType(type: AgentType): void {
     this.agentType = type;
+    this._effectivePolicy = null; // Invalidate cached policy
     const agentDef = getAgentDefinition(type);
     this.contextManager.setAgent(agentDef);
   }
@@ -128,11 +147,33 @@ export class Harness {
 
   setConfig(patch: Partial<Pick<HarnessConfig, 'providerId' | 'modelId'>>): void {
     if (patch.providerId !== undefined) this.config.providerId = patch.providerId;
-    if (patch.modelId !== undefined) this.config.modelId = patch.modelId;
+    if (patch.modelId !== undefined) {
+      this.config.modelId = patch.modelId;
+      this._effectivePolicy = null; // Invalidate — model change affects budgets
+    }
   }
 
   getSddEngine(): SddEngine | null {
     return this.sddEngine;
+  }
+
+  /** Get the trace recorder for external callers (bridge). */
+  getTraceRecorder(): TraceRecorder {
+    return this.traceRecorder;
+  }
+
+  /**
+   * Compute the effective policy for the current mode + model.
+   * Merges the base mode policy with model-specific adjustments.
+   */
+  getEffectivePolicy(): ModePolicy {
+    if (!this._effectivePolicy || this._effectivePolicy.mode !== this.agentType) {
+      const base = getModePolicy(this.agentType);
+      this._effectivePolicy = this.config.modelId
+        ? adjustPolicyForModel(base, this.config.modelId)
+        : base;
+    }
+    return this._effectivePolicy;
   }
 
   // ─── External Tool Registration (MCP, extensions) ───────────────────
@@ -183,15 +224,30 @@ export class Harness {
    * Run a full agent turn: user sends a message, agent responds (possibly with tool calls).
    * Returns the final assistant text response.
    */
-  async run(userMessage: string, history: Message[]): Promise<{ response: string; toolCalls: ToolCallRecord[] }> {
+  async run(userMessage: string, history: Message[]): Promise<{ response: string; toolCalls: ToolCallRecord[]; turnRecord: TurnRecord }> {
     this.cancelled = false;
     this.toolCallHistory = [];
+    this.loopDetection.resetCounts();
+    const turnStart = Date.now();
+
+    // Resolve effective policy for this mode + model
+    const policy = this.getEffectivePolicy();
+
+    // Start tracing for this turn
+    this.traceRecorder.startTrace(
+      this.conversationId,
+      this.agentType,
+      this.config.providerId,
+      this.config.modelId,
+    );
 
     // In SDD mode, start a new session and return the spec for user review.
     // Subsequent phases are driven by explicit approve/reject calls.
     if (this._mode === 'sdd') {
       const { spec } = await this.startSdd(userMessage);
-      return { response: spec, toolCalls: this.toolCallHistory };
+      const turnRecord = this.buildTurnRecord('complete', 1, turnStart);
+      turnRecord.trace = this.traceRecorder.finalizeTrace('complete', { input: 0, output: 0 }, []) ?? undefined;
+      return { response: spec, toolCalls: this.toolCallHistory, turnRecord };
     }
 
     // In chat mode, override to chat agent
@@ -216,25 +272,48 @@ export class Harness {
 
     // Agent loop
     const agentDef = getAgentDefinition(this.agentType);
+    const maxIter = policy.maxIterations;
     let iteration = 0;
     let finalResponse = '';
     let consecutiveIdenticalCalls = 0;
     let lastToolCallSignature = '';
+    let verificationForced = false;
+    /** Middleware-injected context messages for the next iteration */
+    let middlewareInjections: string[] = [];
 
-    while (iteration < this.config.maxIterations && !this.cancelled) {
+    while (iteration < maxIter && !this.cancelled) {
       iteration++;
+      this.traceRecorder.startIteration(iteration);
       this.emit({ type: 'turn_start', conversationId: this.conversationId, iteration });
 
-      // Build context snapshot
+      // Inject any middleware-generated context from the previous iteration
+      if (middlewareInjections.length > 0) {
+        for (const inj of middlewareInjections) {
+          this.traceRecorder.recordMiddlewareInjection(inj);
+        }
+        const injectionText = middlewareInjections.join('\n\n');
+        this.contextManager.addMessage({
+          role: 'user',
+          content: [{ type: 'text', text: injectionText }],
+        });
+        middlewareInjections = [];
+      }
+
+      // Build context snapshot (use policy-based limits)
       const tools = this.toolRouter.getToolDefinitionsFiltered(
-        agentDef.allowedToolCategories,
+        policy.allowedToolCategories,
         agentDef.toolOverrides,
       );
       const snapshot = this.contextManager.buildSnapshot(
         tools,
-        this.config.maxInputTokens,
-        agentDef.maxOutputTokens,
+        policy.maxInputTokens,
+        policy.maxOutputTokens,
       );
+
+      // Record system prompt in trace (first iteration only captures it)
+      if (iteration === 1) {
+        this.traceRecorder.recordSystemPrompt(snapshot.systemPrompt, tools.length);
+      }
 
       // Call LLM
       const registry = getProviderRegistry();
@@ -249,7 +328,7 @@ export class Harness {
         messages: snapshot.messages,
         systemPrompt: snapshot.systemPrompt,
         tools: snapshot.tools,
-        maxTokens: agentDef.maxOutputTokens,
+        maxTokens: policy.maxOutputTokens,
         signal: abortController.signal,
       };
 
@@ -259,8 +338,8 @@ export class Harness {
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
           abortController.abort();
-          reject(new Error(`Turn timeout after ${Math.round(this.config.turnTimeoutMs / 1000)}s`));
-        }, this.config.turnTimeoutMs);
+          reject(new Error(`Turn timeout after ${Math.round(policy.turnTimeoutMs / 1000)}s`));
+        }, policy.turnTimeoutMs);
       });
 
       try {
@@ -314,6 +393,8 @@ export class Harness {
         ]);
       } catch (err) {
         if (timeoutId) clearTimeout(timeoutId);
+        this.traceRecorder.recordError(err instanceof Error ? err.message : String(err));
+        this.traceRecorder.endIteration();
         this.emit({
           type: 'turn_end',
           reason: 'error',
@@ -344,16 +425,49 @@ export class Harness {
       // return 'end_turn' even when tool calls are present. The presence of
       // tool calls is the only reliable signal that the agent wants to continue.
       if (toolCalls.length === 0) {
+        this.traceRecorder.setHadToolCalls(false);
+
+        // ── Pre-completion middleware check ──
+        // Before accepting the exit, run hooks to see if we should force continuation.
+        if (!verificationForced) {
+          const mwCtx: MiddlewareContext = {
+            mode: this.agentType,
+            iteration,
+            maxIterations: maxIter,
+            toolCallHistory: this.toolCallHistory,
+            assistantText,
+            conversationId: this.conversationId,
+          };
+          for (const hook of this.preCompletionHooks) {
+            const injection = hook.check(mwCtx);
+            if (injection) {
+              middlewareInjections.push(injection);
+              verificationForced = true; // Only force once to avoid infinite loops
+            }
+          }
+          if (middlewareInjections.length > 0) {
+            this.traceRecorder.endIteration();
+            // Don't break — continue the loop so the agent sees the injection
+            continue;
+          }
+        }
+
+        this.traceRecorder.endIteration();
         finalResponse = assistantText;
         break;
       }
+
+      this.traceRecorder.setHadToolCalls(true);
 
       // Stuck detection: same tool call 3 times in a row
       const callSignature = toolCalls.map((tc) => `${tc.name}:${JSON.stringify(tc.input)}`).join('|');
       if (callSignature === lastToolCallSignature) {
         consecutiveIdenticalCalls++;
+        this.traceRecorder.recordRepeatedCall();
         if (consecutiveIdenticalCalls >= 3) {
           finalResponse = assistantText + '\n\n[Agent loop detected repeated identical tool calls. Stopping.]';
+          this.traceRecorder.recordLoopWarning('repeated_tool_calls', consecutiveIdenticalCalls);
+          this.traceRecorder.endIteration();
           this.emit({ type: 'turn_end', reason: 'error', error: 'Stuck in loop: repeated identical tool calls' });
           break;
         }
@@ -390,6 +504,9 @@ export class Harness {
           executionContext,
         );
         this.toolCallHistory.push(record);
+
+        // Record tool call in trace
+        this.traceRecorder.recordToolCall(record);
 
         // Handle special meta-tool actions
         if (record.output.metadata?.action === 'activate_skill' && this.skillLoader) {
@@ -445,31 +562,73 @@ export class Harness {
           }
         }
 
+        // ── Tool output compaction ──
+        // Compact large outputs to prevent context rot
+        const rawOutput = record.output.success
+          ? record.output.output
+          : `Error: ${record.output.error}`;
+        const compactedOutput = compactToolOutput(rawOutput, tc.name);
+
         toolResults.content.push({
           type: 'tool_result',
           toolCallId: tc.id,
-          output: record.output.success
-            ? record.output.output
-            : `Error: ${record.output.error}`,
+          output: compactedOutput,
           isError: !record.output.success,
         });
+
+        // ── Post-tool middleware hooks ──
+        const mwCtx: MiddlewareContext = {
+          mode: this.agentType,
+          iteration,
+          maxIterations: maxIter,
+          toolCallHistory: this.toolCallHistory,
+          assistantText,
+          conversationId: this.conversationId,
+        };
+        for (const hook of this.postToolHooks) {
+          const injection = hook.afterTool(tc.name, record, mwCtx);
+          if (injection) {
+            middlewareInjections.push(injection);
+          }
+        }
       }
+
+      // End iteration after all tool calls are processed
+      this.traceRecorder.endIteration();
 
       // Add tool results to history
       this.contextManager.addMessage(toolResults);
     }
 
+    const stopReason: TurnRecord['stopReason'] = this.cancelled
+      ? 'cancelled'
+      : iteration >= maxIter
+        ? 'max_iterations'
+        : 'complete';
+
     if (this.cancelled) {
       this.emit({ type: 'turn_end', reason: 'cancelled' });
-    } else if (iteration >= this.config.maxIterations) {
+    } else if (iteration >= maxIter) {
       this.emit({ type: 'turn_end', reason: 'max_iterations' });
     } else {
       this.emit({ type: 'turn_end', reason: 'complete' });
     }
 
+    const turnRecord = this.buildTurnRecord(stopReason, iteration, turnStart);
+
+    // Finalize trace and attach to turn record
+    turnRecord.trace = this.traceRecorder.finalizeTrace(
+      stopReason,
+      turnRecord.tokenUsage,
+      turnRecord.filesModified,
+      turnRecord.verificationPerformed,
+      verificationForced,
+    ) ?? undefined;
+
     return {
       response: finalResponse,
       toolCalls: this.toolCallHistory,
+      turnRecord,
     };
   }
 
@@ -575,5 +734,94 @@ export class Harness {
 
   private emit(event: HarnessEvent): void {
     this.eventHandler?.(event);
+  }
+
+  // ─── Turn Record Builder ────────────────────────────────────────────
+
+  private buildTurnRecord(
+    stopReason: TurnRecord['stopReason'],
+    iterations: number,
+    turnStart: number,
+  ): TurnRecord {
+    const filesModified = [
+      ...new Set(
+        this.toolCallHistory
+          .filter((tc) => ['write_file', 'edit_file', 'create_file'].includes(tc.toolName))
+          .map((tc) => String(tc.input.path ?? '')),
+      ),
+    ];
+
+    const verificationPerformed = this.toolCallHistory.some((tc) => {
+      if (tc.toolName === 'git_diff' || tc.toolName === 'git_status') return true;
+      if (tc.toolName === 'run_terminal_command') {
+        const cmd = String(tc.input.command ?? '').toLowerCase();
+        return ['test', 'lint', 'check', 'tsc', 'eslint', 'pytest', 'cargo test'].some((p) => cmd.includes(p));
+      }
+      return false;
+    });
+
+    return {
+      id: crypto.randomUUID(),
+      conversationId: this.conversationId,
+      mode: this.agentType,
+      iterations,
+      toolCalls: this.toolCallHistory,
+      tokenUsage: { input: 0, output: 0 }, // Populated by bridge from stream events
+      stopReason,
+      verificationPerformed,
+      verificationForced: false, // Updated by caller if needed
+      filesModified,
+      durationMs: Date.now() - turnStart,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // ─── Environment Context ────────────────────────────────────────────
+
+  /**
+   * Inject a deterministic environment context package at the start of a turn.
+   * Called by the bridge before run() to provide the agent with workspace awareness.
+   */
+  injectEnvironmentContext(env: import('./types').EnvironmentContext): void {
+    const parts: string[] = [];
+
+    parts.push(`<environment>`);
+    parts.push(`<workspace_root>${env.workspacePath}</workspace_root>`);
+
+    if (env.activeFile) {
+      const preview = env.activeFile.content.length > 2000
+        ? env.activeFile.content.slice(0, 2000) + '\n... [truncated]'
+        : env.activeFile.content;
+      parts.push(`<active_file path="${env.activeFile.path}" language="${env.activeFile.language}">\n${preview}\n</active_file>`);
+    }
+
+    if (env.selection) {
+      parts.push(`<selection file="${env.selection.filePath}" lines="${env.selection.startLine}-${env.selection.endLine}">\n${env.selection.text}\n</selection>`);
+    }
+
+    if (env.directoryTree) {
+      parts.push(`<directory_tree>\n${env.directoryTree}\n</directory_tree>`);
+    }
+
+    if (env.gitState) {
+      parts.push(`<git branch="${env.gitState.branch}" uncommitted="${env.gitState.uncommittedFiles}">\n${env.gitState.summary}\n</git>`);
+    }
+
+    if (env.lastTerminalCommand) {
+      const cmdOutput = env.lastTerminalCommand.output.length > 1000
+        ? env.lastTerminalCommand.output.slice(-1000)
+        : env.lastTerminalCommand.output;
+      parts.push(`<last_terminal_command exit="${env.lastTerminalCommand.exitCode}">\n$ ${env.lastTerminalCommand.command}\n${cmdOutput}\n</last_terminal_command>`);
+    }
+
+    parts.push(`</environment>`);
+
+    this.contextManager.addSource({
+      id: 'env-context',
+      type: 'active_file', // Reuses existing type for now
+      priority: 'high',
+      content: parts.join('\n'),
+      tokenEstimate: Math.ceil(parts.join('\n').length / 4),
+    });
   }
 }

@@ -94,6 +94,12 @@ pub fn run() {
             commands::db::db_delete_conversation,
             commands::db::db_list_messages,
             commands::db::db_create_message,
+            // Trace commands
+            commands::db::db_create_trace,
+            commands::db::db_list_traces,
+            // Mode policy commands
+            commands::db::db_list_mode_policies,
+            commands::db::db_update_mode_policy,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();
