@@ -124,7 +124,8 @@ export class HarnessBridge {
 
     // Sync settings → harness config
     this.harness.setConfig({ providerId, modelId });
-    this.harness.setAgentType(settings.agentType);
+    // mode IS the agent type — single source of truth
+    this.harness.setAgentType(store.mode as AgentType);
 
     const dbg = (msg: string) => {
       const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -134,11 +135,12 @@ export class HarnessBridge {
 
     dbg(`Iniciando com provider="${providerId || '(default)'}" model="${modelId || '(default)'}"`);
 
-    let mode: ConversationMode = 'agent';
-    if (store.mode === 'chat') mode = 'chat';
-    if (store.mode === 'build' && store.sddPhase) mode = 'sdd';
-    this.harness.setMode(mode);
-    dbg(`Modo: ${mode}`);
+    // Map store.mode → ConversationMode for the harness
+    let harnessMode: ConversationMode = 'agent';
+    if (store.mode === 'chat') harnessMode = 'chat';
+    if (store.mode === 'build' && store.sddPhase) harnessMode = 'sdd';
+    this.harness.setMode(harnessMode);
+    dbg(`Modo: ${harnessMode} (agent: ${store.mode})`);
 
     if (!store.conversationId) {
       const id = crypto.randomUUID();
@@ -242,8 +244,7 @@ export class HarnessBridge {
 
   setAgentType(type: AgentType): void {
     this.harness.setAgentType(type);
-    useAgentStore.getState().setAgentType(type);
-    useSettingsStore.getState().set('agentType', type);
+    useAgentStore.getState().setMode(type as import('@/stores/agent-store').AgentMode);
   }
 
   /** Resolve a pending approval from the UI */
@@ -481,18 +482,18 @@ export class HarnessBridge {
       // Try to update first; if the conversation doesn't exist yet, create it
       try {
         await tauriInvokeRaw('db_update_conversation', {
-          conversation_id: conversationId,
+          conversationId,
           title,
         });
       } catch {
         // Conversation doesn't exist yet — create it
         await tauriInvokeRaw('db_create_conversation', {
           id: conversationId,
-          project_id: this.harness['projectId'],
+          projectId: this.harness['projectId'],
           title,
           mode: store.mode,
-          model_id: settings.activeModelId ?? null,
-          provider_id: settings.activeProviderId ?? null,
+          modelId: settings.activeModelId ?? null,
+          providerId: settings.activeProviderId ?? null,
         });
       }
 
@@ -502,12 +503,12 @@ export class HarnessBridge {
         try {
           await tauriInvokeRaw('db_create_message', {
             id: msg.id,
-            conversation_id: conversationId,
+            conversationId,
             role: msg.role,
             content: msg.content,
-            tool_calls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
-            token_input: 0,
-            token_output: 0,
+            toolCalls: msg.toolCalls ? JSON.stringify(msg.toolCalls) : null,
+            tokenInput: 0,
+            tokenOutput: 0,
           });
         } catch {
           // Message may already exist (duplicate insert) — ignore

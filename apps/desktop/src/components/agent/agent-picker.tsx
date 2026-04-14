@@ -2,45 +2,42 @@ import {
   MessageSquare,
   Hammer,
   Search,
-  RefreshCw,
   Bug,
-  TestTube2,
+  ClipboardList,
   ChevronRight,
 } from 'lucide-react';
 import { useAgentStore } from '@/stores/agent-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { cn } from '@/lib/utils';
-import type { AgentType } from '@hyscode/agent-harness';
+import type { AgentMode } from '@/stores/agent-store';
 import { getAllAgentDefinitions } from '@hyscode/agent-harness';
 
-const AGENT_ICONS: Record<AgentType, typeof MessageSquare> = {
+const AGENT_ICONS: Record<AgentMode, typeof MessageSquare> = {
   chat: MessageSquare,
   build: Hammer,
   review: Search,
-  refactor: RefreshCw,
   debug: Bug,
-  test: TestTube2,
+  plan: ClipboardList,
 };
 
-const AGENT_COLORS: Record<AgentType, string> = {
+const AGENT_COLORS: Record<AgentMode, string> = {
   chat: 'text-blue-400',
   build: 'text-accent',
   review: 'text-purple-400',
-  refactor: 'text-orange-400',
   debug: 'text-red-400',
-  test: 'text-green-400',
+  plan: 'text-amber-400',
 };
 
 const AGENT_DEFS = getAllAgentDefinitions();
 
 export function AgentPicker() {
-  const currentType = useAgentStore((s) => s.agentType);
+  const currentMode = useAgentStore((s) => s.mode);
 
-  const handleSelect = (type: AgentType) => {
+  const handleSelect = (mode: AgentMode) => {
     try {
-      HarnessBridge.get().setAgentType(type);
+      HarnessBridge.get().setAgentType(mode);
     } catch {
-      useAgentStore.getState().setAgentType(type);
+      useAgentStore.getState().setMode(mode);
     }
   };
 
@@ -50,14 +47,15 @@ export function AgentPicker() {
         Agents
       </span>
       {AGENT_DEFS.map((agent) => {
-        const Icon = AGENT_ICONS[agent.type] ?? MessageSquare;
-        const color = AGENT_COLORS[agent.type] ?? 'text-accent';
-        const isActive = agent.type === currentType;
+        const mode = agent.type as AgentMode;
+        const Icon = AGENT_ICONS[mode] ?? MessageSquare;
+        const color = AGENT_COLORS[mode] ?? 'text-accent';
+        const isActive = mode === currentMode;
 
         return (
           <button
             key={agent.type}
-            onClick={() => handleSelect(agent.type)}
+            onClick={() => handleSelect(mode)}
             className={cn(
               'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
               isActive

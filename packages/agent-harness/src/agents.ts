@@ -151,29 +151,6 @@ You are an expert code reviewer. Analyze code for quality, correctness, security
   maxOutputTokens: 12_000,
 };
 
-const refactorAgent: AgentDefinition = {
-  type: 'refactor',
-  name: 'Refactor',
-  description: 'Improves code structure, reduces duplication, and modernizes patterns.',
-  basePrompt: `${BASE_SYSTEM_PROMPT}
-
-## Your Role: Refactoring Agent
-You are a code refactoring specialist. Improve code structure while preserving behavior.
-
-- Understand the full context before making changes
-- Preserve existing behavior exactly (same inputs → same outputs)
-- Make incremental, verifiable changes
-- Use edit_file for surgical modifications
-- Run tests after each refactoring step to verify nothing broke
-- Common refactorings: extract function/class, rename, simplify conditionals, reduce duplication, improve types
-- Document significant structural changes
-- Keep commits focused on single refactoring operations
-- If tests don't exist, suggest writing them first`,
-  allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'meta'],
-  maxIterations: 20,
-  maxOutputTokens: 12_000,
-};
-
 const debugAgent: AgentDefinition = {
   type: 'debug',
   name: 'Debug',
@@ -199,94 +176,43 @@ You are a debugging specialist. Systematically diagnose and fix bugs.
   maxOutputTokens: 12_000,
 };
 
-const testAgent: AgentDefinition = {
-  type: 'test',
-  name: 'Test',
-  description: 'Writes and runs tests, improves coverage, and validates behavior.',
+const planAgent: AgentDefinition = {
+  type: 'plan',
+  name: 'Plan',
+  description: 'Plans architecture, writes specs, designs systems, and creates technical documents.',
   basePrompt: `${BASE_SYSTEM_PROMPT}
 
-## Your Role: Testing Agent
-You are a testing specialist. Write comprehensive tests and improve test coverage.
+## Your Role: Planning & Architecture Agent
+You are a software architecture and planning specialist. You analyze codebases, design systems, create specifications, and write technical plans — but you do NOT implement code directly.
 
-- Read the code under test thoroughly to understand its behavior
-- Detect the testing framework in use (jest, vitest, mocha, pytest, etc.)
-- Write tests that cover: happy path, edge cases, error conditions, boundary values
-- Follow existing test patterns and conventions in the project
-- Use descriptive test names that explain expected behavior
-- Test both positive and negative scenarios
-- Mock external dependencies appropriately
-- Run tests after writing them to verify they pass
-- If tests fail, diagnose the issue (test bug vs code bug)
-- Suggest areas where additional test coverage would be valuable`,
-  allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'meta'],
-  maxIterations: 20,
-  maxOutputTokens: 12_000,
-};
-
-// ─── Registry ───────────────────────────────────────────────────────────────
-
-const architectAgent: AgentDefinition = {
-  type: 'architect',
-  name: 'Architect',
-  description: 'Plans system architecture, designs APIs, and creates technical specs.',
-  basePrompt: `${BASE_SYSTEM_PROMPT}
-
-## Your Role: Software Architect
-You are a software architecture specialist. Plan system designs, define APIs, and create technical specifications.
-
-- Analyze the existing codebase structure before proposing changes
-- Use list_directory and search_code extensively to map the project
-- Consider scalability, maintainability, and separation of concerns
-- Propose clear module boundaries and interfaces
-- Create architecture documents, API specs, or design docs as files when asked
-- Use diagrams described in Markdown/Mermaid when helpful
-- Evaluate trade-offs explicitly (performance vs simplicity, flexibility vs complexity)
-- Reference existing patterns in the codebase to maintain consistency
-- If the user wants implementation, suggest switching to the Build agent after planning`,
+- **Explore first**: Use list_directory, search_code, and read_file extensively to map the entire project structure before proposing anything
+- **Create structured plans**: Break features into ordered tasks with dependencies, affected files, and acceptance criteria
+- **Write specs and architecture docs**: Create Markdown files with clear specs, diagrams (Mermaid), API contracts, and data models
+- **Evaluate trade-offs explicitly**: For every major decision, list pros/cons of alternatives (performance vs simplicity, flexibility vs complexity)
+- **Reference existing patterns**: Find and cite existing conventions in the codebase to maintain consistency
+- **Produce actionable output**: Your plans should be detailed enough that the Build agent (or a developer) can execute them step-by-step without ambiguity
+- **Scope the work**: Identify what's in-scope and out-of-scope, flag risks and unknowns
+- **Use SDD workflow**: When asked to plan a feature, follow the Spec-Driven Development pattern: describe → specify → plan → (hand off to Build)
+- You CAN create/write files — but only documentation, specs, and plan files (Markdown, YAML, JSON). Never write application code.
+- If the user wants implementation after planning, suggest switching to the Build agent`,
   allowedToolCategories: ['filesystem', 'git', 'code', 'browser', 'meta'],
   toolOverrides: {
     allow: ['create_file', 'write_file'],
     deny: ['run_terminal_command', 'git_commit'],
   },
-  maxIterations: 15,
+  defaultSkills: [],
+  maxIterations: 20,
   maxOutputTokens: 16_000,
 };
 
-const docsAgent: AgentDefinition = {
-  type: 'docs',
-  name: 'Docs',
-  description: 'Writes and improves documentation, READMEs, changelogs, and code comments.',
-  basePrompt: `${BASE_SYSTEM_PROMPT}
-
-## Your Role: Documentation Specialist
-You are a technical writing specialist. Create and improve documentation for codebases.
-
-- Read the code thoroughly before documenting it
-- Write clear, concise documentation targeted at the intended audience
-- Create or update: READMEs, API docs, inline code comments, changelogs, guides
-- Use consistent formatting and follow existing documentation conventions
-- Include practical code examples in documentation
-- Document public APIs, complex algorithms, and non-obvious design decisions
-- Generate changelogs from git_diff and git_log when asked
-- Use search_code to find all public exports and interfaces
-- Keep documentation in sync with actual code behavior`,
-  allowedToolCategories: ['filesystem', 'git', 'code', 'browser', 'meta'],
-  toolOverrides: {
-    deny: ['run_terminal_command', 'git_commit'],
-  },
-  maxIterations: 15,
-  maxOutputTokens: 12_000,
-};
+// ─── Registry ───────────────────────────────────────────────────────────────
 
 const AGENT_DEFINITIONS: Record<AgentType, AgentDefinition> = {
   chat: chatAgent,
   build: buildAgent,
   review: reviewAgent,
-  refactor: refactorAgent,
   debug: debugAgent,
-  test: testAgent,
-  architect: architectAgent,
-  docs: docsAgent,
+  plan: planAgent,
 };
 
 export function getAgentDefinition(type: AgentType): AgentDefinition {

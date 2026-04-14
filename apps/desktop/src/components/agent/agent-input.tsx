@@ -1,4 +1,4 @@
-import { Send, Square, Paperclip, ChevronDown, Settings } from 'lucide-react';
+import { Send, Square, Paperclip, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList } from 'lucide-react';
 import { useState, useRef, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,68 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import type { AgentMode } from '@/stores/agent-store';
-import type { AgentType } from '@hyscode/agent-harness';
-import { getAllAgentDefinitions } from '@hyscode/agent-harness';
 
-const AGENT_DEFS = getAllAgentDefinitions();
+// ─── Agent capability map ───────────────────────────────────────────────────
+
+interface AgentCapability {
+  icon: typeof MessageSquare;
+  label: string;
+  description: string;
+  badge: string;
+  color: string;
+  activeColor: string;
+  placeholder: string;
+}
+
+const AGENT_CAPABILITIES: Record<AgentMode, AgentCapability> = {
+  chat: {
+    icon: MessageSquare,
+    label: 'Chat',
+    description: 'General-purpose assistant for questions and explanations.',
+    badge: 'read-only',
+    color: 'text-blue-400',
+    activeColor: 'bg-blue-500/15 text-blue-400',
+    placeholder: 'Ask anything...',
+  },
+  build: {
+    icon: Hammer,
+    label: 'Build',
+    description: 'Implements features, writes code, creates files, runs commands.',
+    badge: 'full access',
+    color: 'text-accent',
+    activeColor: 'bg-accent/15 text-accent',
+    placeholder: 'Describe what to build...',
+  },
+  review: {
+    icon: Search,
+    label: 'Review',
+    description: 'Reviews code for bugs, security, performance, best practices.',
+    badge: 'read-only',
+    color: 'text-purple-400',
+    activeColor: 'bg-purple-500/15 text-purple-400',
+    placeholder: 'What should I review?',
+  },
+  debug: {
+    icon: Bug,
+    label: 'Debug',
+    description: 'Diagnoses and fixes bugs, errors, and unexpected behavior.',
+    badge: 'full access',
+    color: 'text-red-400',
+    activeColor: 'bg-red-500/15 text-red-400',
+    placeholder: 'Describe the bug or error...',
+  },
+  plan: {
+    icon: ClipboardList,
+    label: 'Plan',
+    description: 'Plans architecture, writes specs, designs systems.',
+    badge: 'writes docs',
+    color: 'text-amber-400',
+    activeColor: 'bg-amber-500/15 text-amber-400',
+    placeholder: 'Describe what to plan or design...',
+  },
+};
+
+const AGENT_MODES: AgentMode[] = ['chat', 'build', 'review', 'debug', 'plan'];
 
 // ─── Provider & model catalog (mirrors ai-tab.tsx) ──────────────────────────
 
@@ -67,7 +125,6 @@ export function AgentInput() {
 
   const mode = useAgentStore((s) => s.mode);
   const setMode = useAgentStore((s) => s.setMode);
-  const agentType = useAgentStore((s) => s.agentType);
   const isStreaming = useAgentStore((s) => s.isStreaming);
   const activeModelId = useSettingsStore((s) => s.activeModelId);
   const activeProviderId = useSettingsStore((s) => s.activeProviderId);
@@ -75,7 +132,7 @@ export function AgentInput() {
   const customModels = useSettingsStore((s) => s.customModels);
   const openSettings = useSettingsStore((s) => s.openSettings);
 
-  const currentAgent = AGENT_DEFS.find((a) => a.type === agentType) ?? AGENT_DEFS[0];
+  const currentCap = AGENT_CAPABILITIES[mode];
 
   // Build the enabled model list for the active provider
   const availableModels = useMemo(() => {
@@ -87,7 +144,7 @@ export function AgentInput() {
     const all = [...catalog, ...customs];
 
     const explicit = enabledModels[providerId];
-    if (!explicit) return all; // No explicit list = all enabled
+    if (!explicit) return all;
     return all.filter((m) => explicit.includes(m.id));
   }, [activeProviderId, enabledModels, customModels]);
 
@@ -96,22 +153,15 @@ export function AgentInput() {
     if (!activeModelId) return 'Select model';
     const found = availableModels.find((m) => m.id === activeModelId);
     if (found) return found.name;
-    // For custom/free-text model ids, show the id itself (truncated)
     return activeModelId.length > 30 ? activeModelId.slice(0, 28) + '…' : activeModelId;
   }, [activeModelId, availableModels]);
-
-  const placeholders: Record<AgentMode, string> = {
-    chat: 'Ask anything...',
-    build: 'Describe what to build...',
-    review: 'What should I review?',
-  };
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
     try {
       HarnessBridge.get().sendMessage(input.trim());
     } catch {
-      // Bridge not initialized yet — ignore
+      // Bridge not initialized yet
     }
     setInput('');
   };
@@ -143,12 +193,11 @@ export function AgentInput() {
     }
   };
 
-  const handleAgentChange = (type: AgentType) => {
+  const handleModeChange = (newMode: AgentMode) => {
     try {
-      HarnessBridge.get().setAgentType(type);
+      HarnessBridge.get().setAgentType(newMode);
     } catch {
-      useAgentStore.getState().setAgentType(type);
-      useSettingsStore.getState().set('agentType', type);
+      setMode(newMode);
     }
   };
 
@@ -167,7 +216,7 @@ export function AgentInput() {
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={placeholders[mode]}
+          placeholder={currentCap.placeholder}
           className="max-h-32 min-h-[36px] w-full border-0 bg-transparent text-xs leading-relaxed focus-visible:ring-0 resize-none overflow-y-auto"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -178,47 +227,48 @@ export function AgentInput() {
         />
       </div>
 
-      {/* Bottom toolbar: selectors left, actions right */}
+      {/* Bottom toolbar: agent pills + model left, actions right */}
       <div className="flex items-center justify-between gap-2">
-        {/* Selectors */}
+        {/* Agent pills + model selector */}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-          {/* Agent */}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex cursor-pointer items-center gap-0.5 rounded-pill bg-muted px-2 py-[3px] text-[10px] text-muted-foreground transition-colors hover:text-foreground focus:outline-none">
-              <span className="truncate max-w-[90px]">{currentAgent.name}</span>
-              <ChevronDown className="h-2.5 w-2.5 shrink-0" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" className="min-w-[160px]">
-              {AGENT_DEFS.map((a) => (
-                <DropdownMenuItem key={a.type} onClick={() => handleAgentChange(a.type)}>
-                  <div className="flex flex-col">
-                    <span className="text-[11px]">{a.name}</span>
-                    <span className="text-[9px] text-muted-foreground">{a.description}</span>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Mode pills */}
+          {/* Unified agent mode pills */}
           <div className="flex items-center gap-0.5 rounded-pill bg-background p-[2px]">
-            {(['chat', 'build', 'review'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={cn(
-                  'cursor-pointer rounded-pill px-2.5 py-[2px] text-[10px] font-medium capitalize transition-colors',
-                  mode === m
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {m}
-              </button>
-            ))}
+            {AGENT_MODES.map((m) => {
+              const cap = AGENT_CAPABILITIES[m];
+              const Icon = cap.icon;
+              const isActive = mode === m;
+
+              return (
+                <Tooltip key={m}>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        onClick={() => handleModeChange(m)}
+                        className={cn(
+                          'flex cursor-pointer items-center gap-1 rounded-pill px-2 py-[2px] text-[10px] font-medium transition-colors',
+                          isActive
+                            ? cap.activeColor
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      />
+                    }
+                  >
+                    <Icon className="h-3 w-3" />
+                    <span>{cap.label}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[11px] font-medium">{cap.label}</span>
+                      <span className="text-[9px] text-muted-foreground">{cap.description}</span>
+                      <span className={cn('text-[9px] font-medium', cap.color)}>{cap.badge}</span>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
           </div>
 
-          {/* Model */}
+          {/* Model selector */}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex cursor-pointer items-center gap-0.5 rounded-pill bg-muted px-2 py-[3px] text-[10px] text-muted-foreground transition-colors hover:text-foreground focus:outline-none">
               <span className="truncate max-w-[100px]">{activeModelLabel}</span>

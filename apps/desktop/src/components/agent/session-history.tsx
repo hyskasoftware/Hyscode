@@ -4,6 +4,8 @@ import {
   MessageSquare,
   Hammer,
   Search,
+  Bug,
+  ClipboardList,
   Trash2,
   ArrowRight,
   Loader2,
@@ -20,6 +22,8 @@ const MODE_ICONS: Record<AgentMode, typeof MessageSquare> = {
   chat: MessageSquare,
   build: Hammer,
   review: Search,
+  debug: Bug,
+  plan: ClipboardList,
 };
 
 function relativeTime(dateStr: string): string {

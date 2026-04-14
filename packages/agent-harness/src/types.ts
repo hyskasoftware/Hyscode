@@ -94,7 +94,7 @@ export interface ContextSnapshot {
 
 // ─── Agent Definitions ──────────────────────────────────────────────────────
 
-export type AgentType = 'chat' | 'build' | 'review' | 'refactor' | 'debug' | 'test' | 'architect' | 'docs';
+export type AgentType = 'chat' | 'build' | 'review' | 'debug' | 'plan';
 
 export interface AgentDefinition {
   type: AgentType;

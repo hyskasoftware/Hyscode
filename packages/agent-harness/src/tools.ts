@@ -206,7 +206,7 @@ export const searchCodeTool = defineTool(
         {
           root: ctx.workspacePath,
           query: input.pattern as string,
-          max_results: (input.max_results as number) ?? 50,
+          maxResults: (input.max_results as number) ?? 50,
         },
       );
       if (!results.length) {
@@ -281,7 +281,7 @@ export const runTerminalCommandTool = defineTool(
       const wrappedCommand = isWin
         ? `${command}; echo ${exitMarker}; echo EXIT_CODE:$LASTEXITCODE\r\n`
         : `${command}; echo "${exitMarker}"; echo "EXIT_CODE:$?"\n`;
-      await ctx.invoke('pty_write', { pty_id: ptyId, data: wrappedCommand });
+      await ctx.invoke('pty_write', { ptyId, data: wrappedCommand });
 
       // Wait for exit marker or timeout
       const startTime = Date.now();
@@ -301,7 +301,7 @@ export const runTerminalCommandTool = defineTool(
       unlisten();
       unlistenExit();
       try {
-        await ctx.invoke('pty_kill', { pty_id: ptyId });
+        await ctx.invoke('pty_kill', { ptyId });
       } catch {
         // Ignore kill errors if PTY already exited
       }
@@ -353,7 +353,7 @@ export const gitStatusTool = defineTool(
         conflicts: Array<{ path: string; status: string }>;
       }>(
         'git_status',
-        { repo_path: ctx.workspacePath },
+        { repoPath: ctx.workspacePath },
       );
 
       const lines: string[] = [];
@@ -391,8 +391,8 @@ export const gitDiffTool = defineTool(
 
       if (filePath) {
         const diff = await ctx.invoke<string>('git_diff_file', {
-          repo_path: ctx.workspacePath,
-          file_path: filePath,
+          repoPath: ctx.workspacePath,
+          filePath,
           staged,
         });
         return { success: true, output: diff || 'No changes.' };
@@ -404,7 +404,7 @@ export const gitDiffTool = defineTool(
         unstaged: Array<{ path: string }>;
       }>(
         'git_status',
-        { repo_path: ctx.workspacePath },
+        { repoPath: ctx.workspacePath },
       );
 
       const filesToDiff = staged ? result.staged : result.unstaged;
@@ -412,8 +412,8 @@ export const gitDiffTool = defineTool(
       for (const file of filesToDiff) {
         try {
           const diff = await ctx.invoke<string>('git_diff_file', {
-            repo_path: ctx.workspacePath,
-            file_path: file.path,
+            repoPath: ctx.workspacePath,
+            filePath: file.path,
             staged,
           });
           if (diff) diffs.push(diff);
@@ -450,13 +450,13 @@ export const gitCommitTool = defineTool(
       if (paths && paths.length > 0) {
         const resolved = paths.map((p) => resolvePath(p, ctx.workspacePath));
         await ctx.invoke('git_add', {
-          repo_path: ctx.workspacePath,
+          repoPath: ctx.workspacePath,
           paths: resolved,
         });
       }
 
       const result = await ctx.invoke<string>('git_commit', {
-        repo_path: ctx.workspacePath,
+        repoPath: ctx.workspacePath,
         message: input.message,
       });
 
@@ -486,12 +486,12 @@ export const gitAddTool = defineTool(
       if (paths && paths.length > 0) {
         const resolved = paths.map((p) => resolvePath(p, ctx.workspacePath));
         await ctx.invoke('git_add', {
-          repo_path: ctx.workspacePath,
+          repoPath: ctx.workspacePath,
           paths: resolved,
         });
         return { success: true, output: `Staged: ${paths.join(', ')}` };
       } else {
-        await ctx.invoke('git_add_all', { repo_path: ctx.workspacePath });
+        await ctx.invoke('git_add_all', { repoPath: ctx.workspacePath });
         return { success: true, output: 'Staged all changes.' };
       }
     } catch (err) {
@@ -526,7 +526,7 @@ export const gitLogTool = defineTool(
       if (file) {
         const commits = await ctx.invoke<Array<{ short_hash: string; message: string; author: string; timestamp: number }>>(
           'git_log_file',
-          { repo_path: ctx.workspacePath, file_path: file, limit },
+          { repoPath: ctx.workspacePath, filePath: file, limit },
         );
         if (!commits.length) return { success: true, output: 'No commits found.' };
         const formatted = commits.map(c => `${c.short_hash} ${c.message.split('\n')[0]} (${c.author})`).join('\n');
@@ -535,7 +535,7 @@ export const gitLogTool = defineTool(
 
       const commits = await ctx.invoke<Array<{ short_hash: string; message: string; author: string; timestamp: number }>>(
         'git_log',
-        { repo_path: ctx.workspacePath, limit },
+        { repoPath: ctx.workspacePath, limit },
       );
       if (!commits.length) return { success: true, output: 'No commits found.' };
       const formatted = commits.map(c => `${c.short_hash} ${c.message.split('\n')[0]} (${c.author})`).join('\n');
@@ -566,7 +566,7 @@ export const gitCheckoutTool = defineTool(
 
       if (create) {
         await ctx.invoke('git_branch_create', {
-          repo_path: ctx.workspacePath,
+          repoPath: ctx.workspacePath,
           name: branch,
           checkout: true,
         });
@@ -574,7 +574,7 @@ export const gitCheckoutTool = defineTool(
       }
 
       await ctx.invoke('git_checkout', {
-        repo_path: ctx.workspacePath,
+        repoPath: ctx.workspacePath,
         branch,
       });
       return { success: true, output: `Switched to branch: ${branch}` };
@@ -676,7 +676,7 @@ export const webFetchTool = defineTool(
         return { success: false, output: '', error: 'Fetching internal/private addresses is not allowed.' };
       }
 
-      const result = await ctx.invoke<string>('web_fetch', { url, max_length: maxLen });
+      const result = await ctx.invoke<string>('web_fetch', { url, maxLength: maxLen });
       const text = result?.slice(0, maxLen) ?? '';
       return {
         success: true,

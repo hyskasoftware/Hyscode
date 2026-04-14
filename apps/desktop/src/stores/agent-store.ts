@@ -4,7 +4,8 @@ import type { AgentType, SddStatus, SddTask } from '@hyscode/agent-harness';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type AgentMode = 'chat' | 'build' | 'review';
+/** AgentMode mirrors AgentType — single source of truth for active agent. */
+export type AgentMode = 'chat' | 'build' | 'review' | 'debug' | 'plan';
 export type MessageRole = 'user' | 'assistant';
 
 export interface ToolCallDisplay {
@@ -53,9 +54,8 @@ export interface SessionSummary {
 // ─── State ──────────────────────────────────────────────────────────────────
 
 interface AgentState {
-  // Core
+  // Core — mode IS the agent type (single source of truth)
   mode: AgentMode;
-  agentType: AgentType;
   conversationId: string | null;
   messages: ChatMessage[];
   isStreaming: boolean;
@@ -96,6 +96,7 @@ interface AgentState {
   // ─── Actions ──────────────────────────────────────────────────────────
 
   setMode: (mode: AgentMode) => void;
+  /** @deprecated Use setMode() instead. Kept as alias for compatibility. */
   setAgentType: (type: AgentType) => void;
   setConversationId: (id: string) => void;
   addMessage: (message: ChatMessage) => void;
@@ -144,7 +145,6 @@ export const useAgentStore = create<AgentState>()(
   immer((set) => ({
     // Defaults
     mode: 'chat',
-    agentType: 'chat',
     conversationId: null,
     messages: [],
     isStreaming: false,
@@ -176,7 +176,7 @@ export const useAgentStore = create<AgentState>()(
 
     setAgentType: (type) =>
       set((state) => {
-        state.agentType = type;
+        state.mode = type as AgentMode;
       }),
 
     setConversationId: (id) =>
