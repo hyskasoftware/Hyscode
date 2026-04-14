@@ -1,4 +1,4 @@
-import { Sparkles, User, Bot, ChevronDown, ChevronRight, Bug, Copy, Check, Brain } from 'lucide-react';
+import { Sparkles, User, Bot, ChevronDown, ChevronRight, Bug, Copy, Check, Brain, AlertCircle } from 'lucide-react';
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -198,6 +198,17 @@ const ReasoningText = memo(function ReasoningText({ content }: { content: string
   );
 });
 
+// ─── Error Message ────────────────────────────────────────────────────────────
+
+const ErrorMessage = memo(function ErrorMessage({ message }: { message: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2.5">
+      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+      <p className="text-[12px] leading-relaxed text-red-300/90">{message}</p>
+    </div>
+  );
+});
+
 // ─── Memoized Message Item ────────────────────────────────────────────────────
 
 interface MessageItemProps {
@@ -259,6 +270,8 @@ const MessageItem = memo(function MessageItem({
                 {msg.content && <ReasoningText content={msg.content} />}
                 <ToolCallGroup toolCalls={msg.toolCalls!} />
               </>
+            ) : msg.isError ? (
+              <ErrorMessage message={msg.content} />
             ) : msg.content ? (
               /* Final response: full markdown */
               <MarkdownContent content={msg.content} />

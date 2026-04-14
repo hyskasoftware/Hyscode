@@ -29,6 +29,71 @@ import { useEditorStore } from '@/stores/editor-store';
 import type { ToolCallDisplay, PendingApproval, AgentEditSession } from '@/stores/agent-store';
 import { computeDiffHunks } from './compute-diff';
 
+// ─── Error Parser ────────────────────────────────────────────────────────────
+// Converts raw technical error messages into friendly user-facing text.
+
+function parseProviderError(raw: string): string {
+  // Extract JSON body from messages like "Anthropic API error: 400 {...}"
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      // Anthropic error shape: { error: { message: string, type: string } }
+      const msg: string | undefined =
+        parsed?.error?.message ??
+        parsed?.message ??
+        parsed?.error ??
+        undefined;
+      if (msg) return humanizeErrorMessage(msg, raw);
+    } catch {
+      // not JSON, fall through
+    }
+  }
+  return humanizeErrorMessage(raw, raw);
+}
+
+function humanizeErrorMessage(msg: string, raw: string): string {
+  const lower = msg.toLowerCase();
+
+  if (lower.includes('credit') || lower.includes('billing') || lower.includes('balance')) {
+    return 'Insufficient credits. Please top up your API account balance to continue.';
+  }
+  if (lower.includes('invalid_api_key') || lower.includes('authentication') || lower.includes('unauthorized') || raw.includes('401')) {
+    return 'Invalid API key. Check your key in Settings → Providers.';
+  }
+  if (lower.includes('rate limit') || lower.includes('rate_limit') || raw.includes('429')) {
+    return 'Rate limit reached. Please wait a moment before sending another message.';
+  }
+  if (lower.includes('overloaded') || lower.includes('529')) {
+    return 'The AI provider is temporarily overloaded. Please try again in a moment.';
+  }
+  if (lower.includes('context') && (lower.includes('length') || lower.includes('window') || lower.includes('token'))) {
+    return 'The conversation is too long for this model. Try starting a new conversation.';
+  }
+  if (lower.includes('model') && lower.includes('not found')) {
+    return 'The selected model is not available. Please choose a different model in Settings.';
+  }
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return 'The request timed out. Check your connection and try again.';
+  }
+  if (lower.includes('no api key') || lower.includes('missing') && lower.includes('key')) {
+    return 'No API key configured. Add your API key in Settings → Providers.';
+  }
+  if (lower.includes('failed to fetch') || lower.includes('network')) {
+    return 'Network error. Check your internet connection and try again.';
+  }
+  if (lower.includes('aborted') || lower.includes('cancelled')) {
+    return 'Request cancelled.';
+  }
+
+  // If the raw provider message is short and readable, use it directly
+  if (msg.length < 200 && !msg.includes('{') && !msg.includes('request_id')) {
+    return msg;
+  }
+
+  return 'An unexpected error occurred. Please try again.';
+}
+
 // ─── Singleton ──────────────────────────────────────────────────────────────
 
 let _instance: HarnessBridge | null = null;
@@ -259,9 +324,10 @@ export class HarnessBridge {
       // Persist conversation to DB
       await this.persistConversation(userMessage, response);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      dbg(`ERRO: ${errorMsg}`);
-      useAgentStore.getState().updateLastAssistantContent(`❌ ${errorMsg}`);
+      const rawMsg = err instanceof Error ? err.message : 'Unknown error';
+      const friendlyMsg = parseProviderError(rawMsg);
+      dbg(`ERRO: ${rawMsg}`);
+      useAgentStore.getState().updateLastAssistantError(friendlyMsg);
     } finally {
       useAgentStore.getState().setStreaming(false);
     }

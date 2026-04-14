@@ -26,6 +26,8 @@ export interface ChatMessage {
   content: string;
   thinking?: string;
   toolCalls?: ToolCallDisplay[];
+   /** When true, `content` is a user-facing error message to render in the error UI. */
+  isError?: boolean;
   /** Structured LLM content blocks for faithful history reconstruction.
    *  When present, buildHistory() uses these instead of `content` string. */
   blocks?: MessageContent[];
@@ -155,6 +157,7 @@ interface AgentState {
   setConversationId: (id: string) => void;
   addMessage: (message: ChatMessage) => void;
   updateLastAssistantContent: (content: string) => void;
+  updateLastAssistantError: (errorMessage: string) => void;
   appendStreamingText: (text: string) => void;
   appendThinkingText: (text: string) => void;
   flushStreamingText: () => void;
@@ -257,6 +260,16 @@ export const useAgentStore = create<AgentState>()(
         const last = state.messages[state.messages.length - 1];
         if (last?.role === 'assistant') {
           last.content = content;
+          last.isError = false;
+        }
+      }),
+
+    updateLastAssistantError: (errorMessage) =>
+      set((state) => {
+        const last = state.messages[state.messages.length - 1];
+        if (last?.role === 'assistant') {
+          last.content = errorMessage;
+          last.isError = true;
         }
       }),
 
