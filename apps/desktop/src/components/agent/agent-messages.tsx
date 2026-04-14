@@ -1,5 +1,5 @@
-import { Sparkles, User, Bot, Loader2, ChevronDown, ChevronRight, Bug } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { Sparkles, User, Bot, ChevronDown, ChevronRight, Bug, Copy, Check } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -8,6 +8,123 @@ import { useAgentStore } from '@/stores/agent-store';
 import { ToolCallCard } from './tool-call-card';
 import { ApprovalDialog } from './approval-dialog';
 import { cn } from '@/lib/utils';
+
+// ─── Code Block with Copy Button ─────────────────────────────────────────────
+
+function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const codeRef = useRef<HTMLElement>(null);
+
+  const handleCopy = useCallback(() => {
+    const text = codeRef.current?.textContent ?? '';
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
+
+  // Only wrap in fancy block if it's a fenced code block (has language class)
+  const isInline = !className;
+  if (isInline) {
+    return (
+      <code className="rounded-[4px] bg-[#1e1e1e] px-1.5 py-0.5 text-[11px] font-mono text-[#e8912d]" {...props}>
+        {children}
+      </code>
+    );
+  }
+
+  const lang = className?.replace('hljs language-', '').replace('language-', '') ?? '';
+
+  return (
+    <div className="group/code relative my-2 overflow-hidden rounded-md border border-border/40 bg-[#0d1117]">
+      {/* Header bar */}
+      <div className="flex h-7 items-center justify-between border-b border-border/30 bg-[#161b22] px-3">
+        <span className="text-[10px] font-medium text-muted-foreground">{lang || 'code'}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3 text-green-400" />
+              <span className="text-green-400">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3 text-[11.5px] leading-[1.6]">
+        <code ref={codeRef} className={className} {...props}>
+          {children}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
+// ─── Markdown Renderer ────────────────────────────────────────────────────────
+
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <div className="agent-markdown text-[12.5px] leading-[1.7] text-foreground/90">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          code: CodeBlock as any,
+          pre: ({ children }) => <>{children}</>,
+          p: ({ children }) => <p className="my-1.5">{children}</p>,
+          ul: ({ children }) => <ul className="my-1.5 ml-4 list-disc space-y-0.5">{children}</ul>,
+          ol: ({ children }) => <ol className="my-1.5 ml-4 list-decimal space-y-0.5">{children}</ol>,
+          li: ({ children }) => <li className="text-foreground/85">{children}</li>,
+          h1: ({ children }) => <h1 className="mb-2 mt-4 text-[15px] font-semibold text-foreground">{children}</h1>,
+          h2: ({ children }) => <h2 className="mb-1.5 mt-3 text-[14px] font-semibold text-foreground">{children}</h2>,
+          h3: ({ children }) => <h3 className="mb-1 mt-2.5 text-[13px] font-semibold text-foreground">{children}</h3>,
+          strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+          a: ({ href, children }) => (
+            <a href={href} className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className="my-2 border-l-2 border-accent/40 pl-3 text-muted-foreground italic">{children}</blockquote>
+          ),
+          table: ({ children }) => (
+            <div className="my-2 overflow-x-auto rounded-md border border-border/40">
+              <table className="w-full text-[11px]">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => <th className="border-b border-border/40 bg-surface-raised px-3 py-1.5 text-left font-medium text-foreground">{children}</th>,
+          td: ({ children }) => <td className="border-b border-border/20 px-3 py-1.5 text-foreground/80">{children}</td>,
+          hr: () => <hr className="my-3 border-border/30" />,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+// ─── Streaming Cursor ─────────────────────────────────────────────────────────
+
+function StreamingIndicator() {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <div className="flex items-center gap-1">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:150ms]" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:300ms]" />
+      </div>
+      <span className="text-[11px] text-muted-foreground">Thinking...</span>
+    </div>
+  );
+}
+
+// ─── Agent Messages ───────────────────────────────────────────────────────────
 
 export function AgentMessages() {
   const messages = useAgentStore((s) => s.messages);
@@ -55,56 +172,56 @@ export function AgentMessages() {
   return (
     <div className="flex-1 overflow-hidden">
       <ScrollArea className="h-full">
-        <div className="flex flex-col gap-1 p-3">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={cn(
-                'flex gap-2.5',
-                msg.role === 'user' ? 'justify-end' : 'justify-start',
-              )}
-            >
-              {/* Avatar (assistant only) */}
-              {msg.role === 'assistant' && (
-                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/10">
-                  <Bot className="h-3.5 w-3.5 text-accent" />
-                </div>
-              )}
-
-              {/* Bubble */}
-              <div
-                className={cn(
-                  'max-w-[85%] rounded-lg px-3 py-2 text-[12px] leading-relaxed',
-                  msg.role === 'user'
-                    ? 'bg-accent/15 text-foreground'
-                    : 'bg-surface-raised text-foreground',
-                )}
-              >
-                {/* Markdown content */}
-                {msg.content ? (
-                  <div className="prose-sm prose-invert max-w-none [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-background [&_pre]:p-2 [&_pre]:text-[11px] [&_code]:rounded [&_code]:bg-background [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px]">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                ) : isStreaming && msg.role === 'assistant' ? (
-                  <div className="flex items-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin text-accent" />
-                    <span className="text-[11px] text-muted-foreground">Thinking...</span>
-                  </div>
-                ) : null}
-
-                {/* Tool calls */}
-                {msg.toolCalls?.map((tc) => (
-                  <ToolCallCard key={tc.id} toolCall={tc} />
-                ))}
-              </div>
-
-              {/* Avatar (user only) */}
+        <div className="flex flex-col gap-0 px-4 py-3">
+          {messages.map((msg, idx) => (
+            <div key={msg.id} className="group/msg">
+              {/* User message */}
               {msg.role === 'user' && (
-                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <User className="h-3.5 w-3.5 text-foreground" />
+                <div className="mb-3 mt-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
+                      <User className="h-3 w-3 text-foreground/70" />
+                    </div>
+                    <span className="text-[11px] font-semibold text-foreground">You</span>
+                  </div>
+                  <div className="pl-7">
+                    <MarkdownContent content={msg.content} />
+                  </div>
                 </div>
+              )}
+
+              {/* Assistant message */}
+              {msg.role === 'assistant' && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15">
+                      <Bot className="h-3 w-3 text-accent" />
+                    </div>
+                    <span className="text-[11px] font-semibold text-foreground">HysCode</span>
+                  </div>
+                  <div className="pl-7">
+                    {/* Markdown content */}
+                    {msg.content ? (
+                      <MarkdownContent content={msg.content} />
+                    ) : isStreaming && idx === messages.length - 1 ? (
+                      <StreamingIndicator />
+                    ) : null}
+
+                    {/* Tool calls — rendered inline */}
+                    {msg.toolCalls && msg.toolCalls.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-1">
+                        {msg.toolCalls.map((tc) => (
+                          <ToolCallCard key={tc.id} toolCall={tc} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Separator between messages */}
+              {idx < messages.length - 1 && (
+                <div className="border-b border-border/20 mb-1" />
               )}
             </div>
           ))}
@@ -116,9 +233,9 @@ export function AgentMessages() {
 
           {/* Debug log panel */}
           {debugLines.length > 0 && (
-            <div className="mt-2 rounded-md border border-border/40 bg-background/60 text-[10px] font-mono">
+            <div className="mt-3 rounded-md border border-border/30 bg-[#0d1117]/60 text-[10px] font-mono">
               <button
-                className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-muted-foreground hover:text-foreground"
+                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => setDebugExpanded(!debugExpanded)}
               >
                 {debugExpanded ? (
@@ -126,18 +243,20 @@ export function AgentMessages() {
                 ) : (
                   <ChevronRight className="h-3 w-3 shrink-0" />
                 )}
-                <Bug className="h-3 w-3 shrink-0 text-yellow-500/70" />
-                <span className="text-yellow-500/70">Debug log</span>
-                <span className="ml-auto rounded bg-muted px-1 tabular-nums">{debugLines.length}</span>
+                <Bug className="h-3 w-3 shrink-0 text-yellow-500/60" />
+                <span className="text-yellow-500/60">Debug</span>
+                <span className="ml-auto rounded-full bg-muted/50 px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground">
+                  {debugLines.length}
+                </span>
               </button>
               {debugExpanded && (
-                <div className="max-h-[200px] overflow-y-auto border-t border-border/30 px-2 py-1.5">
+                <div className="max-h-[200px] overflow-y-auto border-t border-border/20 px-2.5 py-1.5">
                   {debugLines.map((line, i) => (
                     <div
                       key={i}
                       className={cn(
                         'leading-5',
-                        line.includes('ERRO') ? 'text-red-400' : 'text-muted-foreground',
+                        line.includes('ERRO') ? 'text-red-400' : 'text-muted-foreground/70',
                       )}
                     >
                       {line}
