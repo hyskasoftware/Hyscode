@@ -1,8 +1,9 @@
 // ─── MCP Bridge ─────────────────────────────────────────────────────────────
 // Singleton that owns the McpClientManager and syncs it with settings.
 
-import { McpClientManager, StdioTransport, SseTransport, WebSocketTransport } from '@hyscode/mcp-client';
-import type { McpToolDefinition, McpResource } from '@hyscode/mcp-client';
+import { McpClientManager } from '@hyscode/mcp-client';
+import type { McpToolDefinition, McpServerConfig as McpCoreConfig } from '@hyscode/mcp-client';
+import { tauriInvokeRaw } from './tauri-invoke';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { McpServerConfig } from '@/stores/settings-store';
 
@@ -12,7 +13,7 @@ export class McpBridge {
   private manager: McpClientManager;
 
   private constructor() {
-    this.manager = new McpClientManager();
+    this.manager = new McpClientManager(tauriInvokeRaw);
   }
 
   static init(): McpBridge {
@@ -28,9 +29,30 @@ export class McpBridge {
 
   static destroy(): void {
     if (_instance) {
-      _instance.disconnectAll();
+      void _instance.disconnectAllServers();
       _instance = null;
     }
+  }
+
+  // ─── Adapter ────────────────────────────────────────────────────────
+
+  /** Convert the simple settings-store config to the full MCP core config */
+  private toCoreConfig(server: McpServerConfig): McpCoreConfig {
+    return {
+      id: server.id,
+      name: server.name,
+      transport: server.transport,
+      command: server.command,
+      args: server.args,
+      url: server.url,
+      wsUrl: server.wsUrl,
+      capabilities: {
+        allowedTools: '*',
+        allowedResources: '*',
+        maxConcurrentCalls: 5,
+        timeoutMs: 30_000,
+      },
+    };
   }
 
   // ─── Connection Management ──────────────────────────────────────────
@@ -44,41 +66,24 @@ export class McpBridge {
   }
 
   async connect(server: McpServerConfig): Promise<void> {
-    let transport;
-    switch (server.transport) {
-      case 'stdio':
-        transport = new StdioTransport(server.command ?? '', server.args ?? []);
-        break;
-      case 'sse':
-        transport = new SseTransport(server.url ?? '');
-        break;
-      case 'websocket':
-        transport = new WebSocketTransport(server.wsUrl ?? '');
-        break;
-    }
-
-    await this.manager.connect(server.id, transport, {
-      name: server.name,
-      transport: server.transport,
-    });
+    await this.manager.connect(this.toCoreConfig(server));
   }
 
   async disconnect(serverId: string): Promise<void> {
     await this.manager.disconnect(serverId);
   }
 
-  async disconnectAll(): Promise<void> {
-    await this.manager.disconnectAll();
+  async disconnectAllServers(): Promise<void> {
+    const servers = this.manager.listServers();
+    for (const server of servers) {
+      await this.manager.disconnect(server.config.id);
+    }
   }
 
   // ─── Tool / Resource access ─────────────────────────────────────────
 
-  getTools(): McpToolDefinition[] {
+  getTools(): Array<McpToolDefinition & { serverId: string }> {
     return this.manager.getAllTools();
-  }
-
-  getResources(): McpResource[] {
-    return this.manager.getAllResources();
   }
 
   async callTool(serverId: string, toolName: string, args: Record<string, unknown>): Promise<unknown> {
@@ -86,6 +91,8 @@ export class McpBridge {
   }
 
   getConnectedServerIds(): string[] {
-    return this.manager.getConnectedIds();
+    return this.manager.listServers()
+      .filter((s) => s.status === 'connected')
+      .map((s) => s.config.id);
   }
 }

@@ -2,15 +2,20 @@
 // Singleton that owns the Harness instance and wires its events → Zustand stores.
 // Lives outside React to avoid re-renders during streaming.
 
-import { Harness } from '@hyscode/agent-harness';
+import { Harness, SkillLoader } from '@hyscode/agent-harness';
 import type {
   HarnessEvent,
   AgentType,
   ConversationMode,
   SddTask,
+  ToolHandler,
+  ToolResult,
+  ToolExecutionContext,
+  ToolCategory,
 } from '@hyscode/agent-harness';
-import type { Message } from '@hyscode/ai-providers';
+import type { Message, ToolDefinition } from '@hyscode/ai-providers';
 import { tauriInvokeRaw } from './tauri-invoke';
+import { McpBridge } from './mcp-bridge';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { ToolCallDisplay, PendingApproval } from '@/stores/agent-store';
@@ -25,6 +30,31 @@ export class HarnessBridge {
 
   private constructor(workspacePath: string, projectId: string) {
     const settings = useSettingsStore.getState();
+
+    // Create SkillLoader with Tauri-backed file system callbacks
+    const skillLoader = new SkillLoader({
+      builtInPath: `${workspacePath}/node_modules/@hyscode/skills/dist`,
+      globalPath: `${HarnessBridge.getHomePath()}/.hyscode/skills`,
+      workspacePath,
+      readDir: async (path: string) => {
+        try {
+          return await tauriInvokeRaw<Array<{ name: string; is_dir: boolean }>>('list_dir', { path });
+        } catch {
+          return [];
+        }
+      },
+      readFile: async (path: string) => {
+        return await tauriInvokeRaw<string>('read_file', { path });
+      },
+      pathExists: async (path: string) => {
+        try {
+          await tauriInvokeRaw('path_exists', { path });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    });
 
     this.harness = new Harness({
       workspacePath,
@@ -41,7 +71,20 @@ export class HarnessBridge {
       },
       onEvent: (event) => this.handleEvent(event),
       onApprovalRequest: (pending) => this.handleApprovalRequest(pending),
+      skillLoader,
     });
+  }
+
+  /** Get users home directory path (best-effort; the actual path is resolved by pathExists fallback) */
+  private static getHomePath(): string {
+    // In the Tauri webview we don't have Node's os.homedir().
+    // Use environment-based heuristic. The SkillLoader's pathExists will
+    // gracefully return false if the path doesn't exist.
+    const isWin = navigator.userAgent?.includes('Windows');
+    if (isWin) {
+      return 'C:/Users/' + (globalThis as Record<string, unknown>).__TAURI_USERNAME__ || 'user';
+    }
+    return '/home/' + ((globalThis as Record<string, unknown>).__TAURI_USERNAME__ || 'user');
   }
 
   // ─── Singleton access ───────────────────────────────────────────────
@@ -162,7 +205,54 @@ export class HarnessBridge {
   }
 
   async loadSkills(): Promise<void> {
-    await this.harness.loadSkills();
+    try {
+      await this.harness.loadSkills();
+      this.debug('Skills loaded successfully');
+    } catch (err) {
+      this.debug(`Failed to load skills: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /** Register all tools from connected MCP servers as native tool handlers */
+  async registerMcpTools(): Promise<void> {
+    try {
+      const mcpBridge = McpBridge.get();
+      const mcpTools = mcpBridge.getTools();
+
+      let registered = 0;
+      for (const tool of mcpTools) {
+        const serverId = tool.serverId;
+        const toolName = `mcp__${serverId}__${tool.name}`;
+
+        const handler: ToolHandler = {
+          definition: {
+            name: toolName,
+            description: `[MCP: ${serverId}] ${tool.description ?? tool.name}`,
+            inputSchema: (tool.inputSchema as Record<string, unknown>) ?? { type: 'object', properties: {}, required: [] },
+          } satisfies ToolDefinition,
+          category: 'mcp' as ToolCategory,
+          requiresApproval: true,
+          execute: async (input: Record<string, unknown>, _ctx: ToolExecutionContext): Promise<ToolResult> => {
+            try {
+              const result = await mcpBridge.callTool(serverId, tool.name, input);
+              const output = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+              return { success: true, output };
+            } catch (err) {
+              return { success: false, output: '', error: err instanceof Error ? err.message : String(err) };
+            }
+          },
+        };
+
+        this.harness.registerExternalTool(handler);
+        registered++;
+      }
+
+      if (registered > 0) {
+        this.debug(`Registered ${registered} MCP tools`);
+      }
+    } catch {
+      // McpBridge may not be initialized yet — that's fine, MCP tools are optional
+    }
   }
 
   // ─── Event Handling ─────────────────────────────────────────────────

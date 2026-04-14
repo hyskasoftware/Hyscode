@@ -12,6 +12,7 @@ import type {
   ToolCallRecord,
   ConversationMode,
   ToolExecutionContext,
+  ToolHandler,
   Skill,
 } from './types';
 import { DEFAULT_HARNESS_CONFIG } from './types';
@@ -128,6 +129,23 @@ export class Harness {
     return this.sddEngine;
   }
 
+  // ─── External Tool Registration (MCP, extensions) ───────────────────
+
+  /** Register an external tool (e.g. from MCP server) into the tool router */
+  registerExternalTool(handler: ToolHandler): void {
+    this.toolRouter.register(handler);
+  }
+
+  /** Unregister a tool by name */
+  unregisterTool(name: string): void {
+    this.toolRouter.unregister(name);
+  }
+
+  /** Get the skill loader (for external callers to list skills) */
+  getSkillLoader(): SkillLoader | null {
+    return this.skillLoader;
+  }
+
   // ─── Skills ─────────────────────────────────────────────────────────
 
   async loadSkills(): Promise<void> {
@@ -150,6 +168,7 @@ export class Harness {
 
     this.activeSkills = this.skillLoader.getActive();
     this.contextManager.setActiveSkills(this.activeSkills);
+    this.contextManager.setAllSkills(this.skillLoader.getAll());
   }
 
   // ─── Main Agent Loop ────────────────────────────────────────────────
@@ -355,9 +374,30 @@ export class Harness {
         // Handle special meta-tool actions
         if (record.output.metadata?.action === 'activate_skill' && this.skillLoader) {
           const skillName = record.output.metadata.skillName as string;
-          this.skillLoader.activate(skillName);
-          this.activeSkills = this.skillLoader.getActive();
-          this.contextManager.setActiveSkills(this.activeSkills);
+          const activated = this.skillLoader.activate(skillName);
+          if (activated) {
+            this.activeSkills = this.skillLoader.getActive();
+            this.contextManager.setActiveSkills(this.activeSkills);
+            this.contextManager.setAllSkills(this.skillLoader.getAll());
+            record.output.output = `Skill "${skillName}" activated successfully. Its instructions are now part of your context.`;
+          } else {
+            record.output.output = `Skill "${skillName}" not found. Use list_skills to see available skills.`;
+            record.output.success = false;
+          }
+        }
+
+        if (record.output.metadata?.action === 'list_skills' && this.skillLoader) {
+          const allSkills = this.skillLoader.getAll();
+          const skillList = allSkills.map(s => ({
+            name: s.frontmatter.name,
+            description: s.frontmatter.description,
+            active: s.active,
+            activation: s.frontmatter.activation,
+            scope: s.frontmatter.scope,
+          }));
+          record.output.output = skillList.length > 0
+            ? `Available skills:\n${skillList.map(s => `- **${s.name}** (${s.active ? 'ACTIVE' : 'inactive'}, ${s.scope}): ${s.description}`).join('\n')}`
+            : 'No skills are currently loaded.';
         }
 
         toolResults.content.push({

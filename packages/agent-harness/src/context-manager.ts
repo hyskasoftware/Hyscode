@@ -22,6 +22,7 @@ export class ContextManager {
   private sources: ContextSource[] = [];
   private conversationHistory: Message[] = [];
   private activeSkills: Skill[] = [];
+  private allSkills: Skill[] = [];
   private agentDef: AgentDefinition | null = null;
   private systemPromptOverride: string | null = null;
 
@@ -37,6 +38,10 @@ export class ContextManager {
 
   setActiveSkills(skills: Skill[]): void {
     this.activeSkills = skills;
+  }
+
+  setAllSkills(skills: Skill[]): void {
+    this.allSkills = skills;
   }
 
   // ─── Context Sources ────────────────────────────────────────────────
@@ -128,13 +133,24 @@ export class ContextManager {
       parts.push('</context>');
     }
 
-    // Active skills
+    // Active skills (full content injected into context)
     if (this.activeSkills.length > 0) {
-      parts.push('\n<skills>');
+      parts.push('\n<active_skills>');
       for (const skill of this.activeSkills) {
         parts.push(`<skill name="${skill.frontmatter.name}">\n${skill.content}\n</skill>`);
       }
-      parts.push('</skills>');
+      parts.push('</active_skills>');
+    }
+
+    // Skill directory: list ALL available skills so the agent knows what it can activate
+    const inactiveSkills = this.allSkills.filter(s => !s.active);
+    if (inactiveSkills.length > 0) {
+      parts.push('\n<available_skills>');
+      parts.push('The following skills are available but not yet activated. Use `activate_skill` to enable any that are relevant to the current task:');
+      for (const skill of inactiveSkills) {
+        parts.push(`- **${skill.frontmatter.name}**: ${skill.frontmatter.description}`);
+      }
+      parts.push('</available_skills>');
     }
 
     return parts.join('\n');

@@ -451,16 +451,14 @@ export const gitAddTool = defineTool(
 
 export const activateSkillTool = defineTool(
   'activate_skill',
-  'Activate a skill to enhance your capabilities for the current conversation. Skills provide domain-specific instructions and best practices.',
+  'Activate a skill to enhance your capabilities for the current conversation. Skills provide domain-specific instructions and best practices. Use this BEFORE performing specialized tasks like testing, security review, performance optimization, documentation, or git workflows.',
   {
-    skill_name: { type: 'string', description: 'Name of the skill to activate' },
+    skill_name: { type: 'string', description: 'Name of the skill to activate (use list_skills to discover available names)' },
   },
   ['skill_name'],
   'meta',
   false,
   async (input, _ctx) => {
-    // The actual skill activation is handled by the harness, not here.
-    // We return the request and the harness will process it.
     return {
       success: true,
       output: `Skill activation requested: ${input.skill_name}`,
@@ -469,46 +467,19 @@ export const activateSkillTool = defineTool(
   },
 );
 
-export const listMcpToolsTool = defineTool(
-  'list_mcp_tools',
-  'List all tools available from connected MCP servers.',
+export const listSkillsTool = defineTool(
+  'list_skills',
+  'List all available skills with their names, descriptions, and activation status. Use this to discover which skills you can activate for the current task. Always check available skills before specialized work.',
   {},
   [],
   'meta',
   false,
   async (_input, _ctx) => {
-    // MCP tools are dynamically registered into the tool router.
-    // This tool returns info about MCP tools.
+    // The harness intercepts this via metadata action and injects the real skill list.
     return {
       success: true,
-      output: 'MCP tools are listed in the available tools.',
-      metadata: { action: 'list_mcp_tools' },
-    };
-  },
-);
-
-export const mcpCallTool = defineTool(
-  'mcp_call',
-  'Call a tool provided by a connected MCP server.',
-  {
-    server_id: { type: 'string', description: 'The MCP server ID' },
-    tool_name: { type: 'string', description: 'The tool name on that server' },
-    arguments: { type: 'object', description: 'Arguments to pass to the tool' },
-  },
-  ['server_id', 'tool_name'],
-  'mcp',
-  true,
-  async (input, _ctx) => {
-    // MCP call is handled by the MCP client integration in the harness.
-    return {
-      success: true,
-      output: `MCP call requested: ${input.server_id}/${input.tool_name}`,
-      metadata: {
-        action: 'mcp_call',
-        serverId: input.server_id,
-        toolName: input.tool_name,
-        arguments: input.arguments,
-      },
+      output: 'Skills list requested.',
+      metadata: { action: 'list_skills' },
     };
   },
 );
@@ -533,7 +504,6 @@ export function getAllBuiltinTools(): ToolHandler[] {
     gitAddTool,
     // Meta
     activateSkillTool,
-    listMcpToolsTool,
-    mcpCallTool,
+    listSkillsTool,
   ];
 }

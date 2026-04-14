@@ -4,6 +4,23 @@
 
 import type { Skill, SkillFrontmatter, SkillScope, AgentType } from './types';
 
+// ─── Text Normalization Helpers ─────────────────────────────────────────────
+// Strip accents/diacritics and normalize text for fuzzy matching.
+
+function normalizeText(text: string): string {
+  return text
+    .normalize('NFD')                     // decompose accented chars
+    .replace(/[\u0300-\u036f]/g, '')      // strip diacritics
+    .toLowerCase()
+    .trim();
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .split(/[\s,.:;!?()[\]{}<>'"\/\\|@#$%^&*+=~`]+/)
+    .filter((t) => t.length > 1);
+}
+
 // ─── Frontmatter Parser ─────────────────────────────────────────────────────
 // Lightweight YAML-subset parser for skill frontmatter.
 // Only handles simple key: value pairs, arrays with - syntax.
@@ -152,24 +169,42 @@ export class SkillLoader {
   /** Check if a skill should be triggered based on user message */
   checkTriggers(userMessage: string): Skill[] {
     const triggered: Skill[] = [];
+    const normalizedMessage = normalizeText(userMessage);
+    const messageTokens = tokenize(normalizedMessage);
 
     for (const skill of this.skills) {
       if (skill.active) continue; // Already active
       if (skill.frontmatter.activation !== 'trigger') continue;
       if (!skill.frontmatter.trigger) continue;
 
-      // Simple keyword matching from trigger string
-      const triggerLower = skill.frontmatter.trigger.toLowerCase();
-      const messageLower = userMessage.toLowerCase();
+      const normalizedTrigger = normalizeText(skill.frontmatter.trigger);
 
       // Extract keywords from trigger description
       // e.g. "when user mentions testing" → check for "testing"
-      const keywords = triggerLower
-        .replace(/^when\s+(user\s+)?(mentions?|asks?\s+about|discusses?|talks?\s+about)\s+/i, '')
+      const keywords = normalizedTrigger
+        .replace(/^when\s+(user\s+)?(mentions?|asks?\s+about|discusses?|talks?\s+about|fala\s+sobre|pede|pergunta\s+sobre|menciona)\s+/i, '')
         .split(/[,\s]+/)
         .filter((k) => k.length > 2);
 
-      if (keywords.some((k) => messageLower.includes(k))) {
+      // Token-overlap matching: check if any keyword appears in message tokens
+      // or if the keyword is a substring of any token (handles compound words)
+      const match = keywords.some((keyword) => {
+        return messageTokens.some((token) =>
+          token.includes(keyword) || keyword.includes(token),
+        );
+      });
+
+      if (match) {
+        triggered.push(skill);
+      }
+    }
+
+    // Also match by skill name directly mentioned in message
+    for (const skill of this.skills) {
+      if (skill.active) continue;
+      if (triggered.includes(skill)) continue;
+      const skillNameNorm = normalizeText(skill.frontmatter.name);
+      if (skillNameNorm.length > 2 && normalizedMessage.includes(skillNameNorm)) {
         triggered.push(skill);
       }
     }
