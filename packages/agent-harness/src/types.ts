@@ -32,6 +32,15 @@ export interface ToolExecutionContext {
   listen?: (event: string, handler: (payload: unknown) => void) => Promise<() => void>;
   /** Callback fired when a file-writing tool mutates a file on disk */
   onFileChange?: (change: FileChangePending) => void;
+  /** Access to gathered-context operations (set by harness) */
+  gatheredContext?: {
+    add(path: string, content: string, relevance: number, reason: string): number;
+    remove(path: string): boolean;
+    has(path: string): boolean;
+    getAll(): GatheredContextEntry[];
+    getTokens(): number;
+    clear(): void;
+  };
 }
 
 /** Emitted when a tool writes/edits/creates a file so the UI can track it */
@@ -80,11 +89,29 @@ export type ContextPriority = 'always' | 'high' | 'medium' | 'low';
 
 export interface ContextSource {
   id: string;
-  type: 'active_file' | 'selection' | 'context_chip' | 'git_diff' | 'file_tree' | 'terminal' | 'search_results';
+  type: 'active_file' | 'selection' | 'context_chip' | 'git_diff' | 'file_tree' | 'terminal' | 'search_results' | 'gathered_file';
   priority: ContextPriority;
   content: string;
   tokenEstimate: number;
+  /** Relevance score (0-1) for gathered files. Higher = more important to keep in context. */
+  relevance?: number;
   metadata?: Record<string, unknown>;
+}
+
+/** Entry in the agent's gathered context — files the agent decided are important. */
+export interface GatheredContextEntry {
+  /** Absolute file path */
+  path: string;
+  /** File content */
+  content: string;
+  /** Relevance score (0-1): 0.8-1.0 = will modify, 0.5-0.7 = reference, 0.2-0.4 = glance */
+  relevance: number;
+  /** Why the agent gathered this file */
+  reason: string;
+  /** Estimated token count */
+  tokenEstimate: number;
+  /** Timestamp when gathered */
+  gatheredAt: string;
 }
 
 export interface TokenBudget {
@@ -231,7 +258,9 @@ export type HarnessEvent =
   | { type: 'sdd_task_complete'; task: SddTask }
   | { type: 'file_change_pending'; change: FileChangePending }
   | { type: 'mode_switch_request'; request: ModeSwitchRequest }
-  | { type: 'mode_switch_resolved'; request: ModeSwitchRequest; approved: boolean };
+  | { type: 'mode_switch_resolved'; request: ModeSwitchRequest; approved: boolean }
+  | { type: 'context_gathered'; filePath: string; relevance: number; reason: string; tokenEstimate: number }
+  | { type: 'context_dropped'; filePath: string };
 
 export type HarnessEventHandler = (event: HarnessEvent) => void;
 

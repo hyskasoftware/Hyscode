@@ -10,6 +10,7 @@ export type {
   PendingToolCall,
   ContextPriority,
   ContextSource,
+  GatheredContextEntry,
   TokenBudget,
   ContextSnapshot,
   AgentType,

@@ -12,11 +12,15 @@ import type {
   ContextSnapshot,
   TokenBudget,
   ContextPriority,
+  GatheredContextEntry,
   Skill,
   AgentDefinition,
 } from './types';
 
 const PRIORITY_ORDER: ContextPriority[] = ['always', 'high', 'medium', 'low'];
+
+/** Max fraction of available tokens that gathered context can consume. */
+const GATHERED_CONTEXT_BUDGET_FRACTION = 0.3;
 
 export class ContextManager {
   private sources: ContextSource[] = [];
@@ -25,6 +29,11 @@ export class ContextManager {
   private allSkills: Skill[] = [];
   private agentDef: AgentDefinition | null = null;
   private systemPromptOverride: string | null = null;
+
+  // ─── Gathered Context (agent-managed) ─────────────────────────────
+  // Files the agent autonomously decides are important to keep in context.
+  // Indexed by absolute file path. Survives across iterations within a turn.
+  private gatheredFiles = new Map<string, GatheredContextEntry>();
 
   // ─── Configuration ──────────────────────────────────────────────────
 
@@ -58,6 +67,55 @@ export class ContextManager {
 
   clearSources(): void {
     this.sources = [];
+  }
+
+  // ─── Gathered Context (Agent-Managed) ───────────────────────────────
+
+  /**
+   * Add a file to gathered context. If already gathered, updates content and relevance.
+   * Returns the token estimate for the gathered file.
+   */
+  addGatheredFile(path: string, content: string, relevance: number, reason: string): number {
+    const tokenEstimate = Math.ceil(content.length / 4);
+    this.gatheredFiles.set(path, {
+      path,
+      content,
+      relevance: Math.max(0, Math.min(1, relevance)),
+      reason,
+      tokenEstimate,
+      gatheredAt: new Date().toISOString(),
+    });
+    return tokenEstimate;
+  }
+
+  /** Remove a file from gathered context. Returns true if it existed. */
+  removeGatheredFile(path: string): boolean {
+    return this.gatheredFiles.delete(path);
+  }
+
+  /** Get all gathered files, sorted by relevance (highest first). */
+  getGatheredFiles(): GatheredContextEntry[] {
+    return Array.from(this.gatheredFiles.values())
+      .sort((a, b) => b.relevance - a.relevance);
+  }
+
+  /** Clear all gathered files. */
+  clearGatheredFiles(): void {
+    this.gatheredFiles.clear();
+  }
+
+  /** Check if a file is already gathered. */
+  hasGatheredFile(path: string): boolean {
+    return this.gatheredFiles.has(path);
+  }
+
+  /** Get total tokens used by gathered files. */
+  getGatheredTokens(): number {
+    let total = 0;
+    for (const entry of this.gatheredFiles.values()) {
+      total += entry.tokenEstimate;
+    }
+    return total;
   }
 
   // ─── Conversation History ───────────────────────────────────────────
@@ -194,7 +252,40 @@ export class ContextManager {
       }
     }
 
-    // Step 3: Fill remaining budget with older conversation history
+    // Step 3: Add gathered files (agent-managed context) within sub-budget
+    const gatheredMessages: Message[] = [];
+    if (this.gatheredFiles.size > 0) {
+      const gatheredBudget = Math.floor(availableTokens * GATHERED_CONTEXT_BUDGET_FRACTION);
+      let gatheredUsed = 0;
+
+      // Sort by relevance (highest first) so most important files are kept
+      const sorted = this.getGatheredFiles();
+
+      const fileParts: string[] = [];
+      for (const entry of sorted) {
+        if (gatheredUsed + entry.tokenEstimate > gatheredBudget) continue;
+        if (entry.tokenEstimate > remaining) continue;
+        fileParts.push(
+          `<gathered_file path="${entry.path}" relevance="${entry.relevance.toFixed(2)}" reason="${entry.reason}">\n${entry.content}\n</gathered_file>`
+        );
+        gatheredUsed += entry.tokenEstimate;
+        remaining -= entry.tokenEstimate;
+      }
+
+      if (fileParts.length > 0) {
+        gatheredMessages.push({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `[Gathered Context: ${fileParts.length} file(s) in agent working memory]\n<gathered_context>\n${fileParts.join('\n')}\n</gathered_context>`,
+            },
+          ],
+        });
+      }
+    }
+
+    // Step 4: Fill remaining budget with older conversation history
     const olderHistory = this.conversationHistory.slice(0, -2);
     const includedOlder: Message[] = [];
 
@@ -210,8 +301,8 @@ export class ContextManager {
       }
     }
 
-    // Combine: older history → context → must-include
-    return [...includedOlder, ...contextMessages, ...mustInclude];
+    // Combine: older history → gathered context → user context → must-include
+    return [...includedOlder, ...gatheredMessages, ...contextMessages, ...mustInclude];
   }
 
   private truncateMessages(messages: Message[], maxTokens: number): Message[] {

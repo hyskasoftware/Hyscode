@@ -199,3 +199,58 @@ export function compactToolOutput(output: string, toolName: string): string {
 
   return `${head}\n\n... [${omittedLines} lines / ${omittedChars} chars omitted from ${toolName} output — re-read the file or re-run the command for full output] ...\n\n${tail}`;
 }
+// ─── Auto-Gather Middleware ─────────────────────────────────────────────────
+// In build/debug modes, automatically promotes read_file results to gathered
+// context with medium relevance. This ensures files the agent reads are kept
+// in working memory without requiring explicit gather_context calls.
+
+/** Modes where auto-gather is active */
+const AUTO_GATHER_MODES: Set<AgentType> = new Set(['build', 'debug']);
+
+/** Files with these extensions get auto-gathered at slightly higher relevance */
+const HIGH_VALUE_EXTENSIONS = new Set([
+  '.ts', '.tsx', '.rs', '.toml', '.json', '.md',
+]);
+
+export class AutoGatherMiddleware implements PostToolHook {
+  name = 'auto_gather';
+
+  private gatheredContext: {
+    add(path: string, content: string, relevance: number, reason: string): number;
+    has(path: string): boolean;
+    getTokens(): number;
+  } | null = null;
+
+  /** Must be called by the harness after constructing the execution context */
+  setGatheredContext(ctx: typeof this.gatheredContext): void {
+    this.gatheredContext = ctx;
+  }
+
+  afterTool(toolName: string, record: ToolCallRecord, ctx: MiddlewareContext): string | null {
+    // Only active in build/debug modes
+    if (!AUTO_GATHER_MODES.has(ctx.mode)) return null;
+    if (!this.gatheredContext) return null;
+
+    // Only track read_file calls
+    if (toolName !== 'read_file') return null;
+    if (!record.output.success) return null;
+
+    const filePath = String(record.input.path ?? '');
+    if (!filePath) return null;
+
+    // Don't re-gather if already in working memory
+    if (this.gatheredContext.has(filePath)) return null;
+
+    // Skip if the output is too large (> 50k chars ~12.5k tokens)
+    const content = record.output.output;
+    if (content.length > 50_000) return null;
+
+    // Determine relevance based on file extension
+    const ext = filePath.includes('.') ? filePath.slice(filePath.lastIndexOf('.')) : '';
+    const relevance = HIGH_VALUE_EXTENSIONS.has(ext) ? 0.5 : 0.35;
+
+    this.gatheredContext.add(filePath, content, relevance, 'auto-gathered from read_file');
+
+    return null; // No injection needed — the file is silently added to working memory
+  }
+}

@@ -306,6 +306,10 @@ export class HarnessBridge {
       // Gives the agent awareness of the current workspace state before it starts
       await this.injectEnvironmentContext();
 
+      // ── Pre-turn context hints ──
+      // Analyze user message for file references and provide hints to the agent
+      await this.injectContextHints(userMessage);
+
       dbg(`Enviando para LLM (${history.length} msgs no histórico)...`);
 
       const { response, turnRecord } = await this.harness.run(userMessage, history);
@@ -924,6 +928,22 @@ export class HarnessBridge {
         store.setPendingModeSwitch(null);
         break;
       }
+
+      case 'context_gathered': {
+        this.debug(`📎 Gathered: ${event.filePath} (relevance: ${event.relevance.toFixed(2)}, ~${event.tokenEstimate} tokens)`);
+        store.addGatheredContextFile({
+          path: event.filePath,
+          relevance: event.relevance,
+          tokenEstimate: event.tokenEstimate,
+        });
+        break;
+      }
+
+      case 'context_dropped': {
+        this.debug(`📎 Dropped: ${event.filePath}`);
+        store.removeGatheredContextFile(event.filePath);
+        break;
+      }
     }
   }
 
@@ -1113,6 +1133,78 @@ export class HarnessBridge {
     }
 
     this.harness.injectEnvironmentContext(env);
+  }
+
+  /**
+   * Analyze user message for file references and keywords, then suggest
+   * files the agent should consider gathering.
+   */
+  private async injectContextHints(userMessage: string): Promise<void> {
+    try {
+      const workspacePath = this.harness['workspacePath'] as string;
+      const hints: string[] = [];
+
+      // Extract explicit file paths from user message (e.g., "edit src/app.tsx")
+      const pathPattern = /(?:^|\s)([\w./-]+\.\w{1,10})(?:\s|$|,|;|:|\))/g;
+      let match;
+      while ((match = pathPattern.exec(userMessage)) !== null) {
+        const candidate = match[1];
+        // Skip URLs and short fragments
+        if (candidate.includes('://') || candidate.length < 3) continue;
+        try {
+          const stat = await tauriInvokeRaw<{ is_file: boolean }>(
+            'stat_path',
+            { path: `${workspacePath}/${candidate}` },
+          );
+          if (stat.is_file) {
+            hints.push(candidate);
+          }
+        } catch {
+          // Not a valid file path — skip
+        }
+      }
+
+      // Extract keywords that suggest relevant files
+      // e.g., "fix the login page" → look for files with "login" in name
+      const keywords = userMessage
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 3)
+        .filter(w => !['that', 'this', 'with', 'from', 'have', 'been', 'will', 'should', 'could', 'would', 'make', 'want', 'need', 'like', 'help', 'please', 'create', 'change', 'update', 'modify', 'edit', 'file', 'code'].includes(w));
+
+      // Search for files matching keywords (limited to avoid overhead)
+      for (const keyword of keywords.slice(0, 3)) {
+        try {
+          const results = await tauriInvokeRaw<string[]>(
+            'find_files',
+            { basePath: workspacePath, pattern: `**/*${keyword}*`, maxResults: 5 },
+          );
+          for (const r of results) {
+            const rel = r.replace(workspacePath, '').replace(/^[\\/]/, '').replace(/\\/g, '/');
+            if (!hints.includes(rel)) hints.push(rel);
+          }
+        } catch {
+          // find_files may not exist yet or fail — skip
+        }
+      }
+
+      if (hints.length > 0) {
+        // Add context hints as a low-priority source so the agent knows about them
+        this.harness.addContextSource({
+          id: '__context_hints__',
+          type: 'search_results',
+          priority: 'low',
+          content: `<context_hints>
+The following files may be relevant to the user's request. Consider using gather_context on the important ones:
+${hints.map(h => `- ${h}`).join('\n')}
+</context_hints>`,
+          tokenEstimate: Math.ceil(hints.join('\n').length / 4) + 50,
+        });
+      }
+    } catch {
+      // Context hints are best-effort — never block the agent turn
+    }
   }
 
   // ─── Turn Record Persistence ────────────────────────────────────────

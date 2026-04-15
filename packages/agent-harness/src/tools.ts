@@ -898,6 +898,150 @@ The target agent will receive your context summary to continue the work seamless
   },
 );
 
+// ─── Context Gathering Tools ────────────────────────────────────────────────
+
+export const gatherContextTool = defineTool(
+  'gather_context',
+  `Gather a file into the agent's working memory so its contents persist across tool calls.
+Use this to keep important reference files in context without re-reading them each iteration.
+Gathered files survive across iterations within the same turn.
+Assign relevance: 0.8-1.0 = files you will modify, 0.5-0.7 = important references, 0.2-0.4 = background context.`,
+  {
+    path: { type: 'string', description: 'Absolute or workspace-relative path to the file to gather' },
+    relevance: {
+      type: 'number',
+      description: 'Relevance score 0-1. 0.8-1.0 = will modify, 0.5-0.7 = reference, 0.2-0.4 = background',
+    },
+    reason: { type: 'string', description: 'Why this file is important for the current task' },
+  },
+  ['path', 'relevance', 'reason'],
+  'filesystem',
+  false,
+  async (input, ctx) => {
+    try {
+      if (!ctx.gatheredContext) {
+        return { success: false, output: '', error: 'Gathered context is not available in this execution context.' };
+      }
+      const filePath = resolvePath(input.path as string, ctx.workspacePath);
+      const relevance = Math.max(0, Math.min(1, Number(input.relevance) || 0.5));
+      const reason = String(input.reason || 'Agent gathered this file');
+
+      // Read file content
+      const content = await ctx.invoke<string>('read_file', { path: filePath });
+      const tokenEstimate = ctx.gatheredContext.add(filePath, content, relevance, reason);
+
+      const totalTokens = ctx.gatheredContext.getTokens();
+      const totalFiles = ctx.gatheredContext.getAll().length;
+
+      return {
+        success: true,
+        output: `Gathered "${filePath}" (relevance: ${relevance.toFixed(2)}, ~${tokenEstimate} tokens). Working memory: ${totalFiles} file(s), ~${totalTokens} tokens total.`,
+      };
+    } catch (err) {
+      return { success: false, output: '', error: `Failed to gather file: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const dropContextTool = defineTool(
+  'drop_context',
+  `Remove a file from the agent's working memory. Use this to free up context budget when a file is no longer needed.`,
+  {
+    path: { type: 'string', description: 'Absolute or workspace-relative path of the file to remove from working memory' },
+  },
+  ['path'],
+  'filesystem',
+  false,
+  async (input, ctx) => {
+    if (!ctx.gatheredContext) {
+      return { success: false, output: '', error: 'Gathered context is not available in this execution context.' };
+    }
+    const filePath = resolvePath(input.path as string, ctx.workspacePath);
+    const removed = ctx.gatheredContext.remove(filePath);
+    if (removed) {
+      const totalTokens = ctx.gatheredContext.getTokens();
+      const totalFiles = ctx.gatheredContext.getAll().length;
+      return {
+        success: true,
+        output: `Dropped "${filePath}" from working memory. Remaining: ${totalFiles} file(s), ~${totalTokens} tokens.`,
+      };
+    }
+    return {
+      success: false,
+      output: '',
+      error: `File "${filePath}" was not in working memory.`,
+    };
+  },
+);
+
+export const listContextTool = defineTool(
+  'list_context',
+  `List all files currently in the agent's working memory with their relevance scores and token estimates.`,
+  {},
+  [],
+  'filesystem',
+  false,
+  async (_input, ctx) => {
+    if (!ctx.gatheredContext) {
+      return { success: false, output: '', error: 'Gathered context is not available in this execution context.' };
+    }
+    const files = ctx.gatheredContext.getAll();
+    if (files.length === 0) {
+      return { success: true, output: 'Working memory is empty. No files gathered.' };
+    }
+    const totalTokens = ctx.gatheredContext.getTokens();
+    const lines = files.map(
+      (f, i) => `${i + 1}. ${f.path} (relevance: ${f.relevance.toFixed(2)}, ~${f.tokenEstimate} tokens) — ${f.reason}`
+    );
+    return {
+      success: true,
+      output: `Working memory: ${files.length} file(s), ~${totalTokens} tokens total:\n${lines.join('\n')}`,
+    };
+  },
+);
+
+export const findFilesTool = defineTool(
+  'find_files',
+  `Search for files by name pattern using glob matching. Returns matching file paths without reading content.
+Useful for discovering files before deciding which ones to gather or read.
+Use simple glob patterns: "*.tsx", "**/*.test.ts", "src/**/index.ts".`,
+  {
+    pattern: { type: 'string', description: 'Glob pattern to match file names/paths (e.g. "*.tsx", "**/*.test.ts")' },
+    base_path: { type: 'string', description: 'Directory to search in. Defaults to workspace root.' },
+    max_results: { type: 'integer', description: 'Maximum number of results to return. Default: 50.' },
+  },
+  ['pattern'],
+  'filesystem',
+  false,
+  async (input, ctx) => {
+    try {
+      const basePath = input.base_path
+        ? resolvePath(input.base_path as string, ctx.workspacePath)
+        : ctx.workspacePath;
+      const pattern = String(input.pattern);
+      const maxResults = Math.min(Number(input.max_results) || 50, 200);
+
+      const results = await ctx.invoke<string[]>('find_files', {
+        basePath,
+        pattern,
+        maxResults,
+      });
+
+      if (results.length === 0) {
+        return { success: true, output: `No files matching "${pattern}" found in ${basePath}.` };
+      }
+
+      const truncated = results.length >= maxResults ? `\n(limited to ${maxResults} results)` : '';
+      return {
+        success: true,
+        output: `Found ${results.length} file(s) matching "${pattern}":${truncated}\n${results.join('\n')}`,
+      };
+    } catch (err) {
+      return { success: false, output: '', error: `Failed to find files: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
 // ─── Export All Tools ───────────────────────────────────────────────────────
 
 export function getAllBuiltinTools(): ToolHandler[] {
@@ -909,6 +1053,11 @@ export function getAllBuiltinTools(): ToolHandler[] {
     createFileTool,
     listDirectoryTool,
     searchCodeTool,
+    findFilesTool,
+    // Context gathering
+    gatherContextTool,
+    dropContextTool,
+    listContextTool,
     // Terminal
     runTerminalCommandTool,
     // Git

@@ -116,6 +116,9 @@ interface AgentState {
   streamingText: string;
   contextFiles: string[];
 
+  // Agent gathered context (working memory)
+  gatheredContext: Array<{ path: string; relevance: number; tokenEstimate: number }>;
+
   // Tool calls & approval
   pendingToolCalls: ToolCallDisplay[];
   pendingApprovals: PendingApproval[];
@@ -168,6 +171,9 @@ interface AgentState {
   setStreaming: (streaming: boolean) => void;
   addContextFile: (path: string) => void;
   removeContextFile: (path: string) => void;
+  setGatheredContext: (entries: Array<{ path: string; relevance: number; tokenEstimate: number }>) => void;
+  addGatheredContextFile: (entry: { path: string; relevance: number; tokenEstimate: number }) => void;
+  removeGatheredContextFile: (path: string) => void;
   clearConversation: () => void;
 
   // Tool calls
@@ -227,6 +233,7 @@ export const useAgentStore = create<AgentState>()(
     pendingFileChanges: [],
     agentEditSessions: [],
     contextFiles: [],
+    gatheredContext: [],
     sddPhase: null,
     sddSpec: null,
     sddTasks: [],
@@ -339,6 +346,26 @@ export const useAgentStore = create<AgentState>()(
         state.contextFiles = state.contextFiles.filter((f) => f !== path);
       }),
 
+    setGatheredContext: (entries) =>
+      set((state) => {
+        state.gatheredContext = entries;
+      }),
+
+    addGatheredContextFile: (entry) =>
+      set((state) => {
+        const idx = state.gatheredContext.findIndex((g) => g.path === entry.path);
+        if (idx >= 0) {
+          state.gatheredContext[idx] = entry;
+        } else {
+          state.gatheredContext.push(entry);
+        }
+      }),
+
+    removeGatheredContextFile: (path) =>
+      set((state) => {
+        state.gatheredContext = state.gatheredContext.filter((g) => g.path !== path);
+      }),
+
     clearConversation: () =>
       set((state) => {
         state.messages = [];
@@ -348,6 +375,7 @@ export const useAgentStore = create<AgentState>()(
         state.pendingFileChanges = [];
         state.agentEditSessions = [];
         state.contextFiles = [];
+        state.gatheredContext = [];
         state.streamingText = '';
         state.sddPhase = null;
         state.sddSpec = null;

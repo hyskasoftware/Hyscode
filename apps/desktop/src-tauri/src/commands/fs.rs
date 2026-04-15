@@ -236,6 +236,116 @@ pub fn rename_path(from: String, to: String) -> Result<(), String> {
     fs::rename(&from_path, &to_path).map_err(|e| format!("Failed to rename: {}", e))
 }
 
+/// Recursively search for files matching a glob-like pattern.
+/// Supports: `*` (any chars except `/`), `**` (any path segments), `?` (single char).
+#[tauri::command]
+pub fn find_files(base_path: String, pattern: String, max_results: Option<usize>) -> Result<Vec<String>, String> {
+    let root = PathBuf::from(&base_path);
+    if !root.is_dir() {
+        return Err(format!("Not a directory: {}", base_path));
+    }
+
+    let limit = max_results.unwrap_or(50).min(200);
+    let mut results = Vec::new();
+
+    // Convert glob pattern to regex
+    let regex_pattern = glob_to_regex(&pattern);
+    let re = regex::Regex::new(&regex_pattern)
+        .map_err(|e| format!("Invalid pattern \"{}\": {}", pattern, e))?;
+
+    fn walk_find(
+        dir: &PathBuf,
+        root: &PathBuf,
+        re: &regex::Regex,
+        results: &mut Vec<String>,
+        limit: usize,
+    ) -> std::io::Result<()> {
+        if results.len() >= limit {
+            return Ok(());
+        }
+        let entries = fs::read_dir(dir)?;
+        for entry in entries {
+            if results.len() >= limit {
+                break;
+            }
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            if name.starts_with('.') || IGNORED_DIRS.contains(&name.as_str()) {
+                continue;
+            }
+
+            let path = entry.path();
+            let ft = entry.file_type()?;
+
+            // Get path relative to root for matching
+            let rel = path.strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+
+            if ft.is_dir() {
+                walk_find(&path, root, re, results, limit)?;
+            } else if ft.is_file() {
+                // Match against relative path and also just the filename
+                if re.is_match(&rel) || re.is_match(&name) {
+                    results.push(path.to_string_lossy().to_string());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    walk_find(&root, &root, &re, &mut results, limit)
+        .map_err(|e| format!("Find error: {}", e))?;
+
+    results.sort();
+    Ok(results)
+}
+
+/// Convert a simple glob pattern to a regex string.
+fn glob_to_regex(pattern: &str) -> String {
+    let mut regex = String::from("(?i)"); // case-insensitive
+    let chars: Vec<char> = pattern.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        match chars[i] {
+            '*' => {
+                if i + 1 < chars.len() && chars[i + 1] == '*' {
+                    // ** matches any path segments
+                    if i + 2 < chars.len() && chars[i + 2] == '/' {
+                        regex.push_str("(.*/)?");
+                        i += 3;
+                    } else {
+                        regex.push_str(".*");
+                        i += 2;
+                    }
+                } else {
+                    // * matches anything except /
+                    regex.push_str("[^/]*");
+                    i += 1;
+                }
+            }
+            '?' => {
+                regex.push_str("[^/]");
+                i += 1;
+            }
+            '.' | '(' | ')' | '+' | '|' | '^' | '$' | '{' | '}' | '[' | ']' => {
+                regex.push('\\');
+                regex.push(chars[i]);
+                i += 1;
+            }
+            _ => {
+                regex.push(chars[i]);
+                i += 1;
+            }
+        }
+    }
+
+    format!("^{}$", regex)
+}
+
 #[tauri::command]
 pub fn create_directory(path: String) -> Result<(), String> {
     let dir_path = PathBuf::from(&path);

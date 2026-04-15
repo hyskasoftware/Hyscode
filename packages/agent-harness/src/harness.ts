@@ -24,7 +24,7 @@ import { SkillLoader } from './skill-loader';
 import type { SddDatabase } from './sdd-engine';
 import { SddEngine } from './sdd-engine';
 import type { PreCompletionHook, PostToolHook, MiddlewareContext } from './middleware';
-import { verificationMiddleware, LoopDetectionMiddleware, compactToolOutput } from './middleware';
+import { verificationMiddleware, LoopDetectionMiddleware, AutoGatherMiddleware, compactToolOutput } from './middleware';
 import type { TurnRecord } from './types';
 import { TraceRecorder } from './trace-recorder';
 import type { ModePolicy } from './mode-policies';
@@ -71,6 +71,7 @@ export class Harness {
   private preCompletionHooks: PreCompletionHook[] = [verificationMiddleware];
   private postToolHooks: PostToolHook[] = [];
   private loopDetection = new LoopDetectionMiddleware();
+  private autoGather = new AutoGatherMiddleware();
 
   // ─── Tracing & Policies ───────────────────────────────────────────
   private traceRecorder = new TraceRecorder();
@@ -112,6 +113,7 @@ export class Harness {
 
     // Register post-tool hooks
     this.postToolHooks.push(this.loopDetection);
+    this.postToolHooks.push(this.autoGather);
 
     // Initialize SDD engine if database provided
     if (options.sddDb) {
@@ -491,7 +493,26 @@ export class Harness {
         onFileChange: (change) => {
           this.emit({ type: 'file_change_pending', change });
         },
+        gatheredContext: {
+          add: (path, content, relevance, reason) => {
+            const tokens = this.contextManager.addGatheredFile(path, content, relevance, reason);
+            this.emit({ type: 'context_gathered', filePath: path, relevance, reason, tokenEstimate: tokens });
+            return tokens;
+          },
+          remove: (path) => {
+            const removed = this.contextManager.removeGatheredFile(path);
+            if (removed) this.emit({ type: 'context_dropped', filePath: path });
+            return removed;
+          },
+          has: (path) => this.contextManager.hasGatheredFile(path),
+          getAll: () => this.contextManager.getGatheredFiles(),
+          getTokens: () => this.contextManager.getGatheredTokens(),
+          clear: () => this.contextManager.clearGatheredFiles(),
+        },
       };
+
+      // Wire auto-gather middleware to the gathered context interface
+      this.autoGather.setGatheredContext(executionContext.gatheredContext!);
 
       for (const tc of toolCalls) {
         // Set the per-call toolCallId before execution
