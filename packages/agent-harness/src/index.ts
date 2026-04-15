@@ -28,6 +28,7 @@ export type {
   SkillActivation,
   SkillFrontmatter,
   Skill,
+  SkillStatus,
   AgentTaskStatus,
   AgentTask,
   TurnRecord,

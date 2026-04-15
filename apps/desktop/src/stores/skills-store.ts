@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AgentType, Skill, SkillScope } from '@hyscode/agent-harness';
+import type { AgentType, Skill, SkillScope, SkillStatus } from '@hyscode/agent-harness';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -15,6 +15,8 @@ export interface SkillEntry {
   content: string;
   /** Which agent modes this skill is assigned to. Empty = all modes (global). */
   modes: AgentType[];
+  /** Whether the skill has valid content or is an empty directory stub. */
+  status: SkillStatus;
 }
 
 interface PersistedSkillPrefs {
@@ -81,9 +83,11 @@ export const useSkillsStore = create<SkillsState>()(
           const prefs = { enabledMap: state.enabledMap, modeOverrides: state.modeOverrides };
           state.skills = discovered.map((s) => {
             const id = s.id;
-            // Use persisted pref if exists, else derive from skill defaults
-            const enabled =
-              id in prefs.enabledMap
+            const isMissing = s.status === 'missing-content';
+            // Missing-content skills are always disabled regardless of prefs
+            const enabled = isMissing
+              ? false
+              : id in prefs.enabledMap
                 ? prefs.enabledMap[id]
                 : s.frontmatter.activation === 'always' || s.active;
             const modes = prefs.modeOverrides[id] ?? [];
@@ -96,6 +100,7 @@ export const useSkillsStore = create<SkillsState>()(
               filePath: s.filePath,
               content: s.content,
               modes,
+              status: s.status ?? 'ok',
             };
           });
           state.loading = false;
@@ -104,7 +109,7 @@ export const useSkillsStore = create<SkillsState>()(
       toggleSkill: (id: string) =>
         set((state) => {
           const skill = state.skills.find((s) => s.id === id);
-          if (skill) {
+          if (skill && skill.status !== 'missing-content') {
             skill.enabled = !skill.enabled;
             state.enabledMap[id] = skill.enabled;
           }

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Loader2,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { useSkillsStore, type SkillEntry } from '@/stores/skills-store';
 import { useEditorStore } from '@/stores/editor-store';
@@ -150,6 +151,7 @@ export function SkillsView() {
         filePath,
         content: NEW_SKILL_TEMPLATE,
         modes: [],
+        status: 'ok',
       });
 
       // Open in editor
@@ -279,12 +281,21 @@ interface SkillItemProps {
 }
 
 function SkillItem({ skill, isExpanded, onToggle, onExpand, onOpenEditor, onModeToggle }: SkillItemProps) {
+  const isMissing = skill.status === 'missing-content';
+
   return (
-    <div className="border-b border-border/30 last:border-b-0">
+    <div className={`border-b border-border/30 last:border-b-0 ${isMissing ? 'opacity-50' : ''}`}>
       <div className="group flex w-full items-start gap-2 px-2 py-1.5 text-left transition-colors hover:bg-muted">
         {/* Toggle */}
-        <button onClick={onToggle} className="mt-0.5 shrink-0" title={skill.enabled ? 'Disable' : 'Enable'}>
-          {skill.enabled ? (
+        <button
+          onClick={onToggle}
+          className="mt-0.5 shrink-0"
+          title={isMissing ? 'Missing SKILL.md — add content to enable' : skill.enabled ? 'Disable' : 'Enable'}
+          disabled={isMissing}
+        >
+          {isMissing ? (
+            <AlertTriangle className="h-4 w-4 text-yellow-500/70" />
+          ) : skill.enabled ? (
             <ToggleRight className="h-4 w-4 text-accent" />
           ) : (
             <ToggleLeft className="h-4 w-4 text-muted-foreground" />
@@ -294,7 +305,9 @@ function SkillItem({ skill, isExpanded, onToggle, onExpand, onOpenEditor, onMode
         {/* Info + expand */}
         <button onClick={onExpand} className="min-w-0 flex-1 text-left">
           <div className="truncate text-[11px] font-medium text-foreground">{skill.name}</div>
-          <div className="truncate text-[10px] text-muted-foreground">{skill.description}</div>
+          <div className="truncate text-[10px] text-muted-foreground">
+            {isMissing ? 'Missing SKILL.md — add content to enable' : skill.description}
+          </div>
           {/* Mode badges */}
           {skill.modes.length > 0 && (
             <div className="mt-0.5 flex flex-wrap gap-0.5">

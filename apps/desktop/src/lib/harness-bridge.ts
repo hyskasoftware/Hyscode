@@ -786,6 +786,7 @@ export class HarnessBridge {
             filePath: meta.filePath as string,
             content: (meta.skillContent as string) || '',
             modes: [],
+            status: 'ok',
           });
         }
         break;

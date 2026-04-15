@@ -244,6 +244,7 @@ export class SkillLoader {
               content: body.trim(),
               filePath,
               active: frontmatter.activation === 'always',
+              status: 'ok',
             });
           } catch {
             // Skip invalid skill files
@@ -251,31 +252,57 @@ export class SkillLoader {
           continue;
         }
 
-        // ── Folder-per-skill: <name>/SKILL.md ──
+        // ── Folder-per-skill: <name>/SKILL.md (or alternative filenames) ──
         if (entry.is_dir) {
-          try {
-            const skillMdPath = `${dirPath}/${entry.name}/SKILL.md`;
-            const skillMdExists = await this.config.pathExists(skillMdPath);
-            if (!skillMdExists) continue;
+          const candidates = ['SKILL.md', 'skill.md', 'README.md', 'index.md'];
+          let found = false;
 
-            const content = await this.config.readFile(skillMdPath);
-            const { frontmatter: fm, body } = parseFrontmatter(content);
-            const frontmatter = validateFrontmatter(fm, skillMdPath);
-            // Use directory name as fallback skill name
-            if (frontmatter.name === 'unknown') {
-              frontmatter.name = entry.name;
+          for (const candidate of candidates) {
+            try {
+              const candidatePath = `${dirPath}/${entry.name}/${candidate}`;
+              const exists = await this.config.pathExists(candidatePath);
+              if (!exists) continue;
+
+              const content = await this.config.readFile(candidatePath);
+              const { frontmatter: fm, body } = parseFrontmatter(content);
+              const frontmatter = validateFrontmatter(fm, candidatePath);
+              // Use directory name as fallback skill name
+              if (frontmatter.name === 'unknown') {
+                frontmatter.name = entry.name;
+              }
+              frontmatter.scope = scope;
+
+              skills.push({
+                id: `${scope}:${frontmatter.name}`,
+                frontmatter,
+                content: body.trim(),
+                filePath: candidatePath,
+                active: frontmatter.activation === 'always',
+                status: 'ok',
+              });
+              found = true;
+              break;
+            } catch {
+              // Try next candidate
             }
-            frontmatter.scope = scope;
+          }
 
+          // Emit a stub entry for folders with no recognized skill file
+          if (!found) {
             skills.push({
-              id: `${scope}:${frontmatter.name}`,
-              frontmatter,
-              content: body.trim(),
-              filePath: skillMdPath,
-              active: frontmatter.activation === 'always',
+              id: `${scope}:${entry.name}`,
+              frontmatter: {
+                name: entry.name,
+                description: `Skill folder detected but no SKILL.md found.`,
+                version: '0.0.0',
+                scope,
+                activation: 'manual',
+              },
+              content: '',
+              filePath: `${dirPath}/${entry.name}`,
+              active: false,
+              status: 'missing-content',
             });
-          } catch {
-            // Skip invalid skill folders
           }
         }
       }

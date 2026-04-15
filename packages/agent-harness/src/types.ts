@@ -249,12 +249,16 @@ export interface SkillFrontmatter {
   globs?: string[];
 }
 
+export type SkillStatus = 'ok' | 'missing-content';
+
 export interface Skill {
   id: string;
   frontmatter: SkillFrontmatter;
   content: string;
   filePath: string;
   active: boolean;
+  /** Whether the skill has valid content or is just an empty directory stub. */
+  status: SkillStatus;
 }
 
 // ─── Agent Task System ──────────────────────────────────────────────────────
