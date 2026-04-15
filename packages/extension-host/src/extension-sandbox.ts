@@ -43,7 +43,7 @@ export class ExtensionSandbox {
 
       const context = createExtensionContext(manifest.name, extensionPath, api);
 
-      await mod.activate(context);
+      await mod.activate(context, api);
 
       this.active.set(manifest.name, { manifest, module: mod, context });
       console.log(`[ExtensionSandbox] Activated "${manifest.displayName}" v${manifest.version}`);

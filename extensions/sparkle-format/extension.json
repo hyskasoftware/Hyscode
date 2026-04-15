@@ -1,0 +1,81 @@
+{
+  "name": "sparkle-format",
+  "displayName": "Sparkle Format",
+  "version": "1.0.0",
+  "description": "Beautiful code formatting for popular languages and frameworks. Right-click → Format to instantly beautify your code.",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "icon": "icon.png",
+  "categories": ["Other", "Languages"],
+  "keywords": [
+    "format", "prettier", "beautify", "indent", "javascript",
+    "typescript", "html", "css", "json", "python", "rust", "jsx", "tsx"
+  ],
+  "main": "main.js",
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "sparkle-format.formatDocument",
+        "title": "Format Document",
+        "category": "Sparkle Format",
+        "icon": "sparkles"
+      },
+      {
+        "id": "sparkle-format.formatSelection",
+        "title": "Format Selection",
+        "category": "Sparkle Format"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "sparkle-format.formatDocument",
+        "key": "shift+alt+f",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "sparkle-format.formatDocument",
+          "group": "formatting"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Sparkle Format",
+      "properties": {
+        "sparkleFormat.tabSize": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of spaces per indentation level"
+        },
+        "sparkleFormat.useTabs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use tabs instead of spaces"
+        },
+        "sparkleFormat.printWidth": {
+          "type": "number",
+          "default": 80,
+          "description": "Maximum line width before wrapping"
+        },
+        "sparkleFormat.singleQuote": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use single quotes instead of double quotes (JS/TS)"
+        },
+        "sparkleFormat.trailingComma": {
+          "type": "boolean",
+          "default": true,
+          "description": "Add trailing commas where valid"
+        },
+        "sparkleFormat.semicolons": {
+          "type": "boolean",
+          "default": true,
+          "description": "Add semicolons at end of statements (JS/TS)"
+        }
+      }
+    }
+  }
+}

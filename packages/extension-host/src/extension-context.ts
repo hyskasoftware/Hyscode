@@ -1,7 +1,6 @@
 import type {
   ExtensionContext,
   ExtensionMemento,
-  Disposable,
   HyscodeAPI,
 } from '@hyscode/extension-api';
 
@@ -25,7 +24,7 @@ class InMemoryMemento implements ExtensionMemento {
 export function createExtensionContext(
   extensionName: string,
   extensionPath: string,
-  _api: HyscodeAPI,
+  api: HyscodeAPI,
 ): ExtensionContext {
   return {
     extensionName,
@@ -33,7 +32,8 @@ export function createExtensionContext(
     subscriptions: [],
     globalState: new InMemoryMemento(),
     workspaceState: new InMemoryMemento(),
-  };
+    _api: api,
+  } as ExtensionContext & { _api: HyscodeAPI };
 }
 
 export function disposeContext(context: ExtensionContext) {

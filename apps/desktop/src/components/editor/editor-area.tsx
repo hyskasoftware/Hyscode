@@ -6,6 +6,7 @@ import { DiffViewer } from './diff-viewer';
 import { AgentDiffViewer } from './agent-diff-viewer';
 import { PendingChangesBar } from './pending-changes-bar';
 import { InlineReviewBar } from './inline-review-bar';
+import { EditorContextMenu } from './editor-context-menu';
 import {
   MarkdownViewer,
   ImageViewer,
@@ -84,6 +85,9 @@ export function EditorArea() {
 
   // Toggle for full diff view
   const [showFullDiff, setShowFullDiff] = useState(false);
+
+  // ── Editor context menu (right-click) ──────────────────────────────────────
+  const [editorCtxMenu, setEditorCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Reset full diff toggle when active tab or session changes
   useEffect(() => {
@@ -339,6 +343,19 @@ export function EditorArea() {
               onMount={(editor, monaco) => {
                 editorInstanceRef.current = editor;
                 monacoInstanceRef.current = monaco;
+
+                // Disable Monaco's built-in context menu so we show our own
+                editor.updateOptions({ contextmenu: false });
+
+                // Intercept right-click on the editor's DOM
+                const domNode = editor.getDomNode();
+                if (domNode) {
+                  domNode.addEventListener('contextmenu', (e: MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setEditorCtxMenu({ x: e.clientX, y: e.clientY });
+                  });
+                }
               }}
               beforeMount={(monaco) => {
                 defineAllMonacoThemes(monaco);
@@ -373,6 +390,15 @@ export function EditorArea() {
         </>
       )}
       <PendingChangesBar />
+
+      {editorCtxMenu && (
+        <EditorContextMenu
+          x={editorCtxMenu.x}
+          y={editorCtxMenu.y}
+          editorInstance={editorInstanceRef.current as unknown as Parameters<typeof EditorContextMenu>[0]['editorInstance']}
+          onClose={() => setEditorCtxMenu(null)}
+        />
+      )}
     </div>
   );
 }

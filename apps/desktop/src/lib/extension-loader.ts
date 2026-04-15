@@ -17,11 +17,20 @@ import type {
   ThemeDefinition,
   LanguageRegistration,
   LspContribution,
+  ExtensionContextMenuItem,
+  DocumentFormatter,
+  ExtensionStatusBarItem,
+  ExtensionPanel,
+  ExtensionToolbarAction,
+  QuickPickItem,
+  QuickPickOptions,
+  InputBoxOptions,
 } from '@hyscode/extension-api';
 import { registerExtensionTheme } from './monaco-themes';
 import { useProjectStore } from '../stores/project-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useEditorStore } from '../stores/editor-store';
+import { useExtensionUiStore } from '../stores/extension-ui-store';
 import type { InstalledExtension } from '../stores/extension-store';
 
 // ── Singleton sandbox ────────────────────────────────────────────────────────
@@ -183,7 +192,72 @@ const _api: HyscodeAPI = {
     },
     onDidChange: noop,
   },
+
+  ui: {
+    registerContextMenuItem(item: ExtensionContextMenuItem): Disposable {
+      return useExtensionUiStore.getState().addContextMenuItem('__runtime__', item);
+    },
+    registerDocumentFormatter(formatter: DocumentFormatter): Disposable {
+      return useExtensionUiStore.getState().addFormatter('__runtime__', formatter);
+    },
+    registerStatusBarItem(item: ExtensionStatusBarItem): Disposable {
+      return useExtensionUiStore.getState().addStatusBarItem('__runtime__', item);
+    },
+    registerPanel(panel: ExtensionPanel): Disposable {
+      return useExtensionUiStore.getState().addPanel('__runtime__', panel);
+    },
+    registerToolbarAction(action: ExtensionToolbarAction): Disposable {
+      return useExtensionUiStore.getState().addToolbarAction('__runtime__', action);
+    },
+    async showQuickPick(
+      items: QuickPickItem[],
+      options?: QuickPickOptions,
+    ): Promise<QuickPickItem | undefined> {
+      const result = await useExtensionUiStore.getState().showQuickPick(items, options);
+      return result ? items.find((i) => i.label === result.label) : undefined;
+    },
+    async showInputBox(options?: InputBoxOptions): Promise<string | undefined> {
+      return useExtensionUiStore.getState().showInputBox(options);
+    },
+  },
 };
+
+// ── Per-extension API factory ────────────────────────────────────────────────
+
+/** Creates an API clone whose `ui` calls are tagged with the extension's name */
+function createExtensionApi(extensionName: string): HyscodeAPI {
+  const uiStore = useExtensionUiStore.getState;
+  return {
+    ..._api,
+    ui: {
+      registerContextMenuItem(item: ExtensionContextMenuItem): Disposable {
+        return uiStore().addContextMenuItem(extensionName, item);
+      },
+      registerDocumentFormatter(formatter: DocumentFormatter): Disposable {
+        return uiStore().addFormatter(extensionName, formatter);
+      },
+      registerStatusBarItem(item: ExtensionStatusBarItem): Disposable {
+        return uiStore().addStatusBarItem(extensionName, item);
+      },
+      registerPanel(panel: ExtensionPanel): Disposable {
+        return uiStore().addPanel(extensionName, panel);
+      },
+      registerToolbarAction(action: ExtensionToolbarAction): Disposable {
+        return uiStore().addToolbarAction(extensionName, action);
+      },
+      async showQuickPick(
+        items: QuickPickItem[],
+        options?: QuickPickOptions,
+      ): Promise<QuickPickItem | undefined> {
+        const result = await uiStore().showQuickPick(items, options);
+        return result ? items.find((i) => i.label === result.label) : undefined;
+      },
+      async showInputBox(options?: InputBoxOptions): Promise<string | undefined> {
+        return uiStore().showInputBox(options);
+      },
+    },
+  };
+}
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -201,7 +275,8 @@ export async function activateExtension(ext: InstalledExtension): Promise<void> 
       name: ext.name,
       assetPath: mainPath,
     });
-    await _sandbox.activate(ext.manifest, ext.path, source, _api);
+    const api = createExtensionApi(ext.name);
+    await _sandbox.activate(ext.manifest, ext.path, source, api);
   } catch (err) {
     console.warn(`[ExtensionLoader] Could not activate "${ext.name}":`, err);
   }
@@ -212,6 +287,7 @@ export async function activateExtension(ext: InstalledExtension): Promise<void> 
  */
 export async function deactivateExtension(name: string): Promise<void> {
   await _sandbox.deactivate(name);
+  useExtensionUiStore.getState().removeAllForExtension(name);
 }
 
 /**

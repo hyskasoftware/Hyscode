@@ -207,6 +207,7 @@ export interface HyscodeAPI {
   languages: LanguagesAPI;
   notifications: NotificationsAPI;
   extensions: ExtensionsManagerAPI;
+  ui: UiAPI;
 }
 
 // ── Workspace API ────────────────────────────────────────────────────────────
@@ -348,7 +349,7 @@ export interface Diagnostic {
 // ── Extension Module Shape ───────────────────────────────────────────────────
 
 export interface ExtensionModule {
-  activate(context: ExtensionContext): void | Promise<void>;
+  activate(context: ExtensionContext, api?: HyscodeAPI): void | Promise<void>;
   deactivate?(): void | Promise<void>;
 }
 
@@ -380,4 +381,127 @@ export interface ExtensionInfo {
   publisher: string;
   enabled: boolean;
   isActive: boolean;
+}
+
+// ── UI API — Extensions can modify the IDE interface ─────────────────────────
+
+export interface UiAPI {
+  /**
+   * Register a context menu item that appears in the editor right-click menu.
+   */
+  registerContextMenuItem(item: ExtensionContextMenuItem): Disposable;
+
+  /**
+   * Register a document formatter for one or more language IDs.
+   * When the user triggers "Format Document", the formatter is called.
+   */
+  registerDocumentFormatter(formatter: DocumentFormatter): Disposable;
+
+  /**
+   * Register a status bar item that can display dynamic content.
+   */
+  registerStatusBarItem(item: ExtensionStatusBarItem): Disposable;
+
+  /**
+   * Register a custom panel (webview-like) in a sidebar slot.
+   */
+  registerPanel(panel: ExtensionPanel): Disposable;
+
+  /**
+   * Register a toolbar action in the editor title bar area.
+   */
+  registerToolbarAction(action: ExtensionToolbarAction): Disposable;
+
+  /**
+   * Show a quick-pick style modal from the extension.
+   */
+  showQuickPick(items: QuickPickItem[], options?: QuickPickOptions): Promise<QuickPickItem | undefined>;
+
+  /**
+   * Show an input box from the extension.
+   */
+  showInputBox(options?: InputBoxOptions): Promise<string | undefined>;
+}
+
+export interface ExtensionContextMenuItem {
+  id: string;
+  label: string;
+  icon?: string;
+  group?: 'navigation' | 'modification' | 'formatting' | 'other';
+  when?: string;
+  order?: number;
+  handler: (context: MenuActionContext) => void | Promise<void>;
+}
+
+export interface MenuActionContext {
+  filePath: string | null;
+  languageId: string | null;
+  selectedText: string | null;
+  cursorLine: number;
+  cursorColumn: number;
+}
+
+export interface DocumentFormatter {
+  id: string;
+  displayName: string;
+  languageIds: string[];
+  format: (params: FormatParams) => Promise<string>;
+}
+
+export interface FormatParams {
+  content: string;
+  filePath: string;
+  languageId: string;
+  tabSize: number;
+  insertSpaces: boolean;
+  selection?: { startLine: number; endLine: number };
+}
+
+export interface ExtensionStatusBarItem {
+  id: string;
+  text: string;
+  tooltip?: string;
+  command?: string;
+  alignment?: 'left' | 'right';
+  priority?: number;
+  update(options: { text?: string; tooltip?: string }): void;
+}
+
+export interface ExtensionPanel {
+  id: string;
+  title: string;
+  icon?: string;
+  location: 'sidebar' | 'bottom';
+  render: () => string;
+  onMessage?: (message: unknown) => void;
+}
+
+export interface ExtensionToolbarAction {
+  id: string;
+  label: string;
+  icon?: string;
+  tooltip?: string;
+  handler: () => void | Promise<void>;
+}
+
+export interface QuickPickItem {
+  label: string;
+  description?: string;
+  detail?: string;
+  value?: string;
+  icon?: string;
+}
+
+export interface QuickPickOptions {
+  title?: string;
+  placeholder?: string;
+  canSelectMany?: boolean;
+}
+
+export interface InputBoxOptions {
+  title?: string;
+  placeholder?: string;
+  value?: string;
+  prompt?: string;
+  validateInput?: (value: string) => string | undefined;
 }

@@ -7,6 +7,7 @@ import { TerminalDropZone } from './components/terminal/terminal-drop-zone';
 import { StatusBar } from './components/statusbar';
 import { WelcomePage } from './components/welcome';
 import { SettingsModal } from './components/settings';
+import { ExtensionOverlays } from './components/editor/extension-overlays';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from './components/ui/tooltip';
 import { DialogProvider } from './components/ui/dialogs';
@@ -187,6 +188,7 @@ function IDE() {
 
       <StatusBar />
       <SettingsModal />
+      <ExtensionOverlays />
     </div>
   );
 }
