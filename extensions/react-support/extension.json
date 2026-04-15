@@ -1,0 +1,121 @@
+{
+  "name": "react-support",
+  "displayName": "React Support",
+  "version": "1.0.0",
+  "description": "Suporte completo a React — JSX/TSX, snippets, configuração de linguagem e comandos úteis",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "icon": "icon.png",
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["react", "jsx", "tsx", "javascript", "typescript", "component", "hooks"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:javascript", "onLanguage:typescript"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "javascriptreact",
+        "aliases": ["React JSX", "JSX"],
+        "extensions": [".jsx"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "typescriptreact",
+        "aliases": ["React TSX", "TSX"],
+        "extensions": [".tsx"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "javascript", "path": "snippets/javascript-react.json" },
+      { "language": "typescript", "path": "snippets/typescript-react.json" },
+      { "language": "javascriptreact", "path": "snippets/javascript-react.json" },
+      { "language": "typescriptreact", "path": "snippets/typescript-react.json" }
+    ],
+    "commands": [
+      {
+        "id": "react-support.newComponent",
+        "title": "New React Component",
+        "category": "React"
+      },
+      {
+        "id": "react-support.wrapWithFragment",
+        "title": "Wrap Selection with Fragment",
+        "category": "React"
+      },
+      {
+        "id": "react-support.wrapWithDiv",
+        "title": "Wrap Selection with <div>",
+        "category": "React"
+      },
+      {
+        "id": "react-support.toggleJsxComment",
+        "title": "Toggle JSX Comment",
+        "category": "React"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "react-support.wrapWithFragment",
+        "key": "ctrl+shift+f",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "react-support.wrapWithDiv",
+        "key": "ctrl+shift+d",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "react-support.wrapWithFragment", "group": "1_react", "when": "editorHasSelection" },
+        { "command": "react-support.wrapWithDiv", "group": "1_react", "when": "editorHasSelection" }
+      ],
+      "commandPalette": [
+        { "command": "react-support.newComponent" },
+        { "command": "react-support.wrapWithFragment" },
+        { "command": "react-support.wrapWithDiv" },
+        { "command": "react-support.toggleJsxComment" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "react-support.indicator",
+        "text": "⚛ React",
+        "tooltip": "React Support ativo",
+        "alignment": "right",
+        "priority": 50
+      }
+    ],
+    "configuration": {
+      "title": "React Support",
+      "properties": {
+        "react.snippets.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets React"
+        },
+        "react.defaultComponentType": {
+          "type": "string",
+          "default": "function",
+          "enum": ["function", "arrow"],
+          "enumDescriptions": [
+            "Componente com function declaration",
+            "Componente com arrow function"
+          ],
+          "description": "Estilo padrão de componente"
+        },
+        "react.importStyle": {
+          "type": "string",
+          "default": "named",
+          "enum": ["named", "default"],
+          "enumDescriptions": [
+            "import { useState } from 'react'",
+            "import React from 'react'"
+          ],
+          "description": "Estilo de importação React"
+        }
+      }
+    }
+  }
+}

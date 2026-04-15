@@ -1,0 +1,33 @@
+{
+  "name": "tokyo-night",
+  "displayName": "Tokyo Night",
+  "version": "1.0.0",
+  "description": "Tema escuro inspirado nas luzes noturnas de Tóquio — cores suaves, confortáveis para longas sessões de código",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Themes"],
+  "keywords": ["theme", "dark", "tokyo", "night", "blue", "purple"],
+  "license": "MIT",
+  "contributes": {
+    "themes": [
+      {
+        "id": "tokyo-night",
+        "label": "Tokyo Night",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/tokyo-night.json"
+      },
+      {
+        "id": "tokyo-night-storm",
+        "label": "Tokyo Night Storm",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/tokyo-night-storm.json"
+      },
+      {
+        "id": "tokyo-night-light",
+        "label": "Tokyo Night Light",
+        "uiTheme": "hyscode-light",
+        "path": "themes/tokyo-night-light.json"
+      }
+    ]
+  }
+}

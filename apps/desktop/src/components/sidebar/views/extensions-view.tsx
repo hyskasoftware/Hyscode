@@ -134,7 +134,7 @@ function ExtensionDetail({
         </div>
 
         {/* Categories */}
-        {ext.categories.length > 0 && (
+        {ext.categories?.length > 0 && (
           <div className="space-y-1">
             <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/70">
               Categories
@@ -173,7 +173,7 @@ function ExtensionDetail({
         )}
 
         {/* Activation Events */}
-        {ext.activationEvents.length > 0 && (
+        {ext.activationEvents?.length > 0 && (
           <div className="space-y-1">
             <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/70">
               Activation Events

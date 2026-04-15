@@ -1,0 +1,425 @@
+{
+  "React Functional Component": {
+    "prefix": ["rfc", "comp"],
+    "body": [
+      "export function ${1:${TM_FILENAME_BASE}}({ $2 }) {",
+      "  return (",
+      "    <div>",
+      "      $0",
+      "    </div>",
+      "  );",
+      "}"
+    ],
+    "description": "Componente funcional React"
+  },
+  "React Arrow Function Component": {
+    "prefix": ["rafc", "arrowcomp"],
+    "body": [
+      "export const ${1:${TM_FILENAME_BASE}} = ({ $2 }) => {",
+      "  return (",
+      "    <div>",
+      "      $0",
+      "    </div>",
+      "  );",
+      "};"
+    ],
+    "description": "Componente React com arrow function"
+  },
+  "React Default Export Component": {
+    "prefix": ["rfce", "compdefault"],
+    "body": [
+      "function ${1:${TM_FILENAME_BASE}}({ $2 }) {",
+      "  return (",
+      "    <div>",
+      "      $0",
+      "    </div>",
+      "  );",
+      "}",
+      "",
+      "export default ${1:${TM_FILENAME_BASE}};"
+    ],
+    "description": "Componente funcional com export default"
+  },
+  "React Memo Component": {
+    "prefix": ["rmemo", "memocomp"],
+    "body": [
+      "import { memo } from 'react';",
+      "",
+      "export const ${1:${TM_FILENAME_BASE}} = memo(function ${1:${TM_FILENAME_BASE}}({ $2 }) {",
+      "  return (",
+      "    <div>",
+      "      $0",
+      "    </div>",
+      "  );",
+      "});"
+    ],
+    "description": "Componente React com React.memo"
+  },
+  "React forwardRef Component": {
+    "prefix": ["rfref", "forwardref"],
+    "body": [
+      "import { forwardRef } from 'react';",
+      "",
+      "export const ${1:${TM_FILENAME_BASE}} = forwardRef(function ${1:${TM_FILENAME_BASE}}({ $2 }, ref) {",
+      "  return (",
+      "    <div ref={ref}>",
+      "      $0",
+      "    </div>",
+      "  );",
+      "});"
+    ],
+    "description": "Componente React com forwardRef"
+  },
+
+  "useState": {
+    "prefix": ["us", "usestate"],
+    "body": [
+      "const [${1:state}, set${1/(.*)/${1:/capitalize}/}] = useState(${2:initialValue});"
+    ],
+    "description": "React useState hook"
+  },
+  "useEffect": {
+    "prefix": ["ue", "useeffect"],
+    "body": [
+      "useEffect(() => {",
+      "  $0",
+      "}, [${1}]);"
+    ],
+    "description": "React useEffect hook"
+  },
+  "useEffect with Cleanup": {
+    "prefix": ["uec", "useeffectcleanup"],
+    "body": [
+      "useEffect(() => {",
+      "  $1",
+      "",
+      "  return () => {",
+      "    $0",
+      "  };",
+      "}, [${2}]);"
+    ],
+    "description": "React useEffect com cleanup"
+  },
+  "useRef": {
+    "prefix": ["ur", "useref"],
+    "body": [
+      "const ${1:ref} = useRef(${2:null});"
+    ],
+    "description": "React useRef hook"
+  },
+  "useMemo": {
+    "prefix": ["um", "usememo"],
+    "body": [
+      "const ${1:memoized} = useMemo(() => {",
+      "  return $0;",
+      "}, [${2}]);"
+    ],
+    "description": "React useMemo hook"
+  },
+  "useCallback": {
+    "prefix": ["ucb", "usecallback"],
+    "body": [
+      "const ${1:callback} = useCallback(($2) => {",
+      "  $0",
+      "}, [${3}]);"
+    ],
+    "description": "React useCallback hook"
+  },
+  "useContext": {
+    "prefix": ["uc", "usecontext"],
+    "body": [
+      "const ${1:value} = useContext(${2:MyContext});"
+    ],
+    "description": "React useContext hook"
+  },
+  "useReducer": {
+    "prefix": ["urd", "usereducer"],
+    "body": [
+      "const [${1:state}, dispatch] = useReducer(${2:reducer}, ${3:initialState});"
+    ],
+    "description": "React useReducer hook"
+  },
+  "useId": {
+    "prefix": ["uid", "useid"],
+    "body": [
+      "const ${1:id} = useId();"
+    ],
+    "description": "React useId hook"
+  },
+  "useTransition": {
+    "prefix": ["utr", "usetransition"],
+    "body": [
+      "const [isPending, startTransition] = useTransition();"
+    ],
+    "description": "React useTransition hook"
+  },
+  "useDeferredValue": {
+    "prefix": ["udv", "usedeferredvalue"],
+    "body": [
+      "const ${1:deferredValue} = useDeferredValue(${2:value});"
+    ],
+    "description": "React useDeferredValue hook"
+  },
+  "useLayoutEffect": {
+    "prefix": ["ule", "uselayouteffect"],
+    "body": [
+      "useLayoutEffect(() => {",
+      "  $0",
+      "}, [${1}]);"
+    ],
+    "description": "React useLayoutEffect hook"
+  },
+  "useImperativeHandle": {
+    "prefix": ["uih", "useimperativehandle"],
+    "body": [
+      "useImperativeHandle(${1:ref}, () => ({",
+      "  $0",
+      "}), [${2}]);"
+    ],
+    "description": "React useImperativeHandle hook"
+  },
+  "Custom Hook": {
+    "prefix": ["hook", "customhook"],
+    "body": [
+      "export function use${1:Hook}(${2}) {",
+      "  const [${3:state}, set${3/(.*)/${1:/capitalize}/}] = useState(${4:null});",
+      "",
+      "  useEffect(() => {",
+      "    $0",
+      "  }, []);",
+      "",
+      "  return { ${3:state} };",
+      "}"
+    ],
+    "description": "Custom React hook"
+  },
+
+  "JSX Fragment": {
+    "prefix": ["frag", "fragment"],
+    "body": [
+      "<>",
+      "  $0",
+      "</>"
+    ],
+    "description": "React Fragment (<>...</>)"
+  },
+  "JSX Conditional Render": {
+    "prefix": ["jcond", "conditional"],
+    "body": [
+      "{${1:condition} && (",
+      "  $0",
+      ")}"
+    ],
+    "description": "Renderização condicional JSX"
+  },
+  "JSX Ternary": {
+    "prefix": ["jtern", "ternary"],
+    "body": [
+      "{${1:condition} ? (",
+      "  ${2:trueElement}",
+      ") : (",
+      "  ${3:falseElement}",
+      ")}"
+    ],
+    "description": "Operador ternário JSX"
+  },
+  "JSX Map": {
+    "prefix": ["jmap", "maprender"],
+    "body": [
+      "{${1:items}.map((${2:item}) => (",
+      "  <${3:div} key={${2:item}.${4:id}}>",
+      "    $0",
+      "  </${3:div}>",
+      "))}"
+    ],
+    "description": "Array.map para renderizar lista"
+  },
+  "JSX ClassName": {
+    "prefix": ["cn", "classname"],
+    "body": [
+      "className=\"${1:class}\""
+    ],
+    "description": "className attribute"
+  },
+  "JSX Style Object": {
+    "prefix": ["jstyle", "styleobj"],
+    "body": [
+      "style={{ ${1:property}: '${2:value}' }}"
+    ],
+    "description": "Style inline com objeto"
+  },
+  "JSX Event Handler": {
+    "prefix": ["jeh", "eventhandler"],
+    "body": [
+      "on${1:Click}={(${2:e}) => {",
+      "  $0",
+      "}}"
+    ],
+    "description": "Event handler JSX"
+  },
+
+  "React Context": {
+    "prefix": ["rctx", "context"],
+    "body": [
+      "import { createContext, useContext } from 'react';",
+      "",
+      "const ${1:MyContext} = createContext(${2:null});",
+      "",
+      "export function ${1:MyContext}Provider({ children }) {",
+      "  const value = ${3:{}};",
+      "",
+      "  return (",
+      "    <${1:MyContext}.Provider value={value}>",
+      "      {children}",
+      "    </${1:MyContext}.Provider>",
+      "  );",
+      "}",
+      "",
+      "export function use${1/(.*)/${1}/}() {",
+      "  const context = useContext(${1:MyContext});",
+      "  if (!context) {",
+      "    throw new Error('use${1/(.*)/${1}/} must be used within a ${1:MyContext}Provider');",
+      "  }",
+      "  return context;",
+      "}",
+      "$0"
+    ],
+    "description": "React Context com Provider e hook"
+  },
+
+  "React Import": {
+    "prefix": ["imr", "importreact"],
+    "body": [
+      "import { ${1:useState} } from 'react';"
+    ],
+    "description": "Import de React"
+  },
+  "Import useState": {
+    "prefix": "ims",
+    "body": "import { useState } from 'react';",
+    "description": "Import useState"
+  },
+  "Import useEffect": {
+    "prefix": "ime",
+    "body": "import { useEffect } from 'react';",
+    "description": "Import useEffect"
+  },
+  "Import useState and useEffect": {
+    "prefix": "imse",
+    "body": "import { useState, useEffect } from 'react';",
+    "description": "Import useState e useEffect"
+  },
+
+  "React Suspense": {
+    "prefix": ["susp", "suspense"],
+    "body": [
+      "<Suspense fallback={<${1:Loading} />}>",
+      "  $0",
+      "</Suspense>"
+    ],
+    "description": "React Suspense wrapper"
+  },
+  "React Error Boundary": {
+    "prefix": ["errb", "errorboundary"],
+    "body": [
+      "import { Component } from 'react';",
+      "",
+      "export class ${1:ErrorBoundary} extends Component {",
+      "  constructor(props) {",
+      "    super(props);",
+      "    this.state = { hasError: false };",
+      "  }",
+      "",
+      "  static getDerivedStateFromError(error) {",
+      "    return { hasError: true };",
+      "  }",
+      "",
+      "  componentDidCatch(error, errorInfo) {",
+      "    console.error('Error caught by boundary:', error, errorInfo);",
+      "  }",
+      "",
+      "  render() {",
+      "    if (this.state.hasError) {",
+      "      return <${2:h1}>Something went wrong.</${2:h1}>;",
+      "    }",
+      "    return this.props.children;",
+      "  }",
+      "}"
+    ],
+    "description": "React Error Boundary class component"
+  },
+  "React Portal": {
+    "prefix": ["portal", "createportal"],
+    "body": [
+      "import { createPortal } from 'react-dom';",
+      "",
+      "createPortal(",
+      "  $0,",
+      "  document.getElementById('${1:portal-root}')",
+      ")"
+    ],
+    "description": "React createPortal"
+  },
+  "React Lazy Import": {
+    "prefix": ["rlazy", "lazyimport"],
+    "body": [
+      "const ${1:Component} = lazy(() => import('${2:./Component}'));"
+    ],
+    "description": "React.lazy para code splitting"
+  },
+
+  "Console Log": {
+    "prefix": "clg",
+    "body": "console.log('${1:label}:', ${2:value});",
+    "description": "console.log"
+  },
+  "Console Log Variable": {
+    "prefix": "clv",
+    "body": "console.log({ ${1:variable} });",
+    "description": "console.log com nome da variável"
+  },
+  "Try Catch": {
+    "prefix": "trycatch",
+    "body": [
+      "try {",
+      "  $1",
+      "} catch (${2:error}) {",
+      "  console.error(${2:error});",
+      "  $0",
+      "}"
+    ],
+    "description": "Bloco try-catch"
+  },
+  "Async Function": {
+    "prefix": "asyncfn",
+    "body": [
+      "async function ${1:name}(${2}) {",
+      "  $0",
+      "}"
+    ],
+    "description": "Função async"
+  },
+
+  "React Form Event Handler": {
+    "prefix": ["rform", "handlesubmit"],
+    "body": [
+      "const handleSubmit = (e) => {",
+      "  e.preventDefault();",
+      "  $0",
+      "};"
+    ],
+    "description": "Form submit handler"
+  },
+  "React Controlled Input": {
+    "prefix": ["rinput", "controlledinput"],
+    "body": [
+      "<input",
+      "  type=\"${1:text}\"",
+      "  value={${2:value}}",
+      "  onChange={(e) => set${2/(.*)/${1:/capitalize}/}(e.target.value)}",
+      "  placeholder=\"${3:placeholder}\"",
+      "/>"
+    ],
+    "description": "Input controlado React"
+  }
+}

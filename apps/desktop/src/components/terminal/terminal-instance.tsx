@@ -5,6 +5,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTerminalStore } from '../../stores/terminal-store';
 import { useProjectStore } from '../../stores/project-store';
+import { useSettingsStore } from '../../stores/settings-store';
+import { useExtensionStore } from '../../stores/extension-store';
+import { getXtermTheme } from '../../lib/monaco-themes';
 
 interface TerminalInstanceProps {
   sessionId: string;
@@ -19,6 +22,18 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
 
   const setPtyId = useTerminalStore((s) => s.setPtyId);
   const rootPath = useProjectStore((s) => s.rootPath);
+  const themeId = useSettingsStore((s) => s.themeId);
+  const extensionThemesVersion = useExtensionStore((s) => s.extensionThemesVersion);
+  // Keep a ref so the one-time init effect always reads the latest themeId
+  const themeIdRef = useRef(themeId);
+  useEffect(() => { themeIdRef.current = themeId; }, [themeId]);
+
+  // Update xterm theme whenever the theme setting or extension themes change
+  useEffect(() => {
+    const term = xtermRef.current;
+    if (!term) return;
+    term.options.theme = getXtermTheme(themeId);
+  }, [themeId, extensionThemesVersion]);
 
   const handleResize = useCallback(() => {
     const container = containerRef.current;
@@ -52,29 +67,7 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
       fontSize: 13,
       fontFamily: "'Geist Mono', 'Cascadia Code', 'Consolas', monospace",
       lineHeight: 1.4,
-      theme: {
-        background: '#181818',
-        foreground: '#e8e8e8',
-        cursor: '#a855f7',
-        cursorAccent: '#181818',
-        selectionBackground: 'rgba(168, 85, 247, 0.25)',
-        black: '#0d0d0d',
-        red: '#f87171',
-        green: '#4ade80',
-        yellow: '#facc15',
-        blue: '#60a5fa',
-        magenta: '#a855f7',
-        cyan: '#22d3ee',
-        white: '#e8e8e8',
-        brightBlack: '#888888',
-        brightRed: '#fca5a5',
-        brightGreen: '#86efac',
-        brightYellow: '#fde68a',
-        brightBlue: '#93c5fd',
-        brightMagenta: '#c084fc',
-        brightCyan: '#67e8f9',
-        brightWhite: '#ffffff',
-      },
+      theme: getXtermTheme(themeIdRef.current),
     });
 
     const fitAddon = new FitAddon();

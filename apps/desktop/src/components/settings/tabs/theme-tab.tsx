@@ -185,8 +185,8 @@ function ThemeCard({
 export function ThemeTab() {
   const themeId = useSettingsStore((s) => s.themeId);
   const setThemeId = useSettingsStore((s) => s.setThemeId);
-  // Subscribe to extension themes to trigger re-render when they change
-  useExtensionStore((s) => s.contributions.themes.length);
+  // Re-render when extension themes finish loading
+  useExtensionStore((s) => s.extensionThemesVersion);
   const customMetas = getCustomThemeMetas();
 
   return (

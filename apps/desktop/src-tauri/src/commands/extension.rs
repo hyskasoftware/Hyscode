@@ -4,6 +4,7 @@ use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtensionMeta {
     pub name: String,
     pub display_name: String,

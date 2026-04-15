@@ -366,6 +366,9 @@ export function defineAllMonacoThemes(monaco: MonacoInstance): void {
 /** Custom themes registered by extensions at runtime. */
 const _customThemes = new Map<string, ThemeDef>();
 
+/** Full ThemeDefinition objects for extension themes (used for terminal colors). */
+const _customThemeDefinitions = new Map<string, ThemeDefinition>();
+
 /** Metadata for registered custom themes, used by the theme picker. */
 export interface CustomThemeMeta {
   themeId: string;
@@ -445,6 +448,7 @@ export function registerExtensionTheme(definition: ThemeDefinition): void {
 
   const themeDef: ThemeDef = { base, rules, colors: monacoColors };
   _customThemes.set(monacoName, themeDef);
+  _customThemeDefinitions.set(definition.id, definition);
 
   // ── Inject CSS theme class ──
   injectThemeCssVars(definition);
@@ -477,6 +481,7 @@ export function registerExtensionTheme(definition: ThemeDefinition): void {
 export function unregisterExtensionTheme(themeId: string): void {
   const monacoName = `ext-${themeId}`;
   _customThemes.delete(monacoName);
+  _customThemeDefinitions.delete(themeId);
 
   const idx = _customThemeMetas.findIndex((m) => m.themeId === themeId);
   if (idx >= 0) _customThemeMetas.splice(idx, 1);
@@ -484,6 +489,111 @@ export function unregisterExtensionTheme(themeId: string): void {
   // Remove injected CSS
   document.getElementById(`hyscode-theme-vars-${themeId}`)?.remove();
   document.getElementById(`hyscode-theme-hljs-${themeId}`)?.remove();
+}
+
+// ─── xterm.js Terminal Theme ──────────────────────────────────────────────────
+
+export interface XtermTheme {
+  background: string;
+  foreground: string;
+  cursor: string;
+  cursorAccent: string;
+  selectionBackground: string;
+  black: string; red: string; green: string; yellow: string;
+  blue: string; magenta: string; cyan: string; white: string;
+  brightBlack: string; brightRed: string; brightGreen: string; brightYellow: string;
+  brightBlue: string; brightMagenta: string; brightCyan: string; brightWhite: string;
+}
+
+const XTERM_THEMES: Record<string, XtermTheme> = {
+  'hyscode-dark': {
+    background: '#181818', foreground: '#e8e8e8', cursor: '#a855f7', cursorAccent: '#181818',
+    selectionBackground: 'rgba(168,85,247,0.25)',
+    black: '#0d0d0d', red: '#f87171', green: '#4ade80', yellow: '#facc15',
+    blue: '#60a5fa', magenta: '#a855f7', cyan: '#22d3ee', white: '#e8e8e8',
+    brightBlack: '#888888', brightRed: '#fca5a5', brightGreen: '#86efac', brightYellow: '#fde68a',
+    brightBlue: '#93c5fd', brightMagenta: '#c084fc', brightCyan: '#67e8f9', brightWhite: '#ffffff',
+  },
+  'hyscode-light': {
+    background: '#f5f5f5', foreground: '#1a1a1a', cursor: '#7c3aed', cursorAccent: '#f5f5f5',
+    selectionBackground: 'rgba(124,58,237,0.2)',
+    black: '#1a1a1a', red: '#dc2626', green: '#16a34a', yellow: '#d97706',
+    blue: '#1d4ed8', magenta: '#7c3aed', cyan: '#0891b2', white: '#e5e5e5',
+    brightBlack: '#666666', brightRed: '#ef4444', brightGreen: '#22c55e', brightYellow: '#f59e0b',
+    brightBlue: '#3b82f6', brightMagenta: '#9333ea', brightCyan: '#06b6d4', brightWhite: '#ffffff',
+  },
+  'nord': {
+    background: '#2e3440', foreground: '#d8dee9', cursor: '#88c0d0', cursorAccent: '#2e3440',
+    selectionBackground: 'rgba(136,192,208,0.25)',
+    black: '#3b4252', red: '#bf616a', green: '#a3be8c', yellow: '#ebcb8b',
+    blue: '#81a1c1', magenta: '#b48ead', cyan: '#88c0d0', white: '#e5e9f0',
+    brightBlack: '#4c566a', brightRed: '#bf616a', brightGreen: '#a3be8c', brightYellow: '#ebcb8b',
+    brightBlue: '#81a1c1', brightMagenta: '#b48ead', brightCyan: '#8fbcbb', brightWhite: '#eceff4',
+  },
+  'monokai': {
+    background: '#272822', foreground: '#f8f8f2', cursor: '#f92672', cursorAccent: '#272822',
+    selectionBackground: 'rgba(249,38,114,0.25)',
+    black: '#272822', red: '#f92672', green: '#a6e22e', yellow: '#f4bf75',
+    blue: '#66d9e8', magenta: '#ae81ff', cyan: '#a1efe4', white: '#f8f8f2',
+    brightBlack: '#75715e', brightRed: '#f92672', brightGreen: '#a6e22e', brightYellow: '#f4bf75',
+    brightBlue: '#66d9e8', brightMagenta: '#ae81ff', brightCyan: '#a1efe4', brightWhite: '#f9f8f5',
+  },
+  'dracula': {
+    background: '#282a36', foreground: '#f8f8f2', cursor: '#bd93f9', cursorAccent: '#282a36',
+    selectionBackground: 'rgba(189,147,249,0.25)',
+    black: '#21222c', red: '#ff5555', green: '#50fa7b', yellow: '#f1fa8c',
+    blue: '#6272a4', magenta: '#bd93f9', cyan: '#8be9fd', white: '#f8f8f2',
+    brightBlack: '#6272a4', brightRed: '#ff6e6e', brightGreen: '#69ff94', brightYellow: '#ffffa5',
+    brightBlue: '#d6acff', brightMagenta: '#ff92df', brightCyan: '#a4ffff', brightWhite: '#ffffff',
+  },
+  'github-dark': {
+    background: '#0d1117', foreground: '#c9d1d9', cursor: '#58a6ff', cursorAccent: '#0d1117',
+    selectionBackground: 'rgba(88,166,255,0.25)',
+    black: '#484f58', red: '#ff7b72', green: '#3fb950', yellow: '#d29922',
+    blue: '#58a6ff', magenta: '#bc8cff', cyan: '#39c5cf', white: '#b1bac4',
+    brightBlack: '#6e7681', brightRed: '#ffa198', brightGreen: '#56d364', brightYellow: '#e3b341',
+    brightBlue: '#79c0ff', brightMagenta: '#d2a8ff', brightCyan: '#56d4dd', brightWhite: '#f0f6fc',
+  },
+};
+
+/**
+ * Returns xterm.js-compatible theme colors for a given theme ID.
+ * Falls back to hyscode-dark for unknown themes.
+ */
+export function getXtermTheme(themeId: string): XtermTheme {
+  // Built-in themes
+  if (XTERM_THEMES[themeId]) return XTERM_THEMES[themeId];
+
+  // Extension themes — extract terminal.ansi* colors from the ThemeDefinition
+  const def = _customThemeDefinitions.get(themeId);
+  if (def) {
+    const c = def.colors;
+    const bg = c['editor.background'] ?? (def.type === 'light' ? '#ffffff' : '#1a1a1a');
+    const fg = c['editor.foreground'] ?? (def.type === 'light' ? '#1a1a1a' : '#e8e8e8');
+    const cursor = c['editorCursor.foreground'] ?? c['focusBorder'] ?? '#a855f7';
+    return {
+      background: bg, foreground: fg, cursor, cursorAccent: bg,
+      selectionBackground: c['editor.selectionBackground'] ?? 'rgba(168,85,247,0.25)',
+      black:        c['terminal.ansiBlack']        ?? '#0d0d0d',
+      red:          c['terminal.ansiRed']          ?? '#f87171',
+      green:        c['terminal.ansiGreen']        ?? '#4ade80',
+      yellow:       c['terminal.ansiYellow']       ?? '#facc15',
+      blue:         c['terminal.ansiBlue']         ?? '#60a5fa',
+      magenta:      c['terminal.ansiMagenta']      ?? '#a855f7',
+      cyan:         c['terminal.ansiCyan']         ?? '#22d3ee',
+      white:        c['terminal.ansiWhite']        ?? '#e8e8e8',
+      brightBlack:   c['terminal.ansiBrightBlack']   ?? '#888888',
+      brightRed:     c['terminal.ansiBrightRed']     ?? '#fca5a5',
+      brightGreen:   c['terminal.ansiBrightGreen']   ?? '#86efac',
+      brightYellow:  c['terminal.ansiBrightYellow']  ?? '#fde68a',
+      brightBlue:    c['terminal.ansiBrightBlue']    ?? '#93c5fd',
+      brightMagenta: c['terminal.ansiBrightMagenta'] ?? '#c084fc',
+      brightCyan:    c['terminal.ansiBrightCyan']    ?? '#67e8f9',
+      brightWhite:   c['terminal.ansiBrightWhite']   ?? '#ffffff',
+    };
+  }
+
+  return XTERM_THEMES['hyscode-dark'];
 }
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────

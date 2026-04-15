@@ -14,7 +14,9 @@ import type {
   SnippetContribution,
   IconThemeContribution,
   MenuItem,
+  ThemeDefinition,
 } from '@hyscode/extension-api';
+import { registerExtensionTheme, unregisterExtensionTheme } from '../lib/monaco-themes';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,6 +89,7 @@ interface ExtensionState {
   filter: ExtensionFilter;
   selectedExtension: string | null;
   contributions: MergedContributions;
+  extensionThemesVersion: number;
 
   // Actions
   loadExtensions: () => Promise<void>;
@@ -98,7 +101,7 @@ interface ExtensionState {
   setFilter: (filter: ExtensionFilter) => void;
   selectExtension: (name: string | null) => void;
   rebuildContributions: () => void;
-
+    loadExtensionThemes: (themes: Array<ThemeContribution & { extensionName: string }>) => Promise<void>;
   // Computed-like helpers
   getFiltered: () => InstalledExtension[];
 }
@@ -115,6 +118,7 @@ export const useExtensionStore = create<ExtensionState>()(
     filter: 'all' as ExtensionFilter,
     selectedExtension: null,
     contributions: emptyContributions(),
+    extensionThemesVersion: 0,
 
     loadExtensions: async () => {
       set((s) => {
@@ -251,7 +255,7 @@ export const useExtensionStore = create<ExtensionState>()(
             e.displayName.toLowerCase().includes(q) ||
             e.description.toLowerCase().includes(q) ||
             e.publisher.toLowerCase().includes(q) ||
-            e.categories.some((c) => c.toLowerCase().includes(q)),
+            e.categories?.some((c) => c.toLowerCase().includes(q)),
         );
       }
 
@@ -266,14 +270,14 @@ export const useExtensionStore = create<ExtensionState>()(
         case 'themes':
           filtered = filtered.filter(
             (e) =>
-              e.categories.some((c) => c.toLowerCase().includes('theme')) ||
+              e.categories?.some((c) => c.toLowerCase().includes('theme')) ||
               e.manifest?.contributes?.themes?.length,
           );
           break;
         case 'languages':
           filtered = filtered.filter(
             (e) =>
-              e.categories.some((c) => c.toLowerCase().includes('language')) ||
+              e.categories?.some((c) => c.toLowerCase().includes('language')) ||
               e.manifest?.contributes?.languages?.length ||
               e.manifest?.contributes?.languageServers?.length,
           );
@@ -285,6 +289,7 @@ export const useExtensionStore = create<ExtensionState>()(
 
     rebuildContributions: () => {
       const enabled = get().extensions.filter((e) => e.enabled && e.manifest);
+      const prev = get().contributions;
       const next = emptyContributions();
 
       for (const ext of enabled) {
@@ -333,9 +338,40 @@ export const useExtensionStore = create<ExtensionState>()(
         }
       }
 
+      // Unregister themes that are no longer active
+      for (const old of prev.themes) {
+        if (!next.themes.find((t) => t.id === old.id)) {
+          unregisterExtensionTheme(old.id);
+        }
+      }
+
       set((s) => {
         s.contributions = next;
       });
+
+      // Async: read theme JSON files and register them with Monaco + theme picker
+      void get().loadExtensionThemes(next.themes);
+    },
+
+    loadExtensionThemes: async (themes: Array<ThemeContribution & { extensionName: string }>) => {
+      for (const theme of themes) {
+        if (!theme.path) continue;
+        try {
+          const content = await invoke<string>('extension_read_asset', {
+            name: theme.extensionName,
+            assetPath: theme.path,
+          });
+          const def = JSON.parse(content) as ThemeDefinition;
+          // Ensure label and extensionName are populated
+          if (!def.label) def.label = theme.label ?? def.id;
+          if (!def.extensionName) def.extensionName = theme.extensionName;
+          registerExtensionTheme(def);
+        } catch (e) {
+          console.warn(`[ExtensionStore] Failed to load theme "${theme.id}" from ${theme.path}:`, e);
+        }
+      }
+      // Bump version so theme-tab re-renders and picks up getCustomThemeMetas()
+      set((s) => { s.extensionThemesVersion++; });
     },
   })),
 );

@@ -16,6 +16,7 @@ import {
 } from './viewers';
 import { useEditorStore, useFileStore, useSettingsStore } from '../../stores';
 import { useAgentStore } from '../../stores/agent-store';
+import { useExtensionStore } from '../../stores/extension-store';
 import { tauriFs } from '../../lib/tauri-fs';
 import { saveFileDialog } from '../../lib/tauri-dialog';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
@@ -55,6 +56,15 @@ export function EditorArea() {
   const editorBracketPairColorization = useSettingsStore((s) => s.bracketPairColorization);
   const themeId = useSettingsStore((s) => s.themeId);
   const monacoTheme = getMonacoThemeName(themeId);
+  const extensionThemesVersion = useExtensionStore((s) => s.extensionThemesVersion);
+
+  // Re-define custom themes + re-apply when extension themes finish loading asynchronously
+  useEffect(() => {
+    const monaco = monacoInstanceRef.current;
+    if (!monaco) return;
+    defineAllMonacoThemes(monaco);
+    monaco.editor.setTheme(getMonacoThemeName(themeId));
+  }, [extensionThemesVersion]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const [content, setContent] = useState<string | null>(null);
