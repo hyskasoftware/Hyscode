@@ -61,7 +61,11 @@ export const useProjectStore = create<ProjectState>()(
     {
       name: 'hyscode-project-store',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ recentProjects: state.recentProjects }),
+      partialize: (state) => ({
+        name: state.name,
+        rootPath: state.rootPath,
+        recentProjects: state.recentProjects,
+      }),
     },
   ),
 );

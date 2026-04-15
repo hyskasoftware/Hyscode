@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ViewerType } from '../lib/utils';
 
 export interface Tab {
@@ -27,6 +28,7 @@ interface EditorState {
   openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview' | 'type' | 'diffProps' | 'viewerType' | 'markdownMode'> & { type?: Tab['type']; diffProps?: Tab['diffProps']; viewerType?: ViewerType; markdownMode?: Tab['markdownMode'] }) => void;
   openUntitled: () => void;
   closeTab: (id: string) => void;
+  closeAllTabs: () => void;
   setActiveTab: (id: string) => void;
   markDirty: (id: string, dirty: boolean) => void;
   pinTab: (id: string) => void;
@@ -34,6 +36,7 @@ interface EditorState {
 }
 
 export const useEditorStore = create<EditorState>()(
+  persist(
   immer((set) => ({
     tabs: [],
     activeTabId: null,
@@ -95,6 +98,12 @@ export const useEditorStore = create<EditorState>()(
         }
       }),
 
+    closeAllTabs: () =>
+      set((state) => {
+        state.tabs = [];
+        state.activeTabId = null;
+      }),
+
     setActiveTab: (id) =>
       set((state) => {
         state.activeTabId = id;
@@ -121,4 +130,16 @@ export const useEditorStore = create<EditorState>()(
         if (tab) tab.markdownMode = mode;
       }),
   })),
+  {
+    name: 'hyscode-editor-store',
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state) => ({
+      tabs: state.tabs.filter((t) => !t.filePath.startsWith('untitled:')).map((t) => ({
+        ...t,
+        isDirty: false,
+      })),
+      activeTabId: state.activeTabId,
+    }),
+  },
+  ),
 );

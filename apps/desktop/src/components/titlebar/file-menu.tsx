@@ -17,6 +17,7 @@ import { getViewerType } from '../../lib/utils';
 import { promptInput } from '../ui/dialogs';
 import { detectLanguage } from '../../lib/lsp-bridge';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { Home } from 'lucide-react';
 
 export function FileMenu() {
   const openTab = useEditorStore((s) => s.openTab);
@@ -34,6 +35,8 @@ export function FileMenu() {
   const openProject = useProjectStore((s) => s.openProject);
   const closeProject = useProjectStore((s) => s.closeProject);
   const recentProjects = useProjectStore((s) => s.recentProjects);
+
+  const closeAllTabs = useEditorStore((s) => s.closeAllTabs);
 
   const autoSave = useSettingsStore((s) => s.autoSave);
   const setSetting = useSettingsStore((s) => s.set);
@@ -121,6 +124,12 @@ export function FileMenu() {
     closeFolder();
   };
 
+  const handleGoHome = () => {
+    closeProject();
+    closeFolder();
+    closeAllTabs();
+  };
+
   const handleSave = async () => {
     if (!activeTab) return;
     const content = useFileStore.getState().fileCache.get(activeTab.filePath);
@@ -186,6 +195,14 @@ export function FileMenu() {
         File
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={4} className="w-64">
+        {/* Home */}
+        <DropdownMenuItem onClick={handleGoHome}>
+          <Home className="mr-2 h-3.5 w-3.5" />
+          Home
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
         {/* New */}
         <DropdownMenuItem onClick={handleNewTextFile}>
           New Text File
