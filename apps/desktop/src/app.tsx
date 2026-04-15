@@ -13,6 +13,7 @@ import { DialogProvider } from './components/ui/dialogs';
 import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
 import { useLayoutStore } from './stores/layout-store';
 import { useSkillsStore } from './stores/skills-store';
+import { useExtensionStore } from './stores/extension-store';
 import { useEffect, useRef } from 'react';
 import { pickFolder, pickFile } from './lib/tauri-dialog';
 import { initProviders } from './lib/init-providers';
@@ -203,6 +204,12 @@ export function App() {
   // Initialize AI providers on app startup (once)
   useEffect(() => {
     initProviders().catch(console.error);
+  }, []);
+
+  // Load extensions on startup (once) so contributions + activation run
+  // regardless of whether the user ever opens the Extensions panel
+  useEffect(() => {
+    useExtensionStore.getState().loadExtensions().catch(console.error);
   }, []);
 
   // Global keyboard shortcuts

@@ -17,6 +17,11 @@ import type {
   ThemeDefinition,
 } from '@hyscode/extension-api';
 import { registerExtensionTheme, unregisterExtensionTheme } from '../lib/monaco-themes';
+import {
+  activateAllExtensions,
+  activateExtension,
+  deactivateExtension,
+} from '../lib/extension-loader';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,6 +138,8 @@ export const useExtensionStore = create<ExtensionState>()(
           s.loading = false;
         });
         get().rebuildContributions();
+        // Activate all enabled extensions that ship a main.js
+        void activateAllExtensions(get().extensions);
       } catch (err) {
         set((s) => {
           s.error = String(err);
@@ -192,6 +199,7 @@ export const useExtensionStore = create<ExtensionState>()(
     uninstallExtension: async (name: string) => {
       try {
         await invoke('extension_uninstall', { name });
+        await deactivateExtension(name);
         set((s) => {
           s.extensions = s.extensions.filter((e) => e.name !== name);
           if (s.selectedExtension === name) s.selectedExtension = null;
@@ -217,6 +225,13 @@ export const useExtensionStore = create<ExtensionState>()(
           if (target) target.enabled = newEnabled;
         });
         get().rebuildContributions();
+        // Activate or deactivate the extension's main.js
+        if (newEnabled) {
+          const ext = get().extensions.find((e) => e.name === name);
+          if (ext) void activateExtension(ext);
+        } else {
+          void deactivateExtension(name);
+        }
       } catch (err) {
         set((s) => {
           s.error = String(err);
