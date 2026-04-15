@@ -478,7 +478,7 @@ export class Harness {
 
       // Execute tool calls
       const toolResults: Message = {
-        role: 'user',
+        role: 'tool',
         content: [],
       };
 
@@ -615,6 +615,7 @@ export class Harness {
     }
 
     const turnRecord = this.buildTurnRecord(stopReason, iteration, turnStart);
+    turnRecord.verificationForced = verificationForced;
 
     // Finalize trace and attach to turn record
     turnRecord.trace = this.traceRecorder.finalizeTrace(

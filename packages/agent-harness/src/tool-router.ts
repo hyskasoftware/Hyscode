@@ -128,17 +128,6 @@ export class ToolRouter {
     const needsApproval = this.needsApproval(toolName, handler);
 
     if (needsApproval) {
-      this.eventHandler?.({
-        type: 'tool_call_pending',
-        pending: {
-          id: toolCallId,
-          toolName,
-          input,
-          description: this.describeToolCall(toolName, input),
-          resolve: () => {},
-        },
-      });
-
       const approved = await this.requestApproval(toolCallId, toolName, input);
 
       if (!approved) {
@@ -235,14 +224,29 @@ export class ToolRouter {
     }
 
     return new Promise<boolean>((resolve) => {
+      let resolved = false;
+      const settle = (approved: boolean) => {
+        if (!resolved) {
+          resolved = true;
+          resolve(approved);
+        }
+      };
+
       const pending: PendingToolCall = {
         id,
         toolName,
         input,
         description: this.describeToolCall(toolName, input),
-        resolve: (approved: boolean) => resolve(approved),
+        resolve: settle,
       };
-      this.approvalCallback!(pending).then(resolve);
+
+      // Emit event so UI can display and interact with the pending call
+      this.eventHandler?.({
+        type: 'tool_call_pending',
+        pending,
+      });
+
+      this.approvalCallback!(pending).then(settle);
     });
   }
 

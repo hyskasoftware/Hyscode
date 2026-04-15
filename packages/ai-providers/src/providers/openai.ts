@@ -289,25 +289,33 @@ export class OpenAIProvider implements AIProvider {
       );
     }
 
-    // Track tool call IDs across delta chunks
+    // Track tool call IDs across delta chunks.
+    // OpenAI never sends tool_call_end — we must synthesize it when a new
+    // tool starts or the stream finishes with stopReason 'tool_use'.
     let currentToolCallId = '';
 
     for await (const data of parseSSEStream(response, params.signal)) {
       const chunk = parseOpenAIChunk(data);
       if (!chunk) continue;
 
-      // OpenAI sends tool_call_start with the id, then deltas without id
       if (chunk.type === 'tool_call_start' && chunk.id) {
+        // A new tool call starting means the previous one is done
+        if (currentToolCallId) {
+          yield { type: 'tool_call_end' as const, id: currentToolCallId };
+        }
         currentToolCallId = chunk.id;
       } else if (chunk.type === 'tool_call_delta' && !chunk.id) {
         yield { ...chunk, id: currentToolCallId };
         continue;
+      } else if (chunk.type === 'done' && chunk.stopReason === 'tool_use') {
+        // Emit tool_call_end for the last active tool before the done signal
+        if (currentToolCallId) {
+          yield { type: 'tool_call_end' as const, id: currentToolCallId };
+          currentToolCallId = '';
+        }
       }
 
       yield chunk;
     }
-
-    // If we didn't get an explicit done, emit one
-    // (OpenAI sometimes ends without finish_reason in stream)
   }
 }

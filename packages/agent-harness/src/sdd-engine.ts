@@ -299,7 +299,7 @@ Order tasks so dependencies come first.`;
     // Resolve dependencies
     for (let i = 0; i < rawTasks.length; i++) {
       const deps = (rawTasks[i].dependencies || [])
-        .filter((idx) => idx >= 0 && idx < tasks.length)
+        .filter((idx) => idx >= 0 && idx < tasks.length && idx !== i)
         .map((idx) => tasks[idx].id);
 
       if (deps.length > 0) {

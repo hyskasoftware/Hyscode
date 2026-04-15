@@ -252,6 +252,8 @@ export const searchCodeTool = defineTool(
         {
           root: ctx.workspacePath,
           query: input.pattern as string,
+          includePattern: (input.include_pattern as string) ?? undefined,
+          isRegex: (input.is_regex as boolean) ?? false,
           maxResults: (input.max_results as number) ?? 50,
         },
       );

@@ -91,7 +91,7 @@ interface AnthropicSSEEvent {
   [key: string]: any;
 }
 
-function parseAnthropicEvent(data: string): StreamChunk | null {
+function parseAnthropicEvent(data: string, indexToId: Map<number, string>): StreamChunk | null {
   let event: AnthropicSSEEvent;
   try {
     event = JSON.parse(data);
@@ -118,6 +118,8 @@ function parseAnthropicEvent(data: string): StreamChunk | null {
 
     case 'content_block_start':
       if (event.content_block?.type === 'tool_use') {
+        // Store content block index → tool use ID mapping
+        indexToId.set(event.index, event.content_block.id);
         return {
           type: 'tool_call_start',
           id: event.content_block.id,
@@ -136,7 +138,7 @@ function parseAnthropicEvent(data: string): StreamChunk | null {
       if (event.delta?.type === 'input_json_delta') {
         return {
           type: 'tool_call_delta',
-          id: String(event.index),
+          id: indexToId.get(event.index) ?? String(event.index),
           input: event.delta.partial_json,
         };
       }
@@ -144,7 +146,7 @@ function parseAnthropicEvent(data: string): StreamChunk | null {
 
     case 'content_block_stop':
       if (event.index !== undefined) {
-        return { type: 'tool_call_end', id: String(event.index) };
+        return { type: 'tool_call_end', id: indexToId.get(event.index) ?? String(event.index) };
       }
       return null;
 
@@ -302,28 +304,12 @@ export class AnthropicProvider implements AIProvider {
       );
     }
 
-    // Track current tool block index -> tool call id mapping
-    const toolBlockMap = new Map<number, string>();
-    let currentToolIndex = -1;
+    // Content block index → tool use ID mapping (populated by parseAnthropicEvent)
+    const indexToId = new Map<number, string>();
 
     for await (const data of parseSSEStream(response, params.signal)) {
-      const chunk = parseAnthropicEvent(data);
+      const chunk = parseAnthropicEvent(data, indexToId);
       if (!chunk) continue;
-
-      // Fix tool_call_delta and tool_call_end to use correct IDs
-      if (chunk.type === 'tool_call_start') {
-        currentToolIndex++;
-        toolBlockMap.set(currentToolIndex, chunk.id);
-      } else if (chunk.type === 'tool_call_delta') {
-        const id = toolBlockMap.get(Number(chunk.id)) ?? chunk.id;
-        yield { ...chunk, id };
-        continue;
-      } else if (chunk.type === 'tool_call_end') {
-        const id = toolBlockMap.get(Number(chunk.id)) ?? chunk.id;
-        yield { ...chunk, id };
-        continue;
-      }
-
       yield chunk;
     }
   }

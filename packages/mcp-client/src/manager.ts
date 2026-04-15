@@ -41,6 +41,8 @@ export interface McpTransport {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   send(message: JsonRpcRequest): Promise<JsonRpcResponse>;
+  /** Fire-and-forget: send a JSON-RPC notification (no id, no response expected) */
+  sendNotification(notification: JsonRpcNotification): Promise<void>;
   onNotification(handler: (notification: JsonRpcNotification) => void): void;
 }
 
@@ -125,6 +127,12 @@ export class StdioTransport implements McpTransport {
 
   onNotification(handler: (notification: JsonRpcNotification) => void): void {
     this.notificationHandler = handler;
+  }
+
+  async sendNotification(notification: JsonRpcNotification): Promise<void> {
+    if (!this.ptyId) throw new Error('Transport not connected');
+    const data = JSON.stringify(notification) + '\n';
+    await this.invoke('pty_write', { id: this.ptyId, data });
   }
 
   /** Called when data is received from the process stdout */
@@ -265,6 +273,16 @@ export class SseTransport implements McpTransport {
   onNotification(handler: (notification: JsonRpcNotification) => void): void {
     this.notificationHandler = handler;
   }
+
+  async sendNotification(notification: JsonRpcNotification): Promise<void> {
+    const url = this.messagesUrl || this.config.url;
+    if (!url) throw new Error('No messages endpoint');
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.config.headers },
+      body: JSON.stringify(notification),
+    });
+  }
 }
 
 // ─── WebSocket Transport ────────────────────────────────────────────────────
@@ -359,6 +377,13 @@ export class WebSocketTransport implements McpTransport {
   onNotification(handler: (notification: JsonRpcNotification) => void): void {
     this.notificationHandler = handler;
   }
+
+  async sendNotification(notification: JsonRpcNotification): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket not connected');
+    }
+    this.ws.send(JSON.stringify(notification));
+  }
 }
 
 // ─── MCP Client Manager ────────────────────────────────────────────────────
@@ -419,10 +444,9 @@ export class McpClientManager {
         },
       });
 
-      // Send initialized notification
-      await transport.send({
+      // Send initialized notification (no id — JSON-RPC notifications must NOT have an id)
+      await transport.sendNotification({
         jsonrpc: '2.0',
-        id: 0,
         method: 'notifications/initialized',
       });
 
