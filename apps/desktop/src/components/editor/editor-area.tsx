@@ -20,6 +20,7 @@ import { tauriFs } from '../../lib/tauri-fs';
 import { saveFileDialog } from '../../lib/tauri-dialog';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
 import { useAgentDecorations } from '../../hooks/use-agent-decorations';
+import { defineAllMonacoThemes, getMonacoThemeName } from '../../lib/monaco-themes';
 import type * as monacoEditor from 'monaco-editor';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -50,6 +51,8 @@ export function EditorArea() {
   const editorCursorStyle = useSettingsStore((s) => s.cursorStyle);
   const editorRenderWhitespace = useSettingsStore((s) => s.renderWhitespace);
   const editorBracketPairColorization = useSettingsStore((s) => s.bracketPairColorization);
+  const themeId = useSettingsStore((s) => s.themeId);
+  const monacoTheme = getMonacoThemeName(themeId);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const [content, setContent] = useState<string | null>(null);
@@ -295,55 +298,12 @@ export function EditorArea() {
               language={activeTab.language}
               value={content ?? ''}
               onChange={handleEditorChange}
-              theme="hyscode-dark"
+              theme={monacoTheme}
               onMount={(editor, monaco) => {
                 editorInstanceRef.current = editor;
                 monacoInstanceRef.current = monaco;
               }}
-              beforeMount={(monaco) => {
-                monaco.editor.defineTheme('hyscode-dark', {
-                  base: 'vs-dark',
-                  inherit: true,
-                    rules: [
-                      { token: 'comment', foreground: '6a737d', fontStyle: 'italic' },
-                      { token: 'keyword', foreground: 'c084fc' },
-                      { token: 'string', foreground: '86efac' },
-                      { token: 'number', foreground: 'fbbf24' },
-                      { token: 'type', foreground: '60a5fa' },
-                      { token: 'function', foreground: 'f0abfc' },
-                    ],
-                    colors: {
-                      'editor.background': '#1a1a1a',
-                      'editor.foreground': '#f0f0f0',
-                      'editorLineNumber.foreground': '#4a4a4a',
-                      'editorLineNumber.activeForeground': '#b0b0b0',
-                      'editor.selectionBackground': '#a855f733',
-                      'editor.lineHighlightBackground': '#ffffff08',
-                      'editorCursor.foreground': '#a855f7',
-                      'editorIndentGuide.background': '#2a2a2a',
-                      'editorIndentGuide.activeBackground': '#3a3a3a',
-                      'editorBracketMatch.background': '#a855f722',
-                      'editorBracketMatch.border': '#a855f744',
-                      'editor.wordHighlightBackground': '#a855f718',
-                      'editorWidget.background': '#222222',
-                      'editorWidget.border': '#a855f738',
-                      'input.background': '#1a1a1a',
-                      'input.foreground': '#f0f0f0',
-                      'input.border': '#a855f738',
-                      'minimap.background': '#141414',
-                      'minimap.selectionHighlight': '#a855f755',
-                      'minimapGutter.addedBackground': '#3fb950',
-                      'minimapGutter.modifiedBackground': '#e3b341',
-                      'minimapGutter.deletedBackground': '#f85149',
-                      'editorOverviewRuler.addedForeground': '#3fb95088',
-                      'editorOverviewRuler.modifiedForeground': '#e3b34188',
-                      'editorOverviewRuler.deletedForeground': '#f8514988',
-                      'scrollbarSlider.background': '#a855f722',
-                      'scrollbarSlider.hoverBackground': '#a855f744',
-                      'scrollbarSlider.activeBackground': '#a855f766',
-                    },
-                  });
-              }}
+              beforeMount={defineAllMonacoThemes}
               options={{
                 fontFamily: `'${editorFontFamily}', 'JetBrains Mono', 'Fira Code', monospace`,
                 fontSize: editorFontSize,

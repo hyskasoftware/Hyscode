@@ -3,7 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Code, Eye, Loader2 } from 'lucide-react';
-import 'highlight.js/styles/github-dark.css';
+import { useSettingsStore } from '../../../stores';
+import { defineAllMonacoThemes, getMonacoThemeName } from '../../../lib/monaco-themes';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
 
@@ -22,6 +23,9 @@ export function MarkdownViewer({
   onChange,
   language,
 }: MarkdownViewerProps) {
+  const themeId = useSettingsStore((s) => s.themeId);
+  const monacoTheme = getMonacoThemeName(themeId);
+
   const handleEditorChange = useCallback(
     (value: string | undefined) => {
       if (value !== undefined) onChange?.(value);
@@ -63,7 +67,7 @@ export function MarkdownViewer({
       {/* Content area */}
       {mode === 'preview' ? (
         <div className="flex-1 overflow-auto p-6">
-          <article className="prose prose-invert prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-a:text-accent prose-strong:text-foreground prose-code:rounded prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[12px] prose-code:text-accent prose-pre:bg-[#1a1a1a] prose-pre:border prose-pre:border-border/30 prose-blockquote:border-accent/50 prose-blockquote:text-muted-foreground prose-th:text-foreground prose-td:text-foreground/80 prose-hr:border-border/40 prose-img:rounded-lg">
+          <article className="markdown-preview">
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
               {content}
             </ReactMarkdown>
@@ -82,7 +86,8 @@ export function MarkdownViewer({
               language={language ?? 'markdown'}
               value={content}
               onChange={handleEditorChange}
-              theme="hyscode-dark"
+              theme={monacoTheme}
+              beforeMount={defineAllMonacoThemes}
               options={{
                 fontFamily: "'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace",
                 fontSize: 14,

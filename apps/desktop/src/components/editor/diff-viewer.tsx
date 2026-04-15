@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { useGitStore } from '../../stores';
+import { useGitStore, useSettingsStore } from '../../stores';
+import { defineAllMonacoThemes, getMonacoThemeName } from '../../lib/monaco-themes';
 
 const MonacoDiffEditor = lazy(
   () => import('@monaco-editor/react').then((mod) => ({ default: mod.DiffEditor })),
@@ -21,6 +22,8 @@ interface DiffViewerProps {
 
 export function DiffViewer({ filePath, staged }: DiffViewerProps) {
   const getFileContent = useGitStore((s) => s.getFileContent);
+  const themeId = useSettingsStore((s) => s.themeId);
+  const monacoTheme = getMonacoThemeName(themeId);
   const [original, setOriginal] = useState<string>('');
   const [modified, setModified] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -74,7 +77,8 @@ export function DiffViewer({ filePath, staged }: DiffViewerProps) {
           original={original}
           modified={modified}
           language={language}
-          theme="hyscode-dark"
+          theme={monacoTheme}
+          beforeMount={defineAllMonacoThemes}
           options={{
             fontFamily: "'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace",
             fontSize: 14,

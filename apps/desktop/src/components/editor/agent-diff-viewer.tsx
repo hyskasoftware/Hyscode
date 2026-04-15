@@ -2,6 +2,8 @@ import { Suspense, lazy } from 'react';
 import { Check, Undo2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HarnessBridge } from '@/lib/harness-bridge';
+import { useSettingsStore } from '@/stores';
+import { defineAllMonacoThemes, getMonacoThemeName } from '@/lib/monaco-themes';
 import type { PendingFileChange } from '@/stores/agent-store';
 
 const MonacoDiffEditor = lazy(() =>
@@ -41,6 +43,8 @@ interface AgentDiffViewerProps {
 export function AgentDiffViewer({ change }: AgentDiffViewerProps) {
   const ext = change.filePath.split('.').pop()?.toLowerCase() ?? '';
   const language = LANG_MAP[ext] || 'plaintext';
+  const themeId = useSettingsStore((s) => s.themeId);
+  const monacoTheme = getMonacoThemeName(themeId);
 
   const handleKeep = () => {
     HarnessBridge.get().resolveFileChange(change.id, true);
@@ -76,7 +80,8 @@ export function AgentDiffViewer({ change }: AgentDiffViewerProps) {
             original={change.originalContent ?? ''}
             modified={change.newContent}
             language={language}
-            theme="hyscode-dark"
+            theme={monacoTheme}
+            beforeMount={defineAllMonacoThemes}
             options={{
               fontFamily: "'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace",
               fontSize: 14,
