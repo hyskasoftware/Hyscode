@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileMenu } from './file-menu';
+import { ViewMenu } from './view-menu';
 
 type WorkspaceMode = 'editor' | 'build' | 'review';
 
@@ -11,9 +12,10 @@ export function TitleBar() {
       data-tauri-drag-region
       className="flex h-10 items-center bg-background px-2"
     >
-      {/* Left: File menu */}
+      {/* Left: File + View menus */}
       <div className="flex items-center shrink-0">
         <FileMenu />
+        <ViewMenu />
       </div>
 
       {/* Center: filled mode pills */}

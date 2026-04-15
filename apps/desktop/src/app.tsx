@@ -1,14 +1,16 @@
 import { TitleBar } from './components/titlebar';
 import { Sidebar } from './components/sidebar';
 import { EditorArea } from './components/editor';
-import { AgentPanel } from './components/agent';
 import { TerminalPanel } from './components/terminal';
+import { SidebarPanel } from './components/agent/sidebar-panel';
+import { TerminalDropZone } from './components/terminal/terminal-drop-zone';
 import { StatusBar } from './components/statusbar';
 import { WelcomePage } from './components/welcome';
 import { SettingsModal } from './components/settings';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from './components/ui/tooltip';
 import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
+import { useLayoutStore } from './stores/layout-store';
 import { useSkillsStore } from './stores/skills-store';
 import { useEffect, useRef } from 'react';
 import { pickFolder, pickFile } from './lib/tauri-dialog';
@@ -42,6 +44,13 @@ function IDE() {
   const fileRootPath = useFileStore((s) => s.rootPath);
   const openFolder = useFileStore((s) => s.openFolder);
   const bridgeInitRef = useRef(false);
+
+  const terminalLocation = useLayoutStore((s) => s.terminalLocation);
+  const terminalVisible = useLayoutStore((s) => s.terminalVisible);
+  const moveTerminalToSidebar = useLayoutStore((s) => s.moveTerminalToSidebar);
+  const moveTerminalToBottom = useLayoutStore((s) => s.moveTerminalToBottom);
+
+  const showBottomTerminal = terminalLocation === 'bottom' && terminalVisible;
 
   useThemeEffect();
 
@@ -92,32 +101,50 @@ function IDE() {
 
           <PanelResizeHandle className="w-1.5" />
 
-          {/* Editor + Terminal stacked */}
+          {/* Editor + (optionally) Terminal stacked */}
           <Panel defaultSize={50} minSize={30}>
-            <PanelGroup direction="vertical">
-              <Panel defaultSize={65} minSize={25}>
-                <div className="h-full rounded-lg bg-surface overflow-hidden">
-                  <EditorArea />
-                </div>
-              </Panel>
+            {showBottomTerminal ? (
+              <PanelGroup direction="vertical">
+                <Panel defaultSize={65} minSize={25}>
+                  <div className="h-full rounded-lg bg-surface overflow-hidden">
+                    <EditorArea />
+                  </div>
+                </Panel>
 
-              <PanelResizeHandle className="h-1.5" />
+                <PanelResizeHandle className="h-1.5" />
 
-              <Panel defaultSize={35} minSize={15}>
-                <div className="h-full rounded-lg bg-surface overflow-hidden">
-                  <TerminalPanel />
-                </div>
-              </Panel>
-            </PanelGroup>
+                <Panel defaultSize={35} minSize={15}>
+                  <TerminalDropZone
+                    onDrop={moveTerminalToSidebar}
+                    label="Move to Sidebar"
+                    className="h-full rounded-lg bg-surface overflow-hidden"
+                  >
+                    <TerminalPanel />
+                  </TerminalDropZone>
+                </Panel>
+              </PanelGroup>
+            ) : (
+              <TerminalDropZone
+                onDrop={moveTerminalToBottom}
+                label="Move Terminal to Panel"
+                className="h-full rounded-lg bg-surface overflow-hidden"
+              >
+                <EditorArea />
+              </TerminalDropZone>
+            )}
           </Panel>
 
           <PanelResizeHandle className="w-1.5" />
 
-          {/* Agent — single unified block */}
+          {/* Agent + (optionally) Terminal in sidebar */}
           <Panel defaultSize={34} minSize={22} maxSize={50}>
-            <div className="h-full rounded-lg bg-surface overflow-hidden">
-              <AgentPanel />
-            </div>
+            <TerminalDropZone
+              onDrop={moveTerminalToSidebar}
+              label="Drop Terminal Here"
+              className="h-full rounded-lg bg-surface overflow-hidden"
+            >
+              <SidebarPanel />
+            </TerminalDropZone>
           </Panel>
         </PanelGroup>
       </div>
@@ -223,6 +250,13 @@ export function App() {
         e.preventDefault();
         const activeId = useEditorStore.getState().activeTabId;
         if (activeId) closeTab(activeId);
+        return;
+      }
+
+      if (ctrl && e.key === '`') {
+        // Ctrl+` → Toggle terminal visibility
+        e.preventDefault();
+        useLayoutStore.getState().toggleTerminal();
         return;
       }
     };
