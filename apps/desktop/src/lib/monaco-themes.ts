@@ -1,8 +1,10 @@
 // ─── Monaco Theme Definitions ────────────────────────────────────────────────
 // Defines all application themes for Monaco Editor instances.
 // Each theme maps to the corresponding CSS theme class in app.css.
+// Supports runtime registration of custom themes from extensions.
 
 import type * as Monaco from 'monaco-editor';
+import type { ThemeDefinition, TokenColorRule } from '@hyscode/extension-api';
 
 type MonacoInstance = typeof Monaco;
 
@@ -322,6 +324,7 @@ const THEMES: Record<string, ThemeDef> = {
 
 /** Maps a settings ThemeId to the corresponding Monaco theme name. */
 export function getMonacoThemeName(themeId: string): string {
+  // Built-in themes map
   switch (themeId) {
     case 'hyscode-dark':   return 'hyscode-dark';
     case 'hyscode-light':  return 'hyscode-light';
@@ -329,7 +332,11 @@ export function getMonacoThemeName(themeId: string): string {
     case 'monokai':        return 'hyscode-monokai';
     case 'dracula':        return 'hyscode-dracula';
     case 'github-dark':    return 'hyscode-github-dark';
-    default:               return 'hyscode-dark';
+    default: {
+      // Extension-registered custom theme
+      const monacoName = `ext-${themeId}`;
+      return _customThemes.has(monacoName) ? monacoName : 'hyscode-dark';
+    }
   }
 }
 
@@ -343,4 +350,305 @@ export function defineAllMonacoThemes(monaco: MonacoInstance): void {
       colors: def.colors,
     });
   }
+  // Also register any custom themes that were added at runtime
+  for (const [name, def] of _customThemes.entries()) {
+    monaco.editor.defineTheme(name, {
+      base: def.base,
+      inherit: true,
+      rules: def.rules,
+      colors: def.colors,
+    });
+  }
+}
+
+// ─── Extension Theme Runtime Registry ────────────────────────────────────────
+
+/** Custom themes registered by extensions at runtime. */
+const _customThemes = new Map<string, ThemeDef>();
+
+/** Metadata for registered custom themes, used by the theme picker. */
+export interface CustomThemeMeta {
+  themeId: string;
+  label: string;
+  type: 'dark' | 'light';
+  extensionName?: string;
+  colors: {
+    bg: string;
+    surface: string;
+    sidebar: string;
+    accent: string;
+    fg: string;
+    muted: string;
+  };
+}
+
+const _customThemeMetas: CustomThemeMeta[] = [];
+
+/** Returns all registered custom theme metadata (for the theme picker). */
+export function getCustomThemeMetas(): readonly CustomThemeMeta[] {
+  return _customThemeMetas;
+}
+
+/** Check if a theme id belongs to an extension theme. */
+export function isExtensionTheme(themeId: string): boolean {
+  return _customThemes.has(`ext-${themeId}`);
+}
+
+/** Check if an extension theme is a light theme. */
+export function isLightTheme(themeId: string): boolean {
+  if (themeId === 'hyscode-light') return true;
+  const meta = _customThemeMetas.find((m) => m.themeId === themeId);
+  return meta?.type === 'light';
+}
+
+/**
+ * Register a custom theme from an extension's ThemeDefinition.
+ * This:
+ *  1. Converts tokenColors → Monaco token rules
+ *  2. Converts colors → Monaco editor colors
+ *  3. Injects CSS variables on `<html>` for the theme class `.theme-{id}`
+ *  4. Injects hljs token color overrides into a `<style>` tag
+ *  5. Stores metadata for the theme picker UI
+ */
+export function registerExtensionTheme(definition: ThemeDefinition): void {
+  const monacoName = `ext-${definition.id}`;
+  const base: 'vs' | 'vs-dark' = definition.type === 'light' ? 'vs' : 'vs-dark';
+
+  // ── Convert tokenColors to Monaco rules ──
+  const rules = convertTokenColorsToRules(definition.tokenColors ?? []);
+
+  // ── Map colors to Monaco editor colors ──
+  const monacoColors: Record<string, string> = {};
+  const c = definition.colors;
+  if (c['editor.background'])              monacoColors['editor.background'] = c['editor.background'];
+  if (c['editor.foreground'])              monacoColors['editor.foreground'] = c['editor.foreground'];
+  if (c['editorLineNumber.foreground'])    monacoColors['editorLineNumber.foreground'] = c['editorLineNumber.foreground'];
+  if (c['editorLineNumber.activeForeground']) monacoColors['editorLineNumber.activeForeground'] = c['editorLineNumber.activeForeground'];
+  if (c['editor.selectionBackground'])     monacoColors['editor.selectionBackground'] = c['editor.selectionBackground'];
+  if (c['editor.lineHighlightBackground']) monacoColors['editor.lineHighlightBackground'] = c['editor.lineHighlightBackground'];
+  if (c['editorCursor.foreground'])        monacoColors['editorCursor.foreground'] = c['editorCursor.foreground'];
+  if (c['editorIndentGuide.background'])   monacoColors['editorIndentGuide.background'] = c['editorIndentGuide.background'];
+  if (c['editorBracketMatch.background'])  monacoColors['editorBracketMatch.background'] = c['editorBracketMatch.background'];
+  if (c['editorBracketMatch.border'])      monacoColors['editorBracketMatch.border'] = c['editorBracketMatch.border'];
+  if (c['editorWidget.background'])        monacoColors['editorWidget.background'] = c['editorWidget.background'];
+  if (c['editorWidget.border'])            monacoColors['editorWidget.border'] = c['editorWidget.border'];
+  if (c['minimap.background'])             monacoColors['minimap.background'] = c['minimap.background'];
+  if (c['scrollbarSlider.background'])     monacoColors['scrollbarSlider.background'] = c['scrollbarSlider.background'];
+  if (c['scrollbarSlider.hoverBackground']) monacoColors['scrollbarSlider.hoverBackground'] = c['scrollbarSlider.hoverBackground'];
+
+  // Also pass through any raw editor.* colors the extension defined
+  for (const [key, val] of Object.entries(c)) {
+    if (key.startsWith('editor') || key.startsWith('minimap') || key.startsWith('scrollbar') || key.startsWith('input')) {
+      if (!monacoColors[key]) monacoColors[key] = val;
+    }
+  }
+
+  const themeDef: ThemeDef = { base, rules, colors: monacoColors };
+  _customThemes.set(monacoName, themeDef);
+
+  // ── Inject CSS theme class ──
+  injectThemeCssVars(definition);
+
+  // ── Inject hljs overrides ──
+  injectHljsOverrides(definition);
+
+  // ── Store metadata ──
+  const bg = c['editor.background'] ?? c['background'] ?? (base === 'vs' ? '#ffffff' : '#1a1a1a');
+  const fg = c['editor.foreground'] ?? c['foreground'] ?? (base === 'vs' ? '#1a1a1a' : '#e8e8e8');
+  const surface = c['sideBar.background'] ?? c['panel.background'] ?? bg;
+  const sidebar = c['activityBar.background'] ?? c['sideBar.background'] ?? bg;
+  const accent = c['focusBorder'] ?? c['button.background'] ?? c['editorCursor.foreground'] ?? '#a855f7';
+  const muted = c['editorLineNumber.foreground'] ?? c['tab.inactiveForeground'] ?? '#888888';
+
+  // Remove previous meta entry if re-registering
+  const existingIdx = _customThemeMetas.findIndex((m) => m.themeId === definition.id);
+  if (existingIdx >= 0) _customThemeMetas.splice(existingIdx, 1);
+
+  _customThemeMetas.push({
+    themeId: definition.id,
+    label: definition.label,
+    type: definition.type,
+    extensionName: definition.extensionName,
+    colors: { bg, surface, sidebar, accent, fg, muted },
+  });
+}
+
+/** Unregister a custom theme (e.g. when extension is disabled). */
+export function unregisterExtensionTheme(themeId: string): void {
+  const monacoName = `ext-${themeId}`;
+  _customThemes.delete(monacoName);
+
+  const idx = _customThemeMetas.findIndex((m) => m.themeId === themeId);
+  if (idx >= 0) _customThemeMetas.splice(idx, 1);
+
+  // Remove injected CSS
+  document.getElementById(`hyscode-theme-vars-${themeId}`)?.remove();
+  document.getElementById(`hyscode-theme-hljs-${themeId}`)?.remove();
+}
+
+// ─── Internal Helpers ────────────────────────────────────────────────────────
+
+/** Maps TextMate-style scope names to Monaco token names. */
+const SCOPE_TO_TOKEN: Record<string, string> = {
+  'comment': 'comment',
+  'comment.line': 'comment',
+  'comment.block': 'comment',
+  'keyword': 'keyword',
+  'keyword.control': 'keyword.control',
+  'keyword.operator': 'operator',
+  'storage': 'keyword',
+  'storage.type': 'type',
+  'string': 'string',
+  'string.quoted': 'string',
+  'constant.numeric': 'number',
+  'constant.language': 'number',
+  'entity.name.type': 'type',
+  'entity.name.class': 'type',
+  'entity.name.function': 'function',
+  'entity.name.tag': 'tag',
+  'entity.other.attribute-name': 'attribute.name',
+  'variable': 'variable',
+  'variable.parameter': 'variable',
+  'variable.other': 'variable',
+  'support.function': 'function',
+  'support.type': 'type',
+  'support.class': 'type',
+  'punctuation': 'delimiter',
+  'meta.tag': 'tag',
+  'string.regexp': 'regexp',
+};
+
+function convertTokenColorsToRules(tokenColors: TokenColorRule[]): Monaco.editor.ITokenThemeRule[] {
+  const rules: Monaco.editor.ITokenThemeRule[] = [];
+
+  for (const rule of tokenColors) {
+    const scopes = Array.isArray(rule.scope) ? rule.scope : [rule.scope];
+    const fg = rule.settings.foreground?.replace('#', '');
+    const fontStyle = rule.settings.fontStyle;
+
+    for (const scope of scopes) {
+      // Try direct mapping first, then use scope as-is (Monaco handles many TM scopes)
+      const token = SCOPE_TO_TOKEN[scope] ?? scope;
+      const entry: Monaco.editor.ITokenThemeRule = { token };
+      if (fg) entry.foreground = fg;
+      if (fontStyle) entry.fontStyle = fontStyle;
+      rules.push(entry);
+    }
+  }
+
+  return rules;
+}
+
+/** Injects a <style> block with CSS variables for `.theme-{id}`. */
+function injectThemeCssVars(def: ThemeDefinition): void {
+  const id = `hyscode-theme-vars-${def.id}`;
+  let style = document.getElementById(id) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = id;
+    document.head.appendChild(style);
+  }
+
+  const c = def.colors;
+  const bg = c['editor.background'] ?? c['background'] ?? (def.type === 'light' ? '#ffffff' : '#1a1a1a');
+  const fg = c['editor.foreground'] ?? c['foreground'] ?? (def.type === 'light' ? '#1a1a1a' : '#e8e8e8');
+  const surface = c['sideBar.background'] ?? c['panel.background'] ?? bg;
+  const surfaceRaised = c['editorWidget.background'] ?? c['panel.background'] ?? bg;
+  const sidebar = c['activityBar.background'] ?? c['sideBar.background'] ?? bg;
+  const accent = c['focusBorder'] ?? c['button.background'] ?? c['editorCursor.foreground'] ?? '#a855f7';
+  const muted = c['editorLineNumber.foreground'] ?? c['tab.inactiveForeground'] ?? '#888888';
+  const mutedFg = c['tab.inactiveForeground'] ?? muted;
+  const border = c['panel.border'] ?? c['sideBar.border'] ?? 'transparent';
+  const input = c['input.background'] ?? surfaceRaised;
+  const destructive = c['errorForeground'] ?? '#f87171';
+  const secondary = c['sideBar.background'] ?? surface;
+
+  style.textContent = `
+.theme-${def.id} {
+  --background: ${bg};
+  --foreground: ${fg};
+  --card: ${surface};
+  --card-foreground: ${fg};
+  --popover: ${surfaceRaised};
+  --popover-foreground: ${fg};
+  --primary: ${accent};
+  --primary-foreground: ${def.type === 'light' ? '#ffffff' : bg};
+  --secondary: ${secondary};
+  --secondary-foreground: ${fg};
+  --muted: ${secondary};
+  --muted-foreground: ${mutedFg};
+  --accent: ${accent};
+  --accent-foreground: ${def.type === 'light' ? '#ffffff' : bg};
+  --destructive: ${destructive};
+  --border: ${border};
+  --input: ${input};
+  --ring: ${accent};
+  --radius: 0.625rem;
+  --sidebar: ${sidebar};
+  --sidebar-foreground: ${fg};
+  --sidebar-primary: ${accent};
+  --sidebar-primary-foreground: ${def.type === 'light' ? '#ffffff' : bg};
+  --sidebar-accent: ${secondary};
+  --sidebar-accent-foreground: ${fg};
+  --sidebar-border: ${border};
+  --sidebar-ring: ${accent};
+  --color-surface: ${surface};
+  --color-surface-raised: ${surfaceRaised};
+  --color-accent-muted: ${accent}18;
+  --color-success: ${c['terminal.ansiGreen'] ?? '#4ade80'};
+  --color-warning: ${c['terminal.ansiYellow'] ?? '#facc15'};
+  --color-error: ${destructive};
+  --color-border-hover: ${border};
+  --color-border-active: ${border};
+}`;
+}
+
+/** Injects a <style> block with .hljs token overrides for `.theme-{id} .markdown-preview`. */
+function injectHljsOverrides(def: ThemeDefinition): void {
+  const styleId = `hyscode-theme-hljs-${def.id}`;
+  let style = document.getElementById(styleId) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+
+  // Extract representative token colors from tokenColors rules
+  const tokenMap: Record<string, string> = {};
+  for (const rule of def.tokenColors ?? []) {
+    const scopes = Array.isArray(rule.scope) ? rule.scope : [rule.scope];
+    const fg = rule.settings.foreground;
+    if (!fg) continue;
+    for (const scope of scopes) {
+      tokenMap[scope] = fg;
+    }
+  }
+
+  const kw = tokenMap['keyword'] ?? tokenMap['keyword.control'] ?? tokenMap['storage'] ?? '';
+  const str = tokenMap['string'] ?? tokenMap['string.quoted'] ?? '';
+  const num = tokenMap['constant.numeric'] ?? tokenMap['constant.language'] ?? '';
+  const type = tokenMap['entity.name.type'] ?? tokenMap['support.type'] ?? tokenMap['storage.type'] ?? '';
+  const fn = tokenMap['entity.name.function'] ?? tokenMap['support.function'] ?? '';
+  const comment = tokenMap['comment'] ?? tokenMap['comment.line'] ?? tokenMap['comment.block'] ?? '';
+  const variable = tokenMap['variable'] ?? tokenMap['variable.other'] ?? '';
+  const attr = tokenMap['entity.other.attribute-name'] ?? '';
+  const del = tokenMap['markup.deleted'] ?? tokenMap['invalid'] ?? '';
+  const regexp = tokenMap['string.regexp'] ?? str;
+  const fg = def.colors['editor.foreground'] ?? def.colors['foreground'] ?? '';
+
+  const sel = `.theme-${def.id} .markdown-preview`;
+  const rules: string[] = [];
+
+  if (kw) rules.push(`${sel} .hljs-keyword, ${sel} .hljs-selector-tag { color: ${kw}; }`);
+  if (str) rules.push(`${sel} .hljs-string, ${sel} .hljs-addition { color: ${str}; }`);
+  if (num) rules.push(`${sel} .hljs-number { color: ${num}; }`);
+  if (type) rules.push(`${sel} .hljs-type, ${sel} .hljs-built_in { color: ${type}; }`);
+  if (fn) rules.push(`${sel} .hljs-function, ${sel} .hljs-title { color: ${fn}; }`);
+  if (comment) rules.push(`${sel} .hljs-comment, ${sel} .hljs-quote { color: ${comment}; font-style: italic; }`);
+  if (variable || fg) rules.push(`${sel} .hljs-variable, ${sel} .hljs-template-variable { color: ${variable || fg}; }`);
+  if (attr) rules.push(`${sel} .hljs-attr { color: ${attr}; }`);
+  if (del) rules.push(`${sel} .hljs-deletion { color: ${del}; }`);
+  if (regexp) rules.push(`${sel} .hljs-regexp { color: ${regexp}; }`);
+
+  style.textContent = rules.join('\n');
 }

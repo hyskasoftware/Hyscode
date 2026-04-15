@@ -1,5 +1,7 @@
 import { Check } from 'lucide-react';
 import { useSettingsStore } from '../../../stores';
+import { useExtensionStore } from '../../../stores/extension-store';
+import { getCustomThemeMetas } from '../../../lib/monaco-themes';
 import type { ThemeId } from '../../../stores/settings-store';
 
 interface ThemeOption {
@@ -97,9 +99,95 @@ const THEMES: ThemeOption[] = [
   },
 ];
 
+function ThemeCard({
+  id,
+  name,
+  description,
+  colors,
+  isActive,
+  onSelect,
+}: {
+  id: string;
+  name: string;
+  description: string;
+  colors: ThemeOption['colors'];
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      key={id}
+      onClick={onSelect}
+      className={`group relative flex flex-col overflow-hidden rounded-lg transition-all ${
+        isActive
+          ? 'ring-2 ring-accent ring-offset-1 ring-offset-background'
+          : 'hover:ring-1 hover:ring-muted-foreground/30'
+      }`}
+    >
+      {/* Theme preview */}
+      <div className="flex h-24 w-full flex-col p-2" style={{ background: colors.bg }}>
+        <div className="flex flex-1 gap-1">
+          <div className="w-5 rounded-sm" style={{ background: colors.sidebar }} />
+          <div
+            className="flex flex-1 flex-col gap-1 rounded-sm p-1.5"
+            style={{ background: colors.surface }}
+          >
+            <div className="flex gap-1">
+              <div className="h-1 w-6 rounded-full" style={{ background: colors.accent, opacity: 0.8 }} />
+              <div className="h-1 w-10 rounded-full" style={{ background: colors.fg, opacity: 0.3 }} />
+            </div>
+            <div className="flex gap-1">
+              <div className="h-1 w-3 rounded-full" style={{ background: colors.muted, opacity: 0.5 }} />
+              <div className="h-1 w-8 rounded-full" style={{ background: colors.fg, opacity: 0.25 }} />
+              <div className="h-1 w-5 rounded-full" style={{ background: colors.accent, opacity: 0.5 }} />
+            </div>
+            <div className="flex gap-1">
+              <div className="h-1 w-8 rounded-full" style={{ background: colors.fg, opacity: 0.2 }} />
+            </div>
+            <div className="flex gap-1">
+              <div className="h-1 w-4 rounded-full" style={{ background: colors.accent, opacity: 0.6 }} />
+              <div className="h-1 w-12 rounded-full" style={{ background: colors.fg, opacity: 0.15 }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Label */}
+      <div className="flex items-center gap-2 px-3 py-2" style={{ background: colors.surface }}>
+        {isActive && (
+          <Check className="h-3 w-3 shrink-0" style={{ color: colors.accent }} />
+        )}
+        <div className="flex flex-col items-start">
+          <span className="text-[11px] font-medium" style={{ color: colors.fg }}>
+            {name}
+          </span>
+          <span className="text-[10px]" style={{ color: colors.muted }}>
+            {description}
+          </span>
+        </div>
+      </div>
+
+      {/* Color swatches */}
+      <div
+        className="flex gap-0 border-t"
+        style={{ borderColor: `${colors.muted}33`, background: colors.surface }}
+      >
+        {[colors.bg, colors.surface, colors.sidebar, colors.accent, colors.fg, colors.muted].map(
+          (color, i) => (
+            <div key={i} className="h-2 flex-1" style={{ background: color }} />
+          ),
+        )}
+      </div>
+    </button>
+  );
+}
+
 export function ThemeTab() {
   const themeId = useSettingsStore((s) => s.themeId);
   const setThemeId = useSettingsStore((s) => s.setThemeId);
+  // Subscribe to extension themes to trigger re-render when they change
+  useExtensionStore((s) => s.contributions.themes.length);
+  const customMetas = getCustomThemeMetas();
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,134 +196,42 @@ export function ThemeTab() {
       </p>
 
       <div className="grid grid-cols-2 gap-3">
-        {THEMES.map((theme) => {
-          const isActive = themeId === theme.id;
-          return (
-            <button
-              key={theme.id}
-              onClick={() => setThemeId(theme.id)}
-              className={`group relative flex flex-col overflow-hidden rounded-lg transition-all ${
-                isActive
-                  ? 'ring-2 ring-accent ring-offset-1 ring-offset-background'
-                  : 'hover:ring-1 hover:ring-muted-foreground/30'
-              }`}
-            >
-              {/* Theme preview */}
-              <div
-                className="flex h-24 w-full flex-col p-2"
-                style={{ background: theme.colors.bg }}
-              >
-                {/* Mini layout preview */}
-                <div className="flex flex-1 gap-1">
-                  {/* Sidebar preview */}
-                  <div
-                    className="w-5 rounded-sm"
-                    style={{ background: theme.colors.sidebar }}
-                  />
-                  {/* Editor preview */}
-                  <div
-                    className="flex flex-1 flex-col gap-1 rounded-sm p-1.5"
-                    style={{ background: theme.colors.surface }}
-                  >
-                    {/* Fake code lines */}
-                    <div className="flex gap-1">
-                      <div
-                        className="h-1 w-6 rounded-full"
-                        style={{ background: theme.colors.accent, opacity: 0.8 }}
-                      />
-                      <div
-                        className="h-1 w-10 rounded-full"
-                        style={{ background: theme.colors.fg, opacity: 0.3 }}
-                      />
-                    </div>
-                    <div className="flex gap-1">
-                      <div
-                        className="h-1 w-3 rounded-full"
-                        style={{ background: theme.colors.muted, opacity: 0.5 }}
-                      />
-                      <div
-                        className="h-1 w-8 rounded-full"
-                        style={{ background: theme.colors.fg, opacity: 0.25 }}
-                      />
-                      <div
-                        className="h-1 w-5 rounded-full"
-                        style={{ background: theme.colors.accent, opacity: 0.5 }}
-                      />
-                    </div>
-                    <div className="flex gap-1">
-                      <div
-                        className="h-1 w-8 rounded-full"
-                        style={{ background: theme.colors.fg, opacity: 0.2 }}
-                      />
-                    </div>
-                    <div className="flex gap-1">
-                      <div
-                        className="h-1 w-4 rounded-full"
-                        style={{ background: theme.colors.accent, opacity: 0.6 }}
-                      />
-                      <div
-                        className="h-1 w-12 rounded-full"
-                        style={{ background: theme.colors.fg, opacity: 0.15 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Label */}
-              <div
-                className="flex items-center gap-2 px-3 py-2"
-                style={{ background: theme.colors.surface }}
-              >
-                {isActive && (
-                  <Check
-                    className="h-3 w-3 shrink-0"
-                    style={{ color: theme.colors.accent }}
-                  />
-                )}
-                <div className="flex flex-col items-start">
-                  <span
-                    className="text-[11px] font-medium"
-                    style={{ color: theme.colors.fg }}
-                  >
-                    {theme.name}
-                  </span>
-                  <span
-                    className="text-[10px]"
-                    style={{ color: theme.colors.muted }}
-                  >
-                    {theme.description}
-                  </span>
-                </div>
-              </div>
-
-              {/* Color swatches */}
-              <div
-                className="flex gap-0 border-t"
-                style={{
-                  borderColor: `${theme.colors.muted}33`,
-                  background: theme.colors.surface,
-                }}
-              >
-                {[
-                  theme.colors.bg,
-                  theme.colors.surface,
-                  theme.colors.sidebar,
-                  theme.colors.accent,
-                  theme.colors.fg,
-                  theme.colors.muted,
-                ].map((color, i) => (
-                  <div
-                    key={i}
-                    className="h-2 flex-1"
-                    style={{ background: color }}
-                  />
-                ))}
-              </div>
-            </button>
-          );
-        })}
+        {THEMES.map((theme) => (
+          <ThemeCard
+            key={theme.id}
+            id={theme.id}
+            name={theme.name}
+            description={theme.description}
+            colors={theme.colors}
+            isActive={themeId === theme.id}
+            onSelect={() => setThemeId(theme.id)}
+          />
+        ))}
       </div>
+
+      {customMetas.length > 0 && (
+        <>
+          <div className="mt-2 border-t border-border pt-3">
+            <p className="text-[11px] font-medium text-muted-foreground mb-2">
+              Extension Themes
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {customMetas.map((meta) => (
+              <ThemeCard
+                key={meta.themeId}
+                id={meta.themeId as ThemeId}
+                name={meta.label}
+                description={meta.extensionName ? `from ${meta.extensionName}` : 'Custom theme'}
+                colors={meta.colors}
+                isActive={themeId === meta.themeId}
+                onSelect={() => setThemeId(meta.themeId as ThemeId)}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

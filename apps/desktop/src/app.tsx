@@ -19,8 +19,9 @@ import { initProviders } from './lib/init-providers';
 import { HarnessBridge } from './lib/harness-bridge';
 import { getViewerType } from './lib/utils';
 
+import { isLightTheme } from './lib/monaco-themes';
+
 // ── Theme effect — applies CSS class on <html> whenever themeId changes ──────
-const LIGHT_THEMES = new Set(['hyscode-light']);
 
 function useThemeEffect() {
   const themeId = useSettingsStore((s) => s.themeId);
@@ -32,7 +33,7 @@ function useThemeEffect() {
     });
     el.classList.add(`theme-${themeId}`);
     // Toggle dark class for shadcn dark: variant support
-    if (LIGHT_THEMES.has(themeId)) {
+    if (isLightTheme(themeId)) {
       el.classList.remove('dark');
     } else {
       el.classList.add('dark');
