@@ -31,3 +31,4 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 futures-util = "0.3"
 notify = { version = "6", features = ["macos_fsevent"] }
 notify-debouncer-mini = "0.4"
+zip = "2"

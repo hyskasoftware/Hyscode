@@ -1,0 +1,62 @@
+{
+  "name": "sample-extension",
+  "displayName": "Sample Extension",
+  "version": "1.0.0",
+  "description": "A sample HysCode extension demonstrating all contribution points",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Other"],
+  "keywords": ["sample", "demo", "template"],
+  "main": "main.js",
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "sample.helloWorld",
+        "title": "Hello World",
+        "category": "Sample"
+      },
+      {
+        "id": "sample.showTime",
+        "title": "Show Current Time",
+        "category": "Sample"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "sample.helloWorld",
+        "key": "ctrl+shift+h"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "sample.clock",
+        "text": "Sample Ext",
+        "tooltip": "Sample Extension is active",
+        "alignment": "right",
+        "priority": 50
+      }
+    ],
+    "configuration": {
+      "title": "Sample Extension",
+      "properties": {
+        "sample.greeting": {
+          "type": "string",
+          "default": "Hello from Sample Extension!",
+          "description": "The greeting message to show"
+        },
+        "sample.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notification messages"
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        { "command": "sample.helloWorld" },
+        { "command": "sample.showTime" }
+      ]
+    }
+  }
+}

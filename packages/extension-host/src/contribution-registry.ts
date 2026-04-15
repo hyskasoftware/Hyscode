@@ -1,5 +1,4 @@
 import type {
-  ContributionPoints,
   ThemeContribution,
   LanguageContribution,
   LspContribution,
@@ -8,6 +7,9 @@ import type {
   ViewContribution,
   StatusBarItemContribution,
   ConfigurationContribution,
+  SnippetContribution,
+  IconThemeContribution,
+  MenuItem,
   Disposable,
   ExtensionManifest,
   ViewProvider,
@@ -22,6 +24,14 @@ export interface MergedContributions {
   views: Array<ViewContribution & { extensionName: string }>;
   statusBarItems: Array<StatusBarItemContribution & { extensionName: string }>;
   configurations: Array<{ extensionName: string; config: ConfigurationContribution }>;
+  snippets: Array<SnippetContribution & { extensionName: string }>;
+  iconThemes: Array<IconThemeContribution & { extensionName: string }>;
+  menus: {
+    'editor/context': Array<MenuItem & { extensionName: string }>;
+    'editor/title': Array<MenuItem & { extensionName: string }>;
+    'explorer/context': Array<MenuItem & { extensionName: string }>;
+    commandPalette: Array<MenuItem & { extensionName: string }>;
+  };
 }
 
 export function emptyContributions(): MergedContributions {
@@ -34,6 +44,14 @@ export function emptyContributions(): MergedContributions {
     views: [],
     statusBarItems: [],
     configurations: [],
+    snippets: [],
+    iconThemes: [],
+    menus: {
+      'editor/context': [],
+      'editor/title': [],
+      'explorer/context': [],
+      commandPalette: [],
+    },
   };
 }
 
@@ -75,6 +93,21 @@ export class ContributionRegistry {
       }
       if (c.configuration) {
         next.configurations.push({ extensionName: extName, config: c.configuration });
+      }
+      if (c.snippets) {
+        for (const s of c.snippets) next.snippets.push({ ...s, extensionName: extName });
+      }
+      if (c.iconThemes) {
+        for (const it of c.iconThemes) next.iconThemes.push({ ...it, extensionName: extName });
+      }
+      if (c.menus) {
+        const menuKeys = ['editor/context', 'editor/title', 'explorer/context', 'commandPalette'] as const;
+        for (const key of menuKeys) {
+          const items = c.menus[key];
+          if (items) {
+            for (const item of items) next.menus[key].push({ ...item, extensionName: extName });
+          }
+        }
       }
     }
 

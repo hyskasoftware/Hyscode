@@ -11,6 +11,9 @@ import type {
   CommandContribution,
   KeybindingContribution,
   ConfigurationContribution,
+  SnippetContribution,
+  IconThemeContribution,
+  MenuItem,
 } from '@hyscode/extension-api';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -25,7 +28,13 @@ export interface InstalledExtension {
   enabled: boolean;
   installedAt: string;
   manifest: ExtensionManifest | null;
+  icon: string | null;
+  categories: string[];
+  activationEvents: string[];
+  hasMain: boolean;
 }
+
+export type ExtensionFilter = 'all' | 'enabled' | 'disabled' | 'themes' | 'languages';
 
 export interface MergedContributions {
   themes: Array<ThemeContribution & { extensionName: string }>;
@@ -36,6 +45,14 @@ export interface MergedContributions {
   views: Array<ViewContribution & { extensionName: string }>;
   statusBarItems: Array<StatusBarItemContribution & { extensionName: string }>;
   configurations: Array<{ extensionName: string; config: ConfigurationContribution }>;
+  snippets: Array<SnippetContribution & { extensionName: string }>;
+  iconThemes: Array<IconThemeContribution & { extensionName: string }>;
+  menus: {
+    'editor/context': Array<MenuItem & { extensionName: string }>;
+    'editor/title': Array<MenuItem & { extensionName: string }>;
+    'explorer/context': Array<MenuItem & { extensionName: string }>;
+    commandPalette: Array<MenuItem & { extensionName: string }>;
+  };
 }
 
 function emptyContributions(): MergedContributions {
@@ -48,6 +65,14 @@ function emptyContributions(): MergedContributions {
     views: [],
     statusBarItems: [],
     configurations: [],
+    snippets: [],
+    iconThemes: [],
+    menus: {
+      'editor/context': [],
+      'editor/title': [],
+      'explorer/context': [],
+      commandPalette: [],
+    },
   };
 }
 
@@ -56,16 +81,26 @@ function emptyContributions(): MergedContributions {
 interface ExtensionState {
   extensions: InstalledExtension[];
   loading: boolean;
+  installing: boolean;
   error: string | null;
+  searchQuery: string;
+  filter: ExtensionFilter;
+  selectedExtension: string | null;
   contributions: MergedContributions;
 
   // Actions
   loadExtensions: () => Promise<void>;
-  installExtension: (sourcePath: string) => Promise<void>;
+  installFromFolder: (sourcePath: string) => Promise<void>;
+  installFromZip: (zipPath: string) => Promise<void>;
   uninstallExtension: (name: string) => Promise<void>;
-  enableExtension: (name: string) => void;
-  disableExtension: (name: string) => void;
+  toggleExtension: (name: string) => Promise<void>;
+  setSearchQuery: (query: string) => void;
+  setFilter: (filter: ExtensionFilter) => void;
+  selectExtension: (name: string | null) => void;
   rebuildContributions: () => void;
+
+  // Computed-like helpers
+  getFiltered: () => InstalledExtension[];
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -74,7 +109,11 @@ export const useExtensionStore = create<ExtensionState>()(
   immer((set, get) => ({
     extensions: [],
     loading: false,
+    installing: false,
     error: null,
+    searchQuery: '',
+    filter: 'all' as ExtensionFilter,
+    selectedExtension: null,
     contributions: emptyContributions(),
 
     loadExtensions: async () => {
@@ -98,9 +137,9 @@ export const useExtensionStore = create<ExtensionState>()(
       }
     },
 
-    installExtension: async (sourcePath: string) => {
+    installFromFolder: async (sourcePath: string) => {
       set((s) => {
-        s.loading = true;
+        s.installing = true;
         s.error = null;
       });
 
@@ -109,16 +148,39 @@ export const useExtensionStore = create<ExtensionState>()(
           sourcePath,
         });
         set((s) => {
-          // Remove existing if reinstalling
           s.extensions = s.extensions.filter((e) => e.name !== ext.name);
           s.extensions.push(ext);
-          s.loading = false;
+          s.installing = false;
         });
         get().rebuildContributions();
       } catch (err) {
         set((s) => {
           s.error = String(err);
-          s.loading = false;
+          s.installing = false;
+        });
+      }
+    },
+
+    installFromZip: async (zipPath: string) => {
+      set((s) => {
+        s.installing = true;
+        s.error = null;
+      });
+
+      try {
+        const ext = await invoke<InstalledExtension>('extension_install_zip', {
+          zipPath,
+        });
+        set((s) => {
+          s.extensions = s.extensions.filter((e) => e.name !== ext.name);
+          s.extensions.push(ext);
+          s.installing = false;
+        });
+        get().rebuildContributions();
+      } catch (err) {
+        set((s) => {
+          s.error = String(err);
+          s.installing = false;
         });
       }
     },
@@ -128,6 +190,7 @@ export const useExtensionStore = create<ExtensionState>()(
         await invoke('extension_uninstall', { name });
         set((s) => {
           s.extensions = s.extensions.filter((e) => e.name !== name);
+          if (s.selectedExtension === name) s.selectedExtension = null;
         });
         get().rebuildContributions();
       } catch (err) {
@@ -137,20 +200,87 @@ export const useExtensionStore = create<ExtensionState>()(
       }
     },
 
-    enableExtension: (name: string) => {
-      set((s) => {
-        const ext = s.extensions.find((e) => e.name === name);
-        if (ext) ext.enabled = true;
-      });
-      get().rebuildContributions();
+    toggleExtension: async (name: string) => {
+      const ext = get().extensions.find((e) => e.name === name);
+      if (!ext) return;
+
+      const newEnabled = !ext.enabled;
+
+      try {
+        await invoke('extension_toggle', { name, enabled: newEnabled });
+        set((s) => {
+          const target = s.extensions.find((e) => e.name === name);
+          if (target) target.enabled = newEnabled;
+        });
+        get().rebuildContributions();
+      } catch (err) {
+        set((s) => {
+          s.error = String(err);
+        });
+      }
     },
 
-    disableExtension: (name: string) => {
+    setSearchQuery: (query: string) => {
       set((s) => {
-        const ext = s.extensions.find((e) => e.name === name);
-        if (ext) ext.enabled = false;
+        s.searchQuery = query;
       });
-      get().rebuildContributions();
+    },
+
+    setFilter: (filter: ExtensionFilter) => {
+      set((s) => {
+        s.filter = filter;
+      });
+    },
+
+    selectExtension: (name: string | null) => {
+      set((s) => {
+        s.selectedExtension = name;
+      });
+    },
+
+    getFiltered: () => {
+      const { extensions, searchQuery, filter } = get();
+      let filtered = [...extensions];
+
+      // Apply search
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(
+          (e) =>
+            e.name.toLowerCase().includes(q) ||
+            e.displayName.toLowerCase().includes(q) ||
+            e.description.toLowerCase().includes(q) ||
+            e.publisher.toLowerCase().includes(q) ||
+            e.categories.some((c) => c.toLowerCase().includes(q)),
+        );
+      }
+
+      // Apply filter
+      switch (filter) {
+        case 'enabled':
+          filtered = filtered.filter((e) => e.enabled);
+          break;
+        case 'disabled':
+          filtered = filtered.filter((e) => !e.enabled);
+          break;
+        case 'themes':
+          filtered = filtered.filter(
+            (e) =>
+              e.categories.some((c) => c.toLowerCase().includes('theme')) ||
+              e.manifest?.contributes?.themes?.length,
+          );
+          break;
+        case 'languages':
+          filtered = filtered.filter(
+            (e) =>
+              e.categories.some((c) => c.toLowerCase().includes('language')) ||
+              e.manifest?.contributes?.languages?.length ||
+              e.manifest?.contributes?.languageServers?.length,
+          );
+          break;
+      }
+
+      return filtered;
     },
 
     rebuildContributions: () => {
@@ -185,6 +315,21 @@ export const useExtensionStore = create<ExtensionState>()(
         }
         if (c.configuration) {
           next.configurations.push({ extensionName: extName, config: c.configuration });
+        }
+        if (c.snippets) {
+          for (const s of c.snippets) next.snippets.push({ ...s, extensionName: extName });
+        }
+        if (c.iconThemes) {
+          for (const it of c.iconThemes) next.iconThemes.push({ ...it, extensionName: extName });
+        }
+        if (c.menus) {
+          const menuKeys = ['editor/context', 'editor/title', 'explorer/context', 'commandPalette'] as const;
+          for (const key of menuKeys) {
+            const items = c.menus[key];
+            if (items) {
+              for (const item of items) next.menus[key].push({ ...item, extensionName: extName });
+            }
+          }
         }
       }
 

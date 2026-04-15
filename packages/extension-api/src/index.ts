@@ -19,6 +19,9 @@ export interface ExtensionManifest {
   icon?: string;
   categories?: string[];
   keywords?: string[];
+  repository?: string;
+  license?: string;
+  readme?: string;
 }
 
 // ── Contribution Points ──────────────────────────────────────────────────────
@@ -32,6 +35,9 @@ export interface ContributionPoints {
   views?: ViewContribution[];
   statusBarItems?: StatusBarItemContribution[];
   configuration?: ConfigurationContribution;
+  menus?: MenuContributions;
+  snippets?: SnippetContribution[];
+  iconThemes?: IconThemeContribution[];
 }
 
 // ── Theme Contribution ───────────────────────────────────────────────────────
@@ -142,6 +148,36 @@ export interface ConfigurationProperty {
   maximum?: number;
 }
 
+// ── Menu Contribution ────────────────────────────────────────────────────────
+
+export interface MenuContributions {
+  'editor/context'?: MenuItem[];
+  'editor/title'?: MenuItem[];
+  'explorer/context'?: MenuItem[];
+  commandPalette?: MenuItem[];
+}
+
+export interface MenuItem {
+  command: string;
+  group?: string;
+  when?: string;
+}
+
+// ── Snippet Contribution ─────────────────────────────────────────────────────
+
+export interface SnippetContribution {
+  language: string;
+  path: string;
+}
+
+// ── Icon Theme Contribution ──────────────────────────────────────────────────
+
+export interface IconThemeContribution {
+  id: string;
+  label: string;
+  path: string;
+}
+
 // ── Extension Context (received by extension in activate()) ─────────────────
 
 export interface ExtensionContext {
@@ -169,6 +205,8 @@ export interface HyscodeAPI {
   git: GitAPI;
   themes: ThemesAPI;
   languages: LanguagesAPI;
+  notifications: NotificationsAPI;
+  extensions: ExtensionsManagerAPI;
 }
 
 // ── Workspace API ────────────────────────────────────────────────────────────
@@ -312,4 +350,34 @@ export interface Diagnostic {
 export interface ExtensionModule {
   activate(context: ExtensionContext): void | Promise<void>;
   deactivate?(): void | Promise<void>;
+}
+
+// ── Notifications API ────────────────────────────────────────────────────────
+
+export interface NotificationsAPI {
+  showInfo(message: string): void;
+  showWarning(message: string): void;
+  showError(message: string): void;
+  showProgress(title: string, task: (progress: ProgressReporter) => Promise<void>): void;
+}
+
+export interface ProgressReporter {
+  report(options: { message?: string; increment?: number }): void;
+}
+
+// ── Extensions Manager API ───────────────────────────────────────────────────
+
+export interface ExtensionsManagerAPI {
+  getExtension(name: string): ExtensionInfo | undefined;
+  getAllExtensions(): ExtensionInfo[];
+  onDidChange(handler: (extensions: ExtensionInfo[]) => void): Disposable;
+}
+
+export interface ExtensionInfo {
+  name: string;
+  displayName: string;
+  version: string;
+  publisher: string;
+  enabled: boolean;
+  isActive: boolean;
 }

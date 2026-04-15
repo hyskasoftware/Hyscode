@@ -82,9 +82,12 @@ pub fn run() {
             commands::pty::pty_kill,
             // Extension commands
             commands::extension::extension_install,
+            commands::extension::extension_install_zip,
             commands::extension::extension_uninstall,
             commands::extension::extension_list,
             commands::extension::extension_read_asset,
+            commands::extension::extension_toggle,
+            commands::extension::extension_get_dir,
             // LSP commands
             commands::lsp::lsp_start,
             commands::lsp::lsp_send,
