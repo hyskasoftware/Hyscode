@@ -171,12 +171,21 @@ interface FileTreeNodeProps {
   onCreateCancel: () => void;
   gitMap: Map<string, string>;
   rootPath: string | null;
+  // Drag and drop
+  draggedPath: string | null;
+  dragOverPath: string | null;
+  onDragStart: (node: FileNode) => void;
+  onDragOver: (e: React.DragEvent, node: FileNode) => void;
+  onDragLeave: (e: React.DragEvent, node: FileNode) => void;
+  onDrop: (e: React.DragEvent, node: FileNode) => void;
+  onDragEnd: () => void;
 }
 
 function FileTreeNode({
   node, depth, onContextMenu, renamingPath, creatingIn,
   onRenameSubmit, onRenameCancel, onCreateSubmit, onCreateCancel,
   gitMap, rootPath,
+  draggedPath, dragOverPath, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: FileTreeNodeProps) {
   const { expandDirectory, toggleExpand } = useFileStore();
   const { openTab, tabs } = useEditorStore();
@@ -253,14 +262,30 @@ function FileTreeNode({
   const showCreateInput =
     creatingIn && creatingIn.parentPath === node.path && node.isDir && node.isExpanded;
 
+  const isDragOver = dragOverPath === node.path && node.isDir;
+  const isDragging = draggedPath === node.path;
+
   return (
-    <>
+    <div
+      className="relative"
+      onDragOver={node.isDir ? (e) => { e.preventDefault(); e.stopPropagation(); onDragOver(e, node); } : undefined}
+      onDragLeave={node.isDir ? (e) => onDragLeave(e, node) : undefined}
+      onDrop={node.isDir ? (e) => { e.preventDefault(); e.stopPropagation(); onDrop(e, node); } : undefined}
+    >
       <button
         onClick={handleClick}
         onContextMenu={(e) => onContextMenu(e, node)}
+        draggable
+        onDragStart={(e) => { e.stopPropagation(); onDragStart(node); }}
+        onDragEnd={onDragEnd}
+        onDragOver={!node.isDir ? (e) => e.preventDefault() : undefined}
         className={`flex w-full items-center gap-1 rounded-sm px-1 py-[3px] text-[11px] transition-colors ${
-          isActive ? 'bg-accent-muted' : 'hover:bg-surface-raised'
-        } ${nameColorClass || 'text-foreground'} ${isHidden ? 'opacity-60' : ''}`}
+          isDragOver
+            ? 'bg-accent/20 ring-1 ring-inset ring-accent/50'
+            : isActive ? 'bg-accent-muted' : 'hover:bg-surface-raised'
+        } ${nameColorClass || 'text-foreground'} ${isHidden ? 'opacity-60' : ''} ${
+          isDragging ? 'opacity-30' : ''
+        }`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
         {node.isDir ? (
@@ -319,11 +344,18 @@ function FileTreeNode({
               onCreateCancel={onCreateCancel}
               gitMap={gitMap}
               rootPath={rootPath}
+              draggedPath={draggedPath}
+              dragOverPath={dragOverPath}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
             />
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -371,6 +403,8 @@ export function FileTree() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [creatingIn, setCreatingIn] = useState<{ parentPath: string; isDir: boolean } | null>(null);
+  const [draggedPath, setDraggedPath] = useState<string | null>(null);
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const treeContainerRef = useRef<HTMLDivElement>(null);
 
@@ -416,6 +450,55 @@ export function FileTree() {
     },
     [],
   );
+
+  // ── Drag and Drop ──────────────────────────────────────────────────────────
+
+  const handleDragStart = useCallback((node: FileNode) => {
+    setDraggedPath(node.path);
+  }, []);
+
+  const handleDragOver = useCallback((_e: React.DragEvent, node: FileNode) => {
+    if (!node.isDir) return;
+    setDraggedPath((prev) => {
+      const dragged = prev;
+      if (!dragged) return prev;
+      const sep = getSep(dragged);
+      // Prevent drop into itself or its own subdirectory
+      if (node.path === dragged || node.path.startsWith(dragged + sep)) return prev;
+      setDragOverPath((p) => p === node.path ? p : node.path);
+      return prev;
+    });
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent, _node: FileNode) => {
+    // Only clear if the pointer left the folder wrapper entirely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverPath(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (_e: React.DragEvent, targetNode: FileNode) => {
+    setDragOverPath(null);
+    const dragged = draggedPath;
+    setDraggedPath(null);
+    if (!dragged || !targetNode.isDir) return;
+    if (dragged === targetNode.path) return;
+    const sep = getSep(dragged);
+    if (targetNode.path.startsWith(dragged + sep)) return; // can't drop into own subdir
+    const fileName = dragged.split(/[\\/]/).pop()!;
+    const newPath = targetNode.path + sep + fileName;
+    if (newPath === dragged) return; // same location
+    try {
+      await tauriFs.renamePath(dragged, newPath);
+    } catch (err) {
+      console.error('Failed to move:', err);
+    }
+  }, [draggedPath]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedPath(null);
+    setDragOverPath(null);
+  }, []);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -656,6 +739,13 @@ export function FileTree() {
           onCreateCancel={() => setCreatingIn(null)}
           gitMap={gitMap}
           rootPath={rootPath}
+          draggedPath={draggedPath}
+          dragOverPath={dragOverPath}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onDragEnd={handleDragEnd}
         />
       ))}
 
