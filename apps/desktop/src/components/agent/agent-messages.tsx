@@ -1,4 +1,4 @@
-import { Sparkles, User, Bot, ChevronDown, ChevronRight, Bug, Copy, Check, Brain, AlertCircle } from 'lucide-react';
+import { Sparkles, User, Bot, ChevronDown, ChevronRight, Copy, Check, Brain, AlertCircle } from 'lucide-react';
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -287,64 +287,6 @@ const MessageItem = memo(function MessageItem({
   );
 });
 
-// ─── Debug Panel ──────────────────────────────────────────────────────────────
-
-const DebugPanel = memo(function DebugPanel({
-  lines,
-  expanded,
-  onToggle,
-}: {
-  lines: string[];
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const debugBottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (expanded) {
-      debugBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [lines.length, expanded]);
-
-  if (lines.length === 0) return null;
-
-  return (
-    <div className="mt-3 rounded-md border border-border/30 bg-[#0d1117]/60 text-[10px] font-mono">
-      <button
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-muted-foreground hover:text-foreground transition-colors"
-        onClick={onToggle}
-      >
-        {expanded ? (
-          <ChevronDown className="h-3 w-3 shrink-0" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0" />
-        )}
-        <Bug className="h-3 w-3 shrink-0 text-yellow-500/60" />
-        <span className="text-yellow-500/60">Debug</span>
-        <span className="ml-auto rounded-full bg-muted/50 px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground">
-          {lines.length}
-        </span>
-      </button>
-      {expanded && (
-        <div className="max-h-[200px] overflow-y-auto border-t border-border/20 px-2.5 py-1.5">
-          {lines.map((line, i) => (
-            <div
-              key={i}
-              className={cn(
-                'leading-5',
-                line.includes('ERRO') ? 'text-red-400' : 'text-muted-foreground/70',
-              )}
-            >
-              {line}
-            </div>
-          ))}
-          <div ref={debugBottomRef} />
-        </div>
-      )}
-    </div>
-  );
-});
-
 // ─── Agent Messages ───────────────────────────────────────────────────────────
 
 export function AgentMessages() {
@@ -353,14 +295,7 @@ export function AgentMessages() {
   const messages = useAgentStore((s) => s.messages);
   const isStreaming = useAgentStore((s) => s.isStreaming);
   const pendingApprovals = useAgentStore((s) => s.pendingApprovals);
-  const debugLines = useAgentStore((s) => s.debugLines);
-  const debugExpanded = useAgentStore((s) => s.debugExpanded);
-  const setDebugExpanded = useAgentStore((s) => s.setDebugExpanded);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  const handleToggleDebug = useCallback(() => {
-    setDebugExpanded(!debugExpanded);
-  }, [debugExpanded, setDebugExpanded]);
 
   // Auto-scroll on new messages (throttled to avoid jank during fast streaming)
   const lastScrollRef = useRef(0);
@@ -421,13 +356,6 @@ export function AgentMessages() {
           {pendingApprovals.map((approval) => (
             <ApprovalDialog key={approval.id} approval={approval} />
           ))}
-
-          {/* Debug log panel */}
-          <DebugPanel
-            lines={debugLines}
-            expanded={debugExpanded}
-            onToggle={handleToggleDebug}
-          />
 
           {/* Scroll anchor */}
           <div ref={bottomRef} />

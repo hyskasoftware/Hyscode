@@ -91,6 +91,8 @@ interface SettingsState {
   // ─ Agent / Provider ─
   activeProviderId: string | null;
   activeModelId: string | null;
+  /** When true, the model selector shows all providers' enabled models */
+  useAllProviders: boolean;
   agentType: AgentType;
   providers: ProviderConfig[];
   approvalMode: ApprovalMode;
@@ -173,6 +175,7 @@ export const useSettingsStore = create<SettingsState>()(
       // Agent / Provider
       activeProviderId: null,
       activeModelId: null,
+      useAllProviders: false,
       agentType: 'chat' as AgentType,
       providers: [],
       approvalMode: 'manual',

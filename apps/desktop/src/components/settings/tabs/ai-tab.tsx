@@ -1,107 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Key, Plus, Trash2, Eye, EyeOff, ToggleLeft, ToggleRight, X } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settings-store';
-import type { McpServerConfig, CustomModel } from '@/stores/settings-store';
+import type { McpServerConfig } from '@/stores/settings-store';
 import { Button } from '@/components/ui/button';
 import { tauriInvoke } from '@/lib/tauri-invoke';
 import { reinitProvider } from '@/lib/init-providers';
 import { McpServerForm } from './mcp-server-form';
-
-// ─── Provider & Model Catalog ───────────────────────────────────────────────
-
-interface ModelInfo {
-  id: string;
-  name: string;
-}
-
-interface ProviderInfo {
-  id: string;
-  name: string;
-  models: ModelInfo[];
-  needsKey: boolean;
-  supportsCustomModels?: boolean;
-}
-
-const PROVIDERS: ProviderInfo[] = [
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    needsKey: true,
-    models: [
-      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
-      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6' },
-      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' },
-    ],
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    needsKey: true,
-    models: [
-      { id: 'gpt-5.4', name: 'GPT-5.4' },
-      { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' },
-      { id: 'gpt-5.4-nano', name: 'GPT-5.4 Nano' },
-    ],
-  },
-  {
-    id: 'gemini',
-    name: 'Google Gemini',
-    needsKey: true,
-    models: [
-      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-      { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
-    ],
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    needsKey: true,
-    supportsCustomModels: true,
-    models: [
-      { id: 'anthropic/claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
-      { id: 'anthropic/claude-opus-4-6', name: 'Claude Opus 4.6' },
-      { id: 'openai/gpt-5.4', name: 'GPT-5.4' },
-      { id: 'openai/gpt-5.4-mini', name: 'GPT-5.4 Mini' },
-      { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-      { id: 'meta-llama/llama-4-scout', name: 'Llama 4 Scout' },
-      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1' },
-    ],
-  },
-  {
-    id: 'ollama',
-    name: 'Ollama (local)',
-    needsKey: false,
-    supportsCustomModels: true,
-    models: [
-      { id: 'llama4', name: 'Llama 4' },
-      { id: 'qwen3', name: 'Qwen 3' },
-      { id: 'deepseek-r1', name: 'DeepSeek R1' },
-      { id: 'deepseek-coder-v2', name: 'DeepSeek Coder V2' },
-    ],
-  },
-];
-
-/** Get all models for a provider (catalog + user custom) */
-function getProviderModels(provider: ProviderInfo, customModels: CustomModel[]): ModelInfo[] {
-  const customs = customModels
-    .filter((c) => c.providerId === provider.id)
-    .map((c) => ({ id: c.modelId, name: c.name }));
-  return [...provider.models, ...customs];
-}
-
-/** Check if a model is enabled for a provider */
-function isModelEnabled(
-  enabledModels: Record<string, string[]>,
-  providerId: string,
-  modelId: string,
-): boolean {
-  const explicit = enabledModels[providerId];
-  // No explicit list = all catalog models enabled by default
-  if (!explicit) return true;
-  return explicit.includes(modelId);
-}
+import {
+  PROVIDERS,
+  getProviderModels,
+  isModelEnabled,
+  getEnabledModelsForProvider,
+  getAllEnabledModelsGrouped,
+} from '@/lib/provider-catalog';
+import type { ProviderInfo, ModelInfo } from '@/lib/provider-catalog';
 
 export function AiTab() {
   const store = useSettingsStore();
@@ -109,13 +21,8 @@ export function AiTab() {
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [customModelInput, setCustomModelInput] = useState('');
 
-  /** Get enabled models as flat list for a given provider */
-  const getEnabledModelsForProvider = (providerId: string): ModelInfo[] => {
-    const provider = PROVIDERS.find((p) => p.id === providerId);
-    if (!provider) return [];
-    const all = getProviderModels(provider, store.customModels);
-    return all.filter((m) => isModelEnabled(store.enabledModels, providerId, m.id));
-  };
+  const enabledForProvider = (providerId: string): ModelInfo[] =>
+    getEnabledModelsForProvider(providerId, store.enabledModels, store.customModels);
 
   const handleToggleModel = (provider: ProviderInfo, modelId: string) => {
     const all = getProviderModels(provider, store.customModels);
@@ -141,38 +48,84 @@ export function AiTab() {
     <div className="flex flex-col gap-6">
       {/* ─── Active Provider & Model ────────────────────────────────── */}
       <Section title="Active Provider & Model">
-        <Row label="Provider">
-          <SelectInput
-            value={store.activeProviderId ?? ''}
-            onChange={(v) => {
-              const enabled = getEnabledModelsForProvider(v);
-              store.setActiveProvider(v, enabled[0]?.id ?? '');
-            }}
-            options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
-          />
+        {/* Use all providers toggle */}
+        <Row label="Use all providers" description="Show models from every provider in the selector">
+          <button
+            onClick={() => store.set('useAllProviders', !store.useAllProviders)}
+            className="shrink-0"
+            aria-pressed={store.useAllProviders}
+          >
+            {store.useAllProviders ? (
+              <ToggleRight className="h-5 w-5 text-accent" />
+            ) : (
+              <ToggleLeft className="h-5 w-5 text-muted-foreground opacity-50" />
+            )}
+          </button>
         </Row>
-        <Row label="Model">
-          {store.activeProviderId === 'openrouter' ? (
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                value={store.activeModelId ?? ''}
-                onChange={(e) => store.set('activeModelId', e.target.value)}
-                placeholder="provider/model-name"
-                className="h-7 w-52 rounded-md bg-muted px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+
+        {/* Single-provider mode */}
+        {!store.useAllProviders && (
+          <>
+            <Row label="Provider">
+              <SelectInput
+                value={store.activeProviderId ?? ''}
+                onChange={(v) => {
+                  const enabled = enabledForProvider(v);
+                  store.setActiveProvider(v, enabled[0]?.id ?? '');
+                }}
+                options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
               />
-            </div>
-          ) : (
-            <SelectInput
-              value={store.activeModelId ?? ''}
-              onChange={(v) => store.set('activeModelId', v)}
-              options={getEnabledModelsForProvider(store.activeProviderId ?? '').map((m) => ({
-                value: m.id,
-                label: m.name,
-              }))}
-            />
-          )}
-        </Row>
+            </Row>
+            <Row label="Model">
+              {store.activeProviderId === 'openrouter' ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={store.activeModelId ?? ''}
+                    onChange={(e) => store.set('activeModelId', e.target.value)}
+                    placeholder="provider/model-name"
+                    className="h-7 w-52 rounded-md bg-muted px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+                  />
+                </div>
+              ) : (
+                <SelectInput
+                  value={store.activeModelId ?? ''}
+                  onChange={(v) => store.set('activeModelId', v)}
+                  options={enabledForProvider(store.activeProviderId ?? '').map((m) => ({
+                    value: m.id,
+                    label: m.name,
+                  }))}
+                />
+              )}
+            </Row>
+          </>
+        )}
+
+        {/* All-providers mode: grouped model selector */}
+        {store.useAllProviders && (
+          <Row label="Model">
+            <select
+              value={`${store.activeProviderId ?? ''}::${store.activeModelId ?? ''}`}
+              onChange={(e) => {
+                const [providerId, modelId] = e.target.value.split('::');
+                store.setActiveProvider(providerId, modelId);
+              }}
+              className="h-7 rounded-md bg-muted px-2 text-[11px] text-foreground outline-none"
+            >
+              {getAllEnabledModelsGrouped(store.enabledModels, store.customModels).map(
+                ({ provider, models }) => (
+                  <optgroup key={provider.id} label={provider.name}>
+                    {models.map((m) => (
+                      <option key={m.id} value={`${provider.id}::${m.id}`}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ),
+              )}
+            </select>
+          </Row>
+        )}
       </Section>
 
       {/* ─── Models per Provider ────────────────────────────────────── */}
