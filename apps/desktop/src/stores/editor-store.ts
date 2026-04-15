@@ -34,6 +34,7 @@ interface EditorState {
   closeAllTabs: () => void;
   setActiveTab: (id: string) => void;
   markDirty: (id: string, dirty: boolean) => void;
+  reorderTabs: (fromIndex: number, toIndex: number) => void;
   pinTab: (id: string) => void;
   unpinTab: (id: string) => void;
   setMarkdownMode: (id: string, mode: 'preview' | 'code') => void;
@@ -141,6 +142,14 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         const tab = state.tabs.find((t) => t.id === id);
         if (tab) tab.isDirty = dirty;
+      }),
+
+    reorderTabs: (fromIndex, toIndex) =>
+      set((state) => {
+        if (fromIndex < 0 || fromIndex >= state.tabs.length) return;
+        if (toIndex < 0 || toIndex >= state.tabs.length) return;
+        const [moved] = state.tabs.splice(fromIndex, 1);
+        state.tabs.splice(toIndex, 0, moved);
       }),
 
     pinTab: (id) =>

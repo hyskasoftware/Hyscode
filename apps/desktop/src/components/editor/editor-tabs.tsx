@@ -1,9 +1,10 @@
 import { X, Circle, GitCompare, Wand2, Loader2, Pin } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useEditorStore } from '../../stores';
 import { useAgentStore } from '../../stores/agent-store';
 import { useShallow } from 'zustand/shallow';
 import { TabContextMenu } from './tab-context-menu';
+import { getFileIcon } from '../sidebar/views/file-icons';
 import type { AgentEditPhase } from '../../stores/agent-store';
 import type { Tab } from '../../stores/editor-store';
 
@@ -12,14 +13,68 @@ export function EditorTabs() {
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const closeTab = useEditorStore((s) => s.closeTab);
+  const reorderTabs = useEditorStore((s) => s.reorderTabs);
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: Tab } | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const dragCounterRef = useRef(0);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, tab: Tab) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, tab });
   }, []);
+
+  // ── Drag handlers ──────────────────────────────────────────────────────────
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+    // Make the ghost semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
+    setDragIndex(null);
+    setDragOverIndex(null);
+    dragCounterRef.current = 0;
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    setDragOverIndex(index);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) {
+      setDragOverIndex(null);
+      dragCounterRef.current = 0;
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, toIndex: number) => {
+    e.preventDefault();
+    const fromIndex = dragIndex;
+    setDragIndex(null);
+    setDragOverIndex(null);
+    dragCounterRef.current = 0;
+    if (fromIndex !== null && fromIndex !== toIndex) {
+      reorderTabs(fromIndex, toIndex);
+    }
+  }, [dragIndex, reorderTabs]);
 
   // Map filePath → phase for active edit sessions
   const editPhaseMap = useAgentStore(
@@ -38,32 +93,44 @@ export function EditorTabs() {
 
   return (
     <div className="flex h-8 items-center gap-0.5 bg-surface-raised px-2 overflow-x-auto shrink-0">
-      {tabs.map((tab) => {
+      {tabs.map((tab, index) => {
         const isActive = activeTabId === tab.id;
         const isDiff = tab.type === 'diff';
         const editPhase = tab.filePath ? editPhaseMap[tab.filePath] : undefined;
         const isStreaming = editPhase === 'streaming';
         const isPendingReview = editPhase === 'pending_review';
+        const FileIcon = getFileIcon(tab.fileName);
+        const isDragOver = dragOverIndex === index && dragIndex !== index;
+
         return (
           <div
             key={tab.id}
-            className={`group flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer select-none ${
+            draggable
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragEnd={handleDragEnd}
+            onDragEnter={(e) => handleDragEnter(e, index)}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, index)}
+            className={`group flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-grab select-none ${
               isActive
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-surface-raised'
-            }`}
+            } ${isDragOver ? 'border-l-2 border-accent' : ''}`}
             onClick={() => setActiveTab(tab.id)}
             onContextMenu={(e) => handleContextMenu(e, tab)}
           >
             {tab.isPinned && (
               <Pin className="h-2.5 w-2.5 shrink-0 text-accent opacity-60" />
             )}
-            {isDiff && <GitCompare className="h-3 w-3 shrink-0 text-accent" />}
-            {isStreaming && !isDiff && (
+            {isDiff ? (
+              <GitCompare className="h-3 w-3 shrink-0 text-accent" />
+            ) : isStreaming ? (
               <Loader2 className="h-3 w-3 shrink-0 text-purple-400 animate-spin" />
-            )}
-            {isPendingReview && !isDiff && (
+            ) : isPendingReview ? (
               <Wand2 className="h-3 w-3 shrink-0 text-purple-400" />
+            ) : (
+              <FileIcon className="h-3.5 w-3.5 shrink-0" />
             )}
             <span className={`truncate max-w-[120px] ${tab.isPreview ? 'italic' : ''}`}>{tab.fileName}</span>
             {tab.isDirty && (
