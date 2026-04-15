@@ -1,4 +1,4 @@
-import { Send, Square, Paperclip, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList } from 'lucide-react';
+import { Send, Square, Paperclip, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check } from 'lucide-react';
 import { useState, useRef, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import type { AgentMode } from '@/stores/agent-store';
+import type { ApprovalMode } from '@/stores/settings-store';
 import {
   getEnabledModelsForProvider,
   getAllEnabledModelsGrouped,
@@ -88,6 +89,42 @@ const AGENT_CAPABILITIES: Record<AgentMode, AgentCapability> = {
 
 const AGENT_MODES: AgentMode[] = ['chat', 'build', 'review', 'debug', 'plan'];
 
+// ─── Approval mode config ────────────────────────────────────────────────────
+
+interface ApprovalConfig {
+  icon: typeof Shield;
+  label: string;
+  shortLabel: string;
+  description: string;
+  color: string;
+}
+
+const APPROVAL_CONFIG: Record<ApprovalMode, ApprovalConfig> = {
+  manual: {
+    icon: Shield,
+    label: 'Manual',
+    shortLabel: 'Manual',
+    description: 'Review and approve every tool call before execution.',
+    color: 'text-blue-400',
+  },
+  yolo: {
+    icon: Zap,
+    label: 'Auto-approve',
+    shortLabel: 'Auto',
+    description: 'Automatically approve all tool calls without review.',
+    color: 'text-amber-400',
+  },
+  custom: {
+    icon: SlidersHorizontal,
+    label: 'Custom rules',
+    shortLabel: 'Custom',
+    description: 'Use custom approval rules defined in settings.',
+    color: 'text-purple-400',
+  },
+};
+
+const APPROVAL_MODES: ApprovalMode[] = ['manual', 'yolo', 'custom'];
+
 // ─── Provider & model catalog (mirrors ai-tab.tsx) ──────────────────────────
 // (Moved to @/lib/provider-catalog — imported above)
 
@@ -104,6 +141,7 @@ export function AgentInput() {
   const customModels = useSettingsStore((s) => s.customModels);
   const useAllProviders = useSettingsStore((s) => s.useAllProviders);
   const openSettings = useSettingsStore((s) => s.openSettings);
+  const approvalMode = useSettingsStore((s) => s.approvalMode);
 
   const currentCap = AGENT_CAPABILITIES[mode];
 
@@ -119,7 +157,6 @@ export function AgentInput() {
     [enabledModels, customModels],
   );
 
-  // Display name for active model — search across all providers when needed
   const activeModelLabel = useMemo(() => {
     if (!activeModelId) return 'Select model';
     const inActive = availableModels.find((m) => m.id === activeModelId);
@@ -187,10 +224,14 @@ export function AgentInput() {
     }
   };
 
+  const handleApprovalChange = (mode: ApprovalMode) => {
+    useSettingsStore.getState().set('approvalMode', mode);
+  };
+
   return (
-    <div className="shrink-0 bg-surface-raised px-2.5 pt-2 pb-2.5 flex flex-col gap-1.5">
+    <div className="shrink-0 bg-surface-raised px-2.5 pt-1.5 pb-2.5 flex flex-col gap-1.5">
       {/* Textarea area */}
-      <div className="rounded-lg bg-background px-2.5 py-2">
+      <div className="px-1 py-1">
         <Textarea
           ref={textareaRef}
           value={input}
@@ -208,44 +249,53 @@ export function AgentInput() {
 
       {/* Bottom toolbar: agent pills + model left, actions right */}
       <div className="flex items-center justify-between gap-2">
-        {/* Agent pills + model selector */}
+        {/* Agent mode + model + approval selectors */}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-          {/* Unified agent mode pills */}
-          <div className="flex items-center gap-0.5 rounded-pill bg-background p-[2px]">
-            {AGENT_MODES.map((m) => {
-              const cap = AGENT_CAPABILITIES[m];
-              const Icon = cap.icon;
-              const isActive = mode === m;
-
-              return (
-                <Tooltip key={m}>
-                  <TooltipTrigger
-                    render={
-                      <button
+          {/* Agent mode dropdown */}
+          {(() => {
+            const cap = AGENT_CAPABILITIES[mode];
+            const ModeIcon = cap.icon;
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger className={cn(
+                  'flex cursor-pointer items-center gap-1 rounded-pill bg-background px-2 py-[3px] text-[10px] font-medium transition-colors focus:outline-none',
+                  cap.activeColor,
+                )}>
+                  <ModeIcon className="h-3 w-3 shrink-0" />
+                  <span>{cap.label}</span>
+                  <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" className="min-w-[200px]">
+                  <div className="px-2 pb-1 pt-1.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Agent Mode
+                  </div>
+                  <DropdownMenuSeparator />
+                  {AGENT_MODES.map((m) => {
+                    const c = AGENT_CAPABILITIES[m];
+                    const Icon = c.icon;
+                    const isActive = mode === m;
+                    return (
+                      <DropdownMenuItem
+                        key={m}
                         onClick={() => handleModeChange(m)}
-                        className={cn(
-                          'flex cursor-pointer items-center gap-1 rounded-pill px-2 py-[2px] text-[10px] font-medium transition-colors',
-                          isActive
-                            ? cap.activeColor
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      />
-                    }
-                  >
-                    <Icon className="h-3 w-3" />
-                    <span>{cap.label}</span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[11px] font-medium">{cap.label}</span>
-                      <span className="text-[9px] text-muted-foreground">{cap.description}</span>
-                      <span className={cn('text-[9px] font-medium', cap.color)}>{cap.badge}</span>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
+                        className={cn(isActive && 'bg-accent/10')}
+                      >
+                        <div className="flex w-full items-center gap-2">
+                          <Icon className={cn('h-3.5 w-3.5 shrink-0', c.color)} />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="text-[11px] font-medium">{c.label}</span>
+                            <span className="text-[9px] text-muted-foreground leading-tight">{c.description}</span>
+                          </div>
+                          <span className={cn('shrink-0 text-[9px] font-medium', c.color)}>{c.badge}</span>
+                          {isActive && <Check className="h-3 w-3 shrink-0 text-accent" />}
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          })()}
 
           {/* Model selector */}
           <DropdownMenu>
@@ -337,6 +387,51 @@ export function AgentInput() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Approval mode selector */}
+          {(() => {
+            const cfg = APPROVAL_CONFIG[approvalMode];
+            const ApprovalIcon = cfg.icon;
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger className={cn(
+                  'flex cursor-pointer items-center gap-0.5 rounded-pill bg-muted px-2 py-[3px] text-[10px] transition-colors hover:text-foreground focus:outline-none',
+                  cfg.color,
+                )}>
+                  <ApprovalIcon className="h-2.5 w-2.5 shrink-0" />
+                  <span className="ml-0.5">{cfg.shortLabel}</span>
+                  <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" className="min-w-[180px]">
+                  <div className="px-2 pb-1 pt-1.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Approval Mode
+                  </div>
+                  <DropdownMenuSeparator />
+                  {APPROVAL_MODES.map((m) => {
+                    const c = APPROVAL_CONFIG[m];
+                    const Icon = c.icon;
+                    const isActive = approvalMode === m;
+                    return (
+                      <DropdownMenuItem
+                        key={m}
+                        onClick={() => handleApprovalChange(m)}
+                        className={cn(isActive && 'bg-accent/10')}
+                      >
+                        <div className="flex w-full items-center gap-2">
+                          <Icon className={cn('h-3.5 w-3.5 shrink-0', c.color)} />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="text-[11px] font-medium">{c.label}</span>
+                            <span className="text-[9px] text-muted-foreground leading-tight">{c.description}</span>
+                          </div>
+                          {isActive && <Check className="h-3 w-3 shrink-0 text-accent" />}
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          })()}
         </div>
 
         {/* Actions */}

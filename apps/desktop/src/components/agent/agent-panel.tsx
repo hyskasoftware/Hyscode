@@ -1,4 +1,5 @@
 import { Bot, Trash2, History } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { AgentMessages } from './agent-messages';
 import { AgentInput } from './agent-input';
 import { ContextChipsBar } from './context-chips-bar';
@@ -11,11 +12,133 @@ import { AgentChangedFiles } from './agent-changed-files';
 import { useAgentStore } from '@/stores/agent-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import type { TokenUsage } from '@/stores/agent-store';
+
+// ─── Context Window Pie Popup ─────────────────────────────────────────────────
+
+const CONTEXT_WINDOW_DEFAULT = 200_000;
+
+function PieChart({ pct, size = 14, color = 'var(--color-accent)' }: { pct: number; size?: number; color?: string }) {
+  const r = size / 2 - 1.5;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const fill = Math.min(Math.max(pct, 0), 1);
+
+  if (fill >= 0.999) {
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/20" />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="2" strokeDasharray={`${circumference} 0`} />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/20" />
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeDasharray={`${fill * circumference} ${(1 - fill) * circumference}`}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ContextPieButton({ usage, messageCount }: { usage: TokenUsage | null; messageCount: number }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const pct = usage ? usage.inputTokens / CONTEXT_WINDOW_DEFAULT : 0;
+  const pctDisplay = Math.round(pct * 100);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const pieColor = pct > 0.8 ? '#f87171' : pct > 0.6 ? '#fb923c' : 'var(--color-accent)';
+
+  return (
+    <div ref={ref} className="relative">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className={cn(
+                'flex cursor-pointer items-center justify-center rounded p-0.5 transition-colors',
+                open ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5',
+              )}
+            />
+          }
+        >
+          <PieChart pct={pct} size={14} color={pieColor} />
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Context usage</TooltipContent>
+      </Tooltip>
+
+      {open && (
+        <div className="absolute right-0 top-7 z-50 w-56 rounded-lg border border-border/50 bg-surface-raised shadow-lg shadow-black/20 backdrop-blur-sm">
+          {/* Header */}
+          <div className="flex items-center gap-2 border-b border-border/30 px-3 py-2">
+            <PieChart pct={pct} size={32} color={pieColor} />
+            <div className="flex flex-col">
+              <span className="text-[11px] font-semibold text-foreground">{pctDisplay}% used</span>
+              <span className="text-[9px] text-muted-foreground">of ~{(CONTEXT_WINDOW_DEFAULT / 1000).toFixed(0)}k context window</span>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="flex flex-col gap-0 px-3 py-2">
+            {usage ? (
+              <>
+                <StatRow label="Input tokens" value={usage.inputTokens.toLocaleString()} />
+                <StatRow label="Output tokens" value={usage.outputTokens.toLocaleString()} />
+                <StatRow label="Total tokens" value={usage.totalTokens.toLocaleString()} accent />
+              </>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">No data yet</span>
+            )}
+            <StatRow label="Messages" value={String(messageCount)} />
+          </div>
+
+          {/* Progress bar */}
+          <div className="px-3 pb-2.5">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${Math.min(pctDisplay, 100)}%`, background: pieColor }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-[3px]">
+      <span className="text-[10px] text-muted-foreground">{label}</span>
+      <span className={cn('text-[10px] tabular-nums', accent ? 'font-semibold text-foreground' : 'text-foreground/80')}>{value}</span>
+    </div>
+  );
+}
 
 export function AgentPanel() {
   const sddPhase = useAgentStore((s) => s.sddPhase);
@@ -50,13 +173,9 @@ export function AgentPanel() {
         <div className="flex items-center gap-2">
           <Bot className="h-3.5 w-3.5 text-accent" />
           <span className="text-[11px] font-medium">Agent</span>
-          {tokenUsage && (
-            <span className="text-[9px] tabular-nums text-muted-foreground">
-              {tokenUsage.totalTokens.toLocaleString()} tokens
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-0.5">
+          <ContextPieButton usage={tokenUsage} messageCount={messageCount} />
           <Tooltip>
             <TooltipTrigger
               render={
