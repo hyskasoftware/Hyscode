@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
-import { GitCommit, Clock, User } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { GitCommit, Clock, User, FileText } from 'lucide-react';
 import { useGitStore } from '../../stores';
+import { CommitDetailModal } from './commit-detail-modal';
 
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now() / 1000;
@@ -21,10 +22,13 @@ interface GitLogViewProps {
 export function GitLogView({ onClose }: GitLogViewProps) {
   const log = useGitStore((s) => s.log);
   const fetchLog = useGitStore((s) => s.fetchLog);
+  const [selectedHash, setSelectedHash] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLog(100);
   }, [fetchLog]);
+
+  const handleCloseModal = useCallback(() => setSelectedHash(null), []);
 
   if (log.length === 0) {
     return (
@@ -36,7 +40,7 @@ export function GitLogView({ onClose }: GitLogViewProps) {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-2 py-1.5">
         <span className="text-[11px] font-medium text-foreground">Commit History</span>
         {onClose && (
@@ -50,9 +54,10 @@ export function GitLogView({ onClose }: GitLogViewProps) {
       </div>
       <div className="flex-1 overflow-auto">
         {log.map((commit) => (
-          <div
+          <button
             key={commit.hash}
-            className="border-b border-border/50 px-2 py-1.5 hover:bg-surface-raised transition-colors cursor-default"
+            onClick={() => setSelectedHash(commit.hash)}
+            className="w-full border-b border-border/50 px-2 py-1.5 text-left hover:bg-surface-raised transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-1.5">
               <span className="shrink-0 rounded bg-accent/10 px-1 py-0.5 font-mono text-[10px] text-accent">
@@ -71,10 +76,18 @@ export function GitLogView({ onClose }: GitLogViewProps) {
                 <Clock className="h-2.5 w-2.5" />
                 {formatRelativeTime(commit.timestamp)}
               </span>
+              <span className="flex items-center gap-0.5 ml-auto text-muted-foreground/70">
+                <FileText className="h-2.5 w-2.5" />
+                {commit.email}
+              </span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
+
+      {selectedHash && (
+        <CommitDetailModal hash={selectedHash} onClose={handleCloseModal} />
+      )}
     </div>
   );
 }

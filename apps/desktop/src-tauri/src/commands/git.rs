@@ -4,6 +4,7 @@ use git2::{
 };
 use serde::Serialize;
 use std::path::Path;
+use std::process::Command as StdCommand;
 
 // ── Serializable Types ──────────────────────────────────────────────────────
 
@@ -62,6 +63,27 @@ pub struct GitAheadBehind {
 pub struct GitFileContent {
     pub original: String,
     pub modified: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct CommitFileChange {
+    pub path: String,
+    pub status: String,
+    pub insertions: u32,
+    pub deletions: u32,
+}
+
+#[derive(Serialize)]
+pub struct CommitDetail {
+    pub hash: String,
+    pub short_hash: String,
+    pub message: String,
+    pub author: String,
+    pub email: String,
+    pub timestamp: i64,
+    pub files: Vec<CommitFileChange>,
+    pub total_insertions: u32,
+    pub total_deletions: u32,
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -819,6 +841,210 @@ pub fn git_stash_pop(repo_path: String, index: usize) -> Result<(), String> {
 
     repo.stash_pop(index, None)
         .map_err(|e| format!("Stash pop error: {}", e))?;
+
+    Ok(())
+}
+
+// ── Commit Detail ────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn git_commit_detail(repo_path: String, hash: String) -> Result<CommitDetail, String> {
+    let repo = open_repo(&repo_path)?;
+    let oid = git2::Oid::from_str(&hash).map_err(|e| format!("Invalid hash: {}", e))?;
+    let commit = repo.find_commit(oid).map_err(|e| format!("Commit not found: {}", e))?;
+
+    let commit_tree = commit.tree().map_err(|e| format!("Tree error: {}", e))?;
+
+    // Get parent tree (or empty tree for initial commit)
+    let parent_tree = if commit.parent_count() > 0 {
+        Some(
+            commit
+                .parent(0)
+                .map_err(|e| format!("Parent error: {}", e))?
+                .tree()
+                .map_err(|e| format!("Parent tree error: {}", e))?,
+        )
+    } else {
+        None
+    };
+
+    let diff = repo
+        .diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), None)
+        .map_err(|e| format!("Diff error: {}", e))?;
+
+    let stats = diff.stats().map_err(|e| format!("Stats error: {}", e))?;
+
+    let mut files: Vec<CommitFileChange> = Vec::new();
+
+    for i in 0..diff.deltas().len() {
+        let delta = diff.get_delta(i).unwrap();
+        let path = delta
+            .new_file()
+            .path()
+            .or_else(|| delta.old_file().path())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let status = delta_to_status(delta.status()).to_string();
+
+        // Get per-file stats by creating a scoped diff
+        let mut per_file_opts = DiffOptions::new();
+        per_file_opts.pathspec(&path);
+        let per_file_diff = repo
+            .diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), Some(&mut per_file_opts))
+            .ok();
+
+        let (insertions, deletions) = per_file_diff
+            .and_then(|d| d.stats().ok())
+            .map(|s| (s.insertions() as u32, s.deletions() as u32))
+            .unwrap_or((0, 0));
+
+        files.push(CommitFileChange {
+            path,
+            status,
+            insertions,
+            deletions,
+        });
+    }
+
+    let full_hash = oid.to_string();
+    let short = full_hash[..7.min(full_hash.len())].to_string();
+    let message = commit.message().unwrap_or("").to_string();
+    let author = commit.author().name().unwrap_or("").to_string();
+    let email = commit.author().email().unwrap_or("").to_string();
+    let timestamp = commit.time().seconds();
+    let total_insertions = stats.insertions() as u32;
+    let total_deletions = stats.deletions() as u32;
+
+    Ok(CommitDetail {
+        hash: full_hash,
+        short_hash: short,
+        message,
+        author,
+        email,
+        timestamp,
+        files,
+        total_insertions,
+        total_deletions,
+    })
+}
+
+#[tauri::command]
+pub fn git_commit_file_diff(
+    repo_path: String,
+    hash: String,
+    file_path: String,
+) -> Result<String, String> {
+    let repo = open_repo(&repo_path)?;
+    let oid = git2::Oid::from_str(&hash).map_err(|e| format!("Invalid hash: {}", e))?;
+    let commit = repo.find_commit(oid).map_err(|e| format!("Commit not found: {}", e))?;
+
+    let commit_tree = commit.tree().map_err(|e| format!("Tree error: {}", e))?;
+
+    let parent_tree = if commit.parent_count() > 0 {
+        Some(
+            commit
+                .parent(0)
+                .map_err(|e| format!("Parent error: {}", e))?
+                .tree()
+                .map_err(|e| format!("Parent tree error: {}", e))?,
+        )
+    } else {
+        None
+    };
+
+    let mut opts = DiffOptions::new();
+    opts.pathspec(&file_path);
+
+    let diff = repo
+        .diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), Some(&mut opts))
+        .map_err(|e| format!("Diff error: {}", e))?;
+
+    let mut output = String::new();
+    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+        let origin = line.origin();
+        if origin == '+' || origin == '-' || origin == ' ' {
+            output.push(origin);
+        }
+        if let Ok(content) = std::str::from_utf8(line.content()) {
+            output.push_str(content);
+        }
+        true
+    })
+    .map_err(|e| format!("Diff print error: {}", e))?;
+
+    Ok(output)
+}
+
+// ── Remote operations (via CLI for auth compatibility) ───────────────────────
+
+fn run_git_cli(repo_path: &str, args: &[&str]) -> Result<String, String> {
+    let output = StdCommand::new("git")
+        .args(args)
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| format!("Failed to run git: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(stderr.trim().to_string());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+pub fn git_push(
+    repo_path: String,
+    remote: Option<String>,
+    branch: Option<String>,
+) -> Result<String, String> {
+    let r = remote.as_deref().unwrap_or("origin");
+    match branch {
+        Some(b) => run_git_cli(&repo_path, &["push", r, &b]),
+        None => run_git_cli(&repo_path, &["push", r]),
+    }
+}
+
+#[tauri::command]
+pub fn git_pull(repo_path: String, remote: Option<String>) -> Result<String, String> {
+    let r = remote.as_deref().unwrap_or("origin");
+    run_git_cli(&repo_path, &["pull", r])
+}
+
+#[tauri::command]
+pub fn git_fetch(repo_path: String, remote: Option<String>) -> Result<String, String> {
+    let r = remote.as_deref().unwrap_or("origin");
+    run_git_cli(&repo_path, &["fetch", r])
+}
+
+#[tauri::command]
+pub fn git_merge(repo_path: String, branch: String) -> Result<String, String> {
+    run_git_cli(&repo_path, &["merge", &branch])
+}
+
+#[tauri::command]
+pub fn git_tag_create(
+    repo_path: String,
+    name: String,
+    message: Option<String>,
+) -> Result<(), String> {
+    let repo = open_repo(&repo_path)?;
+    let head = repo.head().map_err(|e| format!("HEAD error: {}", e))?;
+    let target = head
+        .peel(git2::ObjectType::Commit)
+        .map_err(|e| format!("Peel error: {}", e))?;
+
+    if let Some(msg) = message {
+        let sig = repo
+            .signature()
+            .or_else(|_| Signature::now("HysCode User", "user@hyscode.local"))
+            .map_err(|e| format!("Signature error: {}", e))?;
+        repo.tag(&name, &target, &sig, &msg, false)
+            .map_err(|e| format!("Tag error: {}", e))?;
+    } else {
+        repo.tag_lightweight(&name, &target, false)
+            .map_err(|e| format!("Tag error: {}", e))?;
+    }
 
     Ok(())
 }

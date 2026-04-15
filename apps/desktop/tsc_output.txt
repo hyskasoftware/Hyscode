@@ -3,3 +3,4 @@ tsconfig.json(19,5): error TS6306: Referenced project 'C:/Users/estev/OneDrive/D
 tsconfig.json(20,5): error TS6306: Referenced project 'C:/Users/estev/OneDrive/Desktop/Hyscode/packages/agent-harness' must have setting "composite": true.
 tsconfig.json(21,5): error TS6306: Referenced project 'C:/Users/estev/OneDrive/Desktop/Hyscode/packages/mcp-client' must have setting "composite": true.
 tsconfig.json(22,5): error TS6306: Referenced project 'C:/Users/estev/OneDrive/Desktop/Hyscode/packages/skills' must have setting "composite": true.
+

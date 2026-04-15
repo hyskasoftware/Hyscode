@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useFileStore } from './file-store';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -49,6 +50,25 @@ export interface GitFileContent {
   modified: string;
 }
 
+export interface CommitFileChange {
+  path: string;
+  status: string;
+  insertions: number;
+  deletions: number;
+}
+
+export interface CommitDetail {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  email: string;
+  timestamp: number;
+  files: CommitFileChange[];
+  total_insertions: number;
+  total_deletions: number;
+}
+
 // ── Store ────────────────────────────────────────────────────────────────────
 
 interface GitState {
@@ -95,6 +115,19 @@ interface GitState {
   initRepo: () => Promise<void>;
   getFileContent: (filePath: string) => Promise<GitFileContent>;
   getDiff: (filePath: string, staged: boolean) => Promise<string>;
+
+  // New operations
+  push: (remote?: string, branch?: string) => Promise<string>;
+  pull: (remote?: string) => Promise<string>;
+  fetch: (remote?: string) => Promise<string>;
+  mergeBranch: (branch: string) => Promise<string>;
+  createTag: (name: string, message?: string) => Promise<void>;
+  unstageAll: () => Promise<void>;
+  discardAll: () => Promise<void>;
+  getCommitDetail: (hash: string) => Promise<CommitDetail>;
+  getCommitFileDiff: (hash: string, filePath: string) => Promise<string>;
+  startAutoRefresh: () => Promise<void>;
+  stopAutoRefresh: () => void;
 }
 
 function getRootPath(): string | null {
@@ -305,8 +338,121 @@ export const useGitStore = create<GitState>()(
       if (!rootPath) throw new Error('No project open');
       return invoke<string>('git_diff_file', { repoPath: rootPath, filePath, staged });
     },
+
+    push: async (remote, branch) => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      const result = await invoke<string>('git_push', {
+        repoPath: rootPath,
+        remote: remote ?? null,
+        branch: branch ?? null,
+      });
+      await get().refresh();
+      return result;
+    },
+
+    pull: async (remote) => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      const result = await invoke<string>('git_pull', {
+        repoPath: rootPath,
+        remote: remote ?? null,
+      });
+      await get().refresh();
+      return result;
+    },
+
+    fetch: async (remote) => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      const result = await invoke<string>('git_fetch', {
+        repoPath: rootPath,
+        remote: remote ?? null,
+      });
+      await get().refresh();
+      return result;
+    },
+
+    mergeBranch: async (branch) => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      const result = await invoke<string>('git_merge', { repoPath: rootPath, branch });
+      await get().refresh();
+      return result;
+    },
+
+    createTag: async (name, message) => {
+      const rootPath = getRootPath();
+      if (!rootPath) return;
+      await invoke('git_tag_create', {
+        repoPath: rootPath,
+        name,
+        message: message ?? null,
+      });
+    },
+
+    unstageAll: async () => {
+      const rootPath = getRootPath();
+      if (!rootPath) return;
+      const staged = get().staged;
+      if (staged.length === 0) return;
+      await invoke('git_unstage', { repoPath: rootPath, paths: staged.map((f) => f.path) });
+      await get().refresh();
+    },
+
+    discardAll: async () => {
+      const rootPath = getRootPath();
+      if (!rootPath) return;
+      const { unstaged, untracked } = get();
+      const allPaths = [...unstaged, ...untracked].map((f) => f.path);
+      if (allPaths.length === 0) return;
+      await invoke('git_discard', { repoPath: rootPath, paths: allPaths });
+      await get().refresh();
+    },
+
+    getCommitDetail: async (hash: string) => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      return invoke<CommitDetail>('git_commit_detail', { repoPath: rootPath, hash });
+    },
+
+    getCommitFileDiff: async (hash: string, filePath: string) => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      return invoke<string>('git_commit_file_diff', { repoPath: rootPath, hash, filePath });
+    },
+
+    startAutoRefresh: async () => {
+      // Guard: only start once
+      if (_autoRefreshUnlisten) return;
+      const rootPath = getRootPath();
+      if (!rootPath) return;
+
+      _autoRefreshUnlisten = await listen<unknown>('fs:changed', () => {
+        if (_autoRefreshTimer) clearTimeout(_autoRefreshTimer);
+        _autoRefreshTimer = setTimeout(() => {
+          useGitStore.getState().refresh();
+        }, 400);
+      });
+    },
+
+    stopAutoRefresh: () => {
+      if (_autoRefreshUnlisten) {
+        _autoRefreshUnlisten();
+        _autoRefreshUnlisten = null;
+      }
+      if (_autoRefreshTimer) {
+        clearTimeout(_autoRefreshTimer);
+        _autoRefreshTimer = null;
+      }
+    },
   })),
 );
+
+// ── Auto-refresh state (module-level) ────────────────────────────────────────
+
+let _autoRefreshUnlisten: UnlistenFn | null = null;
+let _autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── Auto-refresh on rootPath change ──────────────────────────────────────────
 
@@ -318,6 +464,10 @@ useFileStore.subscribe((state) => {
     if (rootPath) {
       useGitStore.getState().refresh();
       useGitStore.getState().fetchBranches();
+      // Start real-time auto-refresh via fs:changed events
+      useGitStore.getState().startAutoRefresh();
+    } else {
+      useGitStore.getState().stopAutoRefresh();
     }
   }
 });

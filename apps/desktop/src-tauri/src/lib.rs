@@ -67,6 +67,13 @@ pub fn run() {
             commands::git::git_stash,
             commands::git::git_stash_list,
             commands::git::git_stash_pop,
+            commands::git::git_commit_detail,
+            commands::git::git_commit_file_diff,
+            commands::git::git_push,
+            commands::git::git_pull,
+            commands::git::git_fetch,
+            commands::git::git_merge,
+            commands::git::git_tag_create,
             // PTY commands
             commands::pty::pty_spawn,
             commands::pty::pty_write,

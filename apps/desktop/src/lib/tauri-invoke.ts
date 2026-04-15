@@ -37,6 +37,25 @@ interface TauriCommands {
   git_branch_current: { args: { repoPath: string }; ret: string };
   git_branch_list: { args: { repoPath: string }; ret: Array<{ name: string; is_current: boolean; is_remote: boolean; upstream: string | null }> };
   git_branch_create: { args: { repoPath: string; name: string; checkout: boolean }; ret: void };
+  git_branch_delete: { args: { repoPath: string; name: string }; ret: void };
+  git_unstage: { args: { repoPath: string; paths: string[] }; ret: void };
+  git_discard: { args: { repoPath: string; paths: string[] }; ret: void };
+  git_remote_list: { args: { repoPath: string }; ret: Array<{ name: string; url: string }> };
+  git_ahead_behind: { args: { repoPath: string }; ret: { ahead: number; behind: number } };
+  git_stash: { args: { repoPath: string; message?: string }; ret: void };
+  git_stash_list: { args: { repoPath: string }; ret: Array<{ index: number; message: string }> };
+  git_stash_pop: { args: { repoPath: string; index: number }; ret: void };
+  git_log_file: { args: { repoPath: string; filePath: string; limit: number }; ret: Array<{ hash: string; short_hash: string; message: string; author: string; email: string; timestamp: number }> };
+  git_diff_hunks: { args: { repoPath: string; filePath: string; staged: boolean }; ret: Array<{ new_start: number; new_lines: number; old_lines: number }> };
+  git_file_content: { args: { repoPath: string; filePath: string }; ret: { original: string; modified: string } };
+  git_init: { args: { path: string }; ret: void };
+  git_commit_detail: { args: { repoPath: string; hash: string }; ret: { hash: string; short_hash: string; message: string; author: string; email: string; timestamp: number; files: Array<{ path: string; status: string; insertions: number; deletions: number }>; total_insertions: number; total_deletions: number } };
+  git_commit_file_diff: { args: { repoPath: string; hash: string; filePath: string }; ret: string };
+  git_push: { args: { repoPath: string; remote?: string; branch?: string }; ret: string };
+  git_pull: { args: { repoPath: string; remote?: string }; ret: string };
+  git_fetch: { args: { repoPath: string; remote?: string }; ret: string };
+  git_merge: { args: { repoPath: string; branch: string }; ret: string };
+  git_tag_create: { args: { repoPath: string; name: string; message?: string }; ret: void };
 
   // PTY — spawn returns the pty_id; output arrives via 'pty:data' events
   pty_spawn: { args: { shell?: string; cwd?: string; env?: Record<string, string> }; ret: string };

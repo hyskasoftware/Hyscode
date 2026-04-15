@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   GitBranch,
   RefreshCw,
@@ -10,11 +10,22 @@ import {
   MoreHorizontal,
   History,
   Archive,
+  ArrowUp,
+  ArrowDown,
+  Download,
+  GitMerge,
+  Tag,
+  Trash2,
+  RotateCcw,
+  GitFork,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { useGitStore, useEditorStore } from '../../../stores';
 import { getViewerType } from '../../../lib/utils';
 import { GitFileItem } from '../../git/git-file-item';
 import { GitLogView } from '../../git/git-log-view';
+import { promptInput, promptConfirm } from '../../ui/dialogs';
 import type { GitFile } from '../../../stores/git-store';
 
 type PanelMode = 'changes' | 'log';
@@ -35,11 +46,24 @@ export function GitView() {
   const stageFiles = useGitStore((s) => s.stageFiles);
   const stageAll = useGitStore((s) => s.stageAll);
   const unstageFiles = useGitStore((s) => s.unstageFiles);
+  const unstageAll = useGitStore((s) => s.unstageAll);
   const discardFiles = useGitStore((s) => s.discardFiles);
+  const discardAll = useGitStore((s) => s.discardAll);
   const commit = useGitStore((s) => s.commit);
   const setCommitMessage = useGitStore((s) => s.setCommitMessage);
   const initRepo = useGitStore((s) => s.initRepo);
   const stashChanges = useGitStore((s) => s.stashChanges);
+  const popStash = useGitStore((s) => s.popStash);
+  const fetchStashes = useGitStore((s) => s.fetchStashes);
+  const push = useGitStore((s) => s.push);
+  const pull = useGitStore((s) => s.pull);
+  const fetchRemote = useGitStore((s) => s.fetch);
+  const mergeBranch = useGitStore((s) => s.mergeBranch);
+  const createTag = useGitStore((s) => s.createTag);
+  const createBranch = useGitStore((s) => s.createBranch);
+  const checkoutBranch = useGitStore((s) => s.checkoutBranch);
+  const deleteBranch = useGitStore((s) => s.deleteBranch);
+  const fetchBranches = useGitStore((s) => s.fetchBranches);
 
   const openTab = useEditorStore((s) => s.openTab);
 
@@ -47,8 +71,12 @@ export function GitView() {
   const [showMenu, setShowMenu] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [opStatus, setOpStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
+
+  // Merge untracked into changes (unstaged + untracked = "Changes")
+  const changes = useMemo(() => [...unstaged, ...untracked], [unstaged, untracked]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -67,18 +95,152 @@ export function GitView() {
     refresh();
   }, [refresh]);
 
+  // Auto-clear operation status after 3s
+  useEffect(() => {
+    if (!opStatus) return;
+    const t = setTimeout(() => setOpStatus(null), 3000);
+    return () => clearTimeout(t);
+  }, [opStatus]);
+
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim() || staged.length === 0) return;
     setIsCommitting(true);
     setCommitError(null);
     try {
       await commit();
+      setOpStatus({ type: 'success', msg: 'Committed successfully' });
     } catch (err: any) {
       setCommitError(err.message ?? String(err));
     } finally {
       setIsCommitting(false);
     }
   }, [commitMessage, staged.length, commit]);
+
+  const runOp = useCallback(async (label: string, fn: () => Promise<unknown>) => {
+    setShowMenu(false);
+    try {
+      await fn();
+      setOpStatus({ type: 'success', msg: `${label} completed` });
+    } catch (err: any) {
+      setOpStatus({ type: 'error', msg: `${label} failed: ${err.message ?? err}` });
+    }
+  }, []);
+
+  // ── Dropdown operations ────────────────────────────────────────────────────
+
+  const handlePush = useCallback(() => runOp('Push', () => push()), [runOp, push]);
+  const handlePull = useCallback(() => runOp('Pull', () => pull()), [runOp, pull]);
+  const handleFetch = useCallback(() => runOp('Fetch', () => fetchRemote()), [runOp, fetchRemote]);
+
+  const handleStash = useCallback(async () => {
+    setShowMenu(false);
+    const msg = await promptInput({ title: 'Stash Changes (optional message)', placeholder: 'WIP' });
+    if (msg === null) return; // cancelled
+    await runOp('Stash', () => stashChanges(msg || undefined));
+  }, [runOp, stashChanges]);
+
+  const handlePopStash = useCallback(async () => {
+    setShowMenu(false);
+    await fetchStashes();
+    const stashList = useGitStore.getState().stashes;
+    if (stashList.length === 0) {
+      setOpStatus({ type: 'error', msg: 'No stashes to pop' });
+      return;
+    }
+    const pick = await promptInput({
+      title: `Pop Stash (index 0-${stashList.length - 1})`,
+      placeholder: '0',
+      defaultValue: '0',
+    });
+    if (pick === null) return;
+    const idx = parseInt(pick, 10);
+    if (isNaN(idx) || idx < 0 || idx >= stashList.length) {
+      setOpStatus({ type: 'error', msg: 'Invalid stash index' });
+      return;
+    }
+    await runOp('Pop Stash', () => popStash(idx));
+  }, [runOp, popStash, fetchStashes]);
+
+  const handleCreateBranch = useCallback(async () => {
+    setShowMenu(false);
+    const name = await promptInput({ title: 'Create Branch', placeholder: 'feature/my-branch' });
+    if (!name) return;
+    await runOp('Create Branch', () => createBranch(name, true));
+  }, [runOp, createBranch]);
+
+  const handleCheckoutBranch = useCallback(async () => {
+    setShowMenu(false);
+    await fetchBranches();
+    const branchList = useGitStore.getState().branches;
+    const localBranches = branchList.filter((b) => !b.is_remote && !b.is_current);
+    if (localBranches.length === 0) {
+      setOpStatus({ type: 'error', msg: 'No other branches available' });
+      return;
+    }
+    const name = await promptInput({
+      title: `Checkout Branch (${localBranches.map((b) => b.name).join(', ')})`,
+      placeholder: 'branch name',
+    });
+    if (!name) return;
+    await runOp('Checkout', () => checkoutBranch(name));
+  }, [runOp, checkoutBranch, fetchBranches]);
+
+  const handleDeleteBranch = useCallback(async () => {
+    setShowMenu(false);
+    await fetchBranches();
+    const branchList = useGitStore.getState().branches;
+    const localBranches = branchList.filter((b) => !b.is_remote && !b.is_current);
+    if (localBranches.length === 0) {
+      setOpStatus({ type: 'error', msg: 'No branches to delete' });
+      return;
+    }
+    const name = await promptInput({
+      title: `Delete Branch (${localBranches.map((b) => b.name).join(', ')})`,
+      placeholder: 'branch name',
+    });
+    if (!name) return;
+    const confirmed = await promptConfirm({ title: 'Delete Branch', description: `Delete branch "${name}"? This cannot be undone.` });
+    if (!confirmed) return;
+    await runOp('Delete Branch', () => deleteBranch(name));
+  }, [runOp, deleteBranch, fetchBranches]);
+
+  const handleMerge = useCallback(async () => {
+    setShowMenu(false);
+    await fetchBranches();
+    const branchList = useGitStore.getState().branches;
+    const localBranches = branchList.filter((b) => !b.is_remote && !b.is_current);
+    if (localBranches.length === 0) {
+      setOpStatus({ type: 'error', msg: 'No branches to merge' });
+      return;
+    }
+    const name = await promptInput({
+      title: `Merge Branch (${localBranches.map((b) => b.name).join(', ')})`,
+      placeholder: 'branch name to merge into current',
+    });
+    if (!name) return;
+    await runOp('Merge', () => mergeBranch(name));
+  }, [runOp, mergeBranch, fetchBranches]);
+
+  const handleCreateTag = useCallback(async () => {
+    setShowMenu(false);
+    const name = await promptInput({ title: 'Create Tag', placeholder: 'v1.0.0' });
+    if (!name) return;
+    const msg = await promptInput({ title: 'Tag Message (optional)', placeholder: 'Release v1.0.0' });
+    await runOp('Create Tag', () => createTag(name, msg || undefined));
+  }, [runOp, createTag]);
+
+  const handleDiscardAll = useCallback(async () => {
+    setShowMenu(false);
+    if (changes.length === 0) return;
+    const confirmed = await promptConfirm({ title: 'Discard All Changes', description: `Discard all ${changes.length} changes? This cannot be undone.` });
+    if (!confirmed) return;
+    await runOp('Discard All', () => discardAll());
+  }, [runOp, discardAll, changes.length]);
+
+  const handleUnstageAll = useCallback(async () => {
+    setShowMenu(false);
+    await runOp('Unstage All', () => unstageAll());
+  }, [runOp, unstageAll]);
 
   const openDiffTab = useCallback(
     (file: GitFile, isStaged: boolean) => {
@@ -129,7 +291,7 @@ export function GitView() {
     return <GitLogView onClose={() => setPanelMode('changes')} />;
   }
 
-  const totalChanges = staged.length + unstaged.length + untracked.length + conflicts.length;
+  const totalChanges = staged.length + changes.length + conflicts.length;
 
   return (
     <div className="flex h-full flex-col">
@@ -157,35 +319,65 @@ export function GitView() {
             <button
               onClick={() => setShowMenu(!showMenu)}
               className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="More actions"
+              title="Git operations"
             >
               <MoreHorizontal className="h-3 w-3" />
             </button>
             {showMenu && (
               <div
                 ref={menuRef}
-                className="absolute right-0 top-6 z-50 min-w-[140px] rounded-lg border border-border bg-background p-1 shadow-xl"
+                className="absolute right-0 top-6 z-50 min-w-[180px] max-h-[400px] overflow-auto rounded-lg border border-border bg-background p-1 shadow-xl"
               >
-                <MenuBtn
-                  icon={History}
-                  label="View History"
-                  onClick={() => { setShowMenu(false); setPanelMode('log'); }}
-                />
-                <MenuBtn
-                  icon={Archive}
-                  label="Stash Changes"
-                  onClick={async () => { setShowMenu(false); await stashChanges(); }}
-                />
-                <MenuBtn
-                  icon={Plus}
-                  label="Stage All"
-                  onClick={async () => { setShowMenu(false); await stageAll(); }}
-                />
+                {/* Remote */}
+                <MenuSection label="Remote">
+                  <MenuBtn icon={ArrowUp} label="Push" onClick={handlePush} />
+                  <MenuBtn icon={ArrowDown} label="Pull" onClick={handlePull} />
+                  <MenuBtn icon={Download} label="Fetch" onClick={handleFetch} />
+                </MenuSection>
+
+                <MenuDivider />
+
+                {/* Staging */}
+                <MenuSection label="Changes">
+                  <MenuBtn icon={Plus} label="Stage All" onClick={async () => { setShowMenu(false); await stageAll(); }} />
+                  <MenuBtn icon={Minus} label="Unstage All" onClick={handleUnstageAll} />
+                  <MenuBtn icon={RotateCcw} label="Discard All" onClick={handleDiscardAll} />
+                </MenuSection>
+
+                <MenuDivider />
+
+                {/* Branch */}
+                <MenuSection label="Branch">
+                  <MenuBtn icon={GitFork} label="Create Branch" onClick={handleCreateBranch} />
+                  <MenuBtn icon={GitBranch} label="Checkout Branch" onClick={handleCheckoutBranch} />
+                  <MenuBtn icon={Trash2} label="Delete Branch" onClick={handleDeleteBranch} />
+                  <MenuBtn icon={GitMerge} label="Merge Branch" onClick={handleMerge} />
+                </MenuSection>
+
+                <MenuDivider />
+
+                {/* Misc */}
+                <MenuSection label="Other">
+                  <MenuBtn icon={Archive} label="Stash Changes" onClick={handleStash} />
+                  <MenuBtn icon={Archive} label="Pop Stash" onClick={handlePopStash} />
+                  <MenuBtn icon={Tag} label="Create Tag" onClick={handleCreateTag} />
+                  <MenuBtn icon={History} label="View History" onClick={() => { setShowMenu(false); setPanelMode('log'); }} />
+                </MenuSection>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Operation status toast */}
+      {opStatus && (
+        <div className={`flex items-center gap-1.5 px-2 py-1 text-[10px] border-b border-border ${
+          opStatus.type === 'success' ? 'text-green-400 bg-green-500/5' : 'text-red-400 bg-red-500/5'
+        }`}>
+          {opStatus.type === 'success' ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+          <span className="truncate">{opStatus.msg}</span>
+        </div>
+      )}
 
       {/* Commit Input */}
       <div className="border-b border-border px-2 py-1.5">
@@ -227,11 +419,7 @@ export function GitView() {
         )}
 
         {conflicts.length > 0 && (
-          <FileSection
-            title="Merge Conflicts"
-            count={conflicts.length}
-            defaultOpen
-          >
+          <FileSection title="Merge Conflicts" count={conflicts.length} defaultOpen>
             {conflicts.map((f) => (
               <GitFileItem
                 key={`conflict:${f.path}`}
@@ -272,14 +460,14 @@ export function GitView() {
           </FileSection>
         )}
 
-        {unstaged.length > 0 && (
+        {changes.length > 0 && (
           <FileSection
             title="Changes"
-            count={unstaged.length}
+            count={changes.length}
             defaultOpen
             action={
               <button
-                onClick={() => stageFiles(unstaged.map((f) => f.path))}
+                onClick={() => stageFiles(changes.map((f) => f.path))}
                 className="flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground transition-colors"
                 title="Stage All"
               >
@@ -287,42 +475,14 @@ export function GitView() {
               </button>
             }
           >
-            {unstaged.map((f) => (
+            {changes.map((f) => (
               <GitFileItem
-                key={`unstaged:${f.path}`}
+                key={`change:${f.path}`}
                 file={f}
-                mode="unstaged"
+                mode={f.status === '?' ? 'untracked' : 'unstaged'}
                 onStage={() => stageFiles([f.path])}
                 onDiscard={() => discardFiles([f.path])}
-                onOpenDiff={() => openDiffTab(f, false)}
-                onOpenFile={() => openFileTab(f)}
-              />
-            ))}
-          </FileSection>
-        )}
-
-        {untracked.length > 0 && (
-          <FileSection
-            title="Untracked"
-            count={untracked.length}
-            defaultOpen
-            action={
-              <button
-                onClick={() => stageFiles(untracked.map((f) => f.path))}
-                className="flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                title="Stage All"
-              >
-                <Plus className="h-3 w-3" />
-              </button>
-            }
-          >
-            {untracked.map((f) => (
-              <GitFileItem
-                key={`untracked:${f.path}`}
-                file={f}
-                mode="untracked"
-                onStage={() => stageFiles([f.path])}
-                onDiscard={() => discardFiles([f.path])}
+                onOpenDiff={f.status !== '?' ? () => openDiffTab(f, false) : undefined}
                 onOpenFile={() => openFileTab(f)}
               />
             ))}
@@ -368,6 +528,21 @@ function FileSection({
       {open && children}
     </div>
   );
+}
+
+function MenuSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function MenuDivider() {
+  return <div className="my-1 h-px bg-border" />;
 }
 
 function MenuBtn({
