@@ -465,6 +465,21 @@ export class HarnessBridge {
     useAgentStore.getState().setMode(type as import('@/stores/agent-store').AgentMode);
   }
 
+  /** Resolve a pending mode switch delegation (approve or deny) */
+  resolveModeSwitch(approved: boolean): void {
+    const store = useAgentStore.getState();
+    const req = store.pendingModeSwitch;
+    if (!req) return;
+
+    if (approved) {
+      this.debug(`Delegação aprovada: ${req.fromMode} → ${req.toMode}`);
+      this.setAgentType(req.toMode as AgentType);
+    } else {
+      this.debug(`Delegação rejeitada: ${req.fromMode} → ${req.toMode}`);
+    }
+    store.resolveModeSwitch(approved);
+  }
+
   /** Resolve a pending approval from the UI */
   resolveApproval(id: string, approved: boolean): void {
     const resolver = this.approvalResolvers.get(id);
@@ -789,6 +804,17 @@ export class HarnessBridge {
             status: 'ok',
           });
         }
+        if (meta?.action === 'mode_switch' && meta.targetMode) {
+          const currentMode = useAgentStore.getState().mode;
+          const request = {
+            id: crypto.randomUUID(),
+            fromMode: currentMode,
+            toMode: meta.targetMode as AgentType,
+            reason: (meta.reason as string) || '',
+            contextSummary: (meta.contextSummary as string) || '',
+          };
+          store.setPendingModeSwitch(request);
+        }
         break;
       }
 
@@ -877,6 +903,25 @@ export class HarnessBridge {
           }
         });
 
+        break;
+      }
+
+      case 'mode_switch_request': {
+        const req = event.request;
+        this.debug(`Delegação solicitada: ${req.fromMode} → ${req.toMode} (${req.reason})`);
+        store.setPendingModeSwitch(req);
+        break;
+      }
+
+      case 'mode_switch_resolved': {
+        const req = event.request;
+        if (event.approved) {
+          this.debug(`Delegação aprovada: → ${req.toMode}`);
+          this.setAgentType(req.toMode as AgentType);
+        } else {
+          this.debug(`Delegação rejeitada: ${req.fromMode} → ${req.toMode}`);
+        }
+        store.setPendingModeSwitch(null);
         break;
       }
     }

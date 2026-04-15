@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { AgentType, SddStatus, SddTask } from '@hyscode/agent-harness';
+import type { AgentType, SddStatus, SddTask, ModeSwitchRequest } from '@hyscode/agent-harness';
 import type { MessageContent } from '@hyscode/ai-providers';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -137,6 +137,10 @@ interface AgentState {
   // Agent task tracking
   agentTasks: Array<{ id: number; title: string; status: string }>;
 
+  // Mode switch / delegation
+  pendingModeSwitch: ModeSwitchRequest | null;
+  delegationChain: Array<{ fromMode: AgentMode; toMode: AgentMode; reason: string }>;
+
   // Session history
   sessions: SessionSummary[];
   sessionsLoading: boolean;
@@ -197,6 +201,10 @@ interface AgentState {
   // Agent task tracking
   setAgentTasks: (tasks: Array<{ id: number; title: string; status: string }>) => void;
 
+  // Mode switch / delegation
+  setPendingModeSwitch: (request: ModeSwitchRequest | null) => void;
+  resolveModeSwitch: (approved: boolean) => void;
+
   // Session history
   setSessions: (sessions: SessionSummary[]) => void;
   setSessionsLoading: (loading: boolean) => void;
@@ -225,6 +233,8 @@ export const useAgentStore = create<AgentState>()(
     sddProgress: 0,
     tokenUsage: null,
     agentTasks: [],
+    pendingModeSwitch: null,
+    delegationChain: [],
     sessions: [],
     sessionsLoading: false,
     historyOpen: false,
@@ -344,6 +354,8 @@ export const useAgentStore = create<AgentState>()(
         state.sddTasks = [];
         state.sddProgress = 0;
         state.tokenUsage = null;
+        state.pendingModeSwitch = null;
+        state.delegationChain = [];
       }),
 
     // ─── Tool Calls ──────────────────────────────────────────────────
@@ -496,6 +508,28 @@ export const useAgentStore = create<AgentState>()(
     setAgentTasks: (tasks) =>
       set((state) => {
         state.agentTasks = tasks;
+      }),
+
+    // ─── Mode Switch / Delegation ────────────────────────────────────
+
+    setPendingModeSwitch: (request) =>
+      set((state) => {
+        state.pendingModeSwitch = request;
+      }),
+
+    resolveModeSwitch: (approved) =>
+      set((state) => {
+        const req = state.pendingModeSwitch;
+        if (!req) return;
+        if (approved) {
+          state.delegationChain.push({
+            fromMode: req.fromMode as AgentMode,
+            toMode: req.toMode as AgentMode,
+            reason: req.reason,
+          });
+          state.mode = req.toMode as AgentMode;
+        }
+        state.pendingModeSwitch = null;
       }),
 
     // ─── Session History ─────────────────────────────────────────────

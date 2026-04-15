@@ -1,4 +1,4 @@
-import { Send, Square, Paperclip, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check } from 'lucide-react';
+import { Send, Square, Paperclip, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check, ArrowRight } from 'lucide-react';
 import { useState, useRef, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -135,6 +135,7 @@ export function AgentInput() {
   const mode = useAgentStore((s) => s.mode);
   const setMode = useAgentStore((s) => s.setMode);
   const isStreaming = useAgentStore((s) => s.isStreaming);
+  const delegationChain = useAgentStore((s) => s.delegationChain);
   const activeModelId = useSettingsStore((s) => s.activeModelId);
   const activeProviderId = useSettingsStore((s) => s.activeProviderId);
   const enabledModels = useSettingsStore((s) => s.enabledModels);
@@ -296,6 +297,14 @@ export function AgentInput() {
               </DropdownMenu>
             );
           })()}
+
+          {/* Delegation chain badge */}
+          {delegationChain.length > 0 && (
+            <span className="flex items-center gap-1 rounded-pill bg-cyan-500/10 px-2 py-[3px] text-[10px] font-medium text-cyan-400">
+              <ArrowRight className="h-2.5 w-2.5" />
+              delegated
+            </span>
+          )}
 
           {/* Model selector */}
           <DropdownMenu>

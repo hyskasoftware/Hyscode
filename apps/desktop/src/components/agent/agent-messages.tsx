@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAgentStore } from '@/stores/agent-store';
 import { ToolCallGroup } from './tool-call-card';
 import { ApprovalDialog } from './approval-dialog';
+import { ModeSwitchDialog } from './mode-switch-dialog';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/stores/agent-store';
 
@@ -391,6 +392,9 @@ export function AgentMessages() {
           {pendingApprovals.map((approval) => (
             <ApprovalDialog key={approval.id} approval={approval} />
           ))}
+
+          {/* Pending mode switch delegation */}
+          <ModeSwitchDialog />
 
           {/* Scroll anchor */}
           <div ref={bottomRef} />

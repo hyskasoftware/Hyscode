@@ -229,9 +229,21 @@ export type HarnessEvent =
   | { type: 'sdd_phase_change'; phase: SddStatus }
   | { type: 'sdd_task_start'; task: SddTask }
   | { type: 'sdd_task_complete'; task: SddTask }
-  | { type: 'file_change_pending'; change: FileChangePending };
+  | { type: 'file_change_pending'; change: FileChangePending }
+  | { type: 'mode_switch_request'; request: ModeSwitchRequest }
+  | { type: 'mode_switch_resolved'; request: ModeSwitchRequest; approved: boolean };
 
 export type HarnessEventHandler = (event: HarnessEvent) => void;
+
+// ─── Mode Switch (Inter-Agent Delegation) ───────────────────────────────────
+
+export interface ModeSwitchRequest {
+  id: string;
+  fromMode: AgentType;
+  toMode: AgentType;
+  reason: string;
+  contextSummary: string;
+}
 
 // ─── Skill Types ────────────────────────────────────────────────────────────
 

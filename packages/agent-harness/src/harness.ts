@@ -562,6 +562,23 @@ export class Harness {
           }
         }
 
+        // Handle mode switch delegation request
+        if (record.output.metadata?.action === 'mode_switch') {
+          const targetMode = record.output.metadata.targetMode as string;
+          const reason = (record.output.metadata.reason as string) || '';
+          const contextSummary = (record.output.metadata.contextSummary as string) || '';
+          this.emit({
+            type: 'mode_switch_request',
+            request: {
+              id: crypto.randomUUID(),
+              fromMode: this.agentType,
+              toMode: targetMode as import('./types').AgentType,
+              reason,
+              contextSummary,
+            },
+          });
+        }
+
         // ── Tool output compaction ──
         // Compact large outputs to prevent context rot
         const rawOutput = record.output.success

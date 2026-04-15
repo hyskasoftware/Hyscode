@@ -62,7 +62,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     turnTimeoutMs: 300_000, // 5 minutes
     approvalMode: 'manual',
     verificationRequired: true,
-    allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'mcp', 'meta'],
+    allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'browser', 'mcp', 'meta'],
   },
   review: {
     mode: 'review',
@@ -72,8 +72,9 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     turnTimeoutMs: 180_000, // 3 minutes
     approvalMode: 'manual',
     verificationRequired: false,
-    allowedToolCategories: ['filesystem', 'git', 'meta'],
+    allowedToolCategories: ['filesystem', 'git', 'code', 'meta'],
     toolOverrides: {
+      allow: ['request_mode_switch'],
       deny: ['write_file', 'create_file', 'edit_file', 'run_terminal_command', 'git_commit'],
     },
   },
@@ -89,15 +90,16 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
   },
   plan: {
     mode: 'plan',
-    maxIterations: 15,
+    maxIterations: 20,
     maxInputTokens: 200_000,
     maxOutputTokens: 12_000,
-    turnTimeoutMs: 180_000, // 3 minutes
+    turnTimeoutMs: 300_000, // 5 minutes — plans need more analysis time
     approvalMode: 'manual',
     verificationRequired: false,
-    allowedToolCategories: ['filesystem', 'git', 'meta'],
+    allowedToolCategories: ['filesystem', 'git', 'code', 'meta'],
     toolOverrides: {
-      deny: ['write_file', 'create_file', 'edit_file', 'run_terminal_command', 'git_commit'],
+      allow: ['write_file', 'create_file', 'request_mode_switch'],
+      deny: ['edit_file', 'run_terminal_command', 'git_commit'],
     },
   },
 };

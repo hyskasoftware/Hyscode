@@ -843,6 +843,61 @@ export const manageTasksTool = defineTool(
   },
 );
 
+// ─── Mode Switch Tool ───────────────────────────────────────────────────────
+
+export const requestModeSwitchTool = defineTool(
+  'request_mode_switch',
+  `Request switching to a different agent mode to delegate work. This requires user approval.
+Use this when the current task is better handled by another agent:
+- Switch to "build" to implement code changes (from plan or review)
+- Switch to "review" to get a code review (from build or debug)
+- Switch to "debug" to diagnose and fix bugs (from review or build)
+- Switch to "plan" to create a detailed implementation plan
+The target agent will receive your context summary to continue the work seamlessly.`,
+  {
+    target_mode: {
+      type: 'string',
+      description: 'The agent mode to switch to: "chat" | "build" | "review" | "debug" | "plan"',
+    },
+    reason: {
+      type: 'string',
+      description: 'Why this switch is needed — explain clearly so the user can decide.',
+    },
+    context_summary: {
+      type: 'string',
+      description: 'Summary of relevant context, findings, and instructions for the target agent. Be detailed — this is the handoff document.',
+    },
+  },
+  ['target_mode', 'reason', 'context_summary'],
+  'meta',
+  true, // always requires user approval
+  async (input, _ctx) => {
+    const targetMode = String(input.target_mode);
+    const reason = String(input.reason);
+    const contextSummary = String(input.context_summary);
+
+    const validModes = ['chat', 'build', 'review', 'debug', 'plan'];
+    if (!validModes.includes(targetMode)) {
+      return {
+        success: false,
+        output: '',
+        error: `Invalid target mode "${targetMode}". Must be one of: ${validModes.join(', ')}`,
+      };
+    }
+
+    return {
+      success: true,
+      output: `Mode switch requested: → ${targetMode}. Awaiting user approval.`,
+      metadata: {
+        action: 'mode_switch',
+        targetMode,
+        reason,
+        contextSummary,
+      },
+    };
+  },
+);
+
 // ─── Export All Tools ───────────────────────────────────────────────────────
 
 export function getAllBuiltinTools(): ToolHandler[] {
@@ -872,5 +927,6 @@ export function getAllBuiltinTools(): ToolHandler[] {
     listSkillsTool,
     createSkillTool,
     manageTasksTool,
+    requestModeSwitchTool,
   ];
 }
