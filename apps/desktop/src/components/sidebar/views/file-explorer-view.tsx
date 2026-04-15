@@ -2,6 +2,7 @@ import { FolderOpen, RefreshCw, FilePlus, FolderPlus } from 'lucide-react';
 import { useFileStore, useProjectStore } from '../../../stores';
 import { pickFolder } from '../../../lib/tauri-dialog';
 import { tauriFs } from '../../../lib/tauri-fs';
+import { promptInput } from '../../ui/dialogs';
 import { FileTree } from './file-tree';
 
 export function FileExplorerView() {
@@ -26,12 +27,11 @@ export function FileExplorerView() {
 
   const handleNewFileAtRoot = async () => {
     if (!rootPath) return;
-    const name = prompt('New file name:');
+    const name = await promptInput({ title: 'New File', placeholder: 'Enter file name' });
     if (!name?.trim()) return;
     const sep = rootPath.includes('/') ? '/' : '\\';
     try {
       await tauriFs.createFile(rootPath + sep + name.trim(), '');
-      await openFolder(rootPath);
     } catch (err) {
       console.error('Failed to create file:', err);
     }
@@ -39,13 +39,12 @@ export function FileExplorerView() {
 
   const handleNewFolderAtRoot = async () => {
     if (!rootPath) return;
-    const name = prompt('New folder name:');
+    const name = await promptInput({ title: 'New Folder', placeholder: 'Enter folder name' });
     if (!name?.trim()) return;
     const sep = rootPath.includes('/') ? '/' : '\\';
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('create_directory', { path: rootPath + sep + name.trim() });
-      await openFolder(rootPath);
     } catch (err) {
       console.error('Failed to create folder:', err);
     }

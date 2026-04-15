@@ -30,4 +30,8 @@ export const tauriFs = {
   statPath: (path: string) => invoke<FileStat>('stat_path', { path }),
   searchFiles: (root: string, query: string, maxResults?: number) =>
     invoke<SearchResult[]>('search_files', { root, query, maxResults }),
+  watch: (path: string) => invoke<void>('fs_watch', { path }),
+  unwatch: (path: string) => invoke<void>('fs_unwatch', { path }),
+  copyPath: (from: string, to: string) => invoke<void>('copy_path', { from, to }),
+  renamePath: (from: string, to: string) => invoke<void>('rename_path', { from, to }),
 };

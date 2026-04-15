@@ -87,6 +87,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      file-icons-js:
+        specifier: ^1.1.0
+        version: 1.1.0
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
@@ -1575,6 +1578,9 @@ packages:
   figures@6.1.0:
     resolution: {integrity: sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==}
     engines: {node: '>=18'}
+
+  file-icons-js@1.1.0:
+    resolution: {integrity: sha512-EwR5RJoNIp5Wnzc+AF1oyBYZhOqPuPm0QHzfCaeh5KJpLB5lWIsxswiAwj3m8lIj7ddBzYBJDDnIr6IVrRCy8Q==}
 
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
@@ -4092,6 +4098,8 @@ snapshots:
   figures@6.1.0:
     dependencies:
       is-unicode-supported: 2.1.0
+
+  file-icons-js@1.1.0: {}
 
   fill-range@7.1.1:
     dependencies:

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { tauriFs } from '../lib/tauri-fs';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export interface FileNode {
   name: string;
@@ -12,10 +13,17 @@ export interface FileNode {
   isLoading?: boolean;
 }
 
+interface FsChangePayload {
+  kind: string;   // "create" | "modify" | "remove" | "rename"
+  paths: string[];
+}
+
 interface FileState {
   rootPath: string | null;
   tree: FileNode[];
   fileCache: Map<string, string>;
+  _watchUnlisten: UnlistenFn | null;
+  _refreshTimer: ReturnType<typeof setTimeout> | null;
   setRootPath: (path: string) => void;
   setTree: (tree: FileNode[]) => void;
   toggleExpand: (path: string) => void;
@@ -24,7 +32,10 @@ interface FileState {
   loadDirectory: (path: string) => Promise<FileNode[]>;
   openFolder: (path: string) => Promise<void>;
   expandDirectory: (path: string) => Promise<void>;
+  refreshExpandedDirs: () => Promise<void>;
   closeFolder: () => void;
+  startWatching: () => Promise<void>;
+  stopWatching: () => Promise<void>;
 }
 
 function entriesToNodes(entries: { name: string; path: string; is_dir: boolean; size: number }[]): FileNode[] {
@@ -44,6 +55,8 @@ export const useFileStore = create<FileState>()(
     rootPath: null,
     tree: [],
     fileCache: new Map(),
+    _watchUnlisten: null,
+    _refreshTimer: null,
 
     setRootPath: (path) =>
       set((state) => {
@@ -85,6 +98,9 @@ export const useFileStore = create<FileState>()(
     },
 
     openFolder: async (path) => {
+      // Stop any existing watcher
+      await get().stopWatching();
+
       set((state) => {
         state.rootPath = path;
         state.tree = [];
@@ -94,14 +110,19 @@ export const useFileStore = create<FileState>()(
       set((state) => {
         state.tree = nodes;
       });
+
+      // Start watching after loading
+      await get().startWatching();
     },
 
-    closeFolder: () =>
+    closeFolder: () => {
+      get().stopWatching();
       set((state) => {
         state.rootPath = null;
         state.tree = [];
         state.fileCache.clear();
-      }),
+      });
+    },
 
     expandDirectory: async (path) => {
       // Mark loading
@@ -136,6 +157,101 @@ export const useFileStore = create<FileState>()(
         };
         find(state.tree);
       });
+    },
+
+    refreshExpandedDirs: async () => {
+      const { rootPath, tree, loadDirectory } = get();
+      if (!rootPath) return;
+
+      // Collect all expanded directory paths
+      const expandedPaths: string[] = [];
+      const collectExpanded = (nodes: FileNode[]) => {
+        for (const n of nodes) {
+          if (n.isDir && n.isExpanded) {
+            expandedPaths.push(n.path);
+            if (n.children) collectExpanded(n.children);
+          }
+        }
+      };
+      collectExpanded(tree);
+
+      // Refresh root
+      const rootNodes = await loadDirectory(rootPath);
+      set((state) => {
+        state.tree = rootNodes;
+      });
+
+      // Re-expand previously expanded directories
+      for (const dirPath of expandedPaths) {
+        try {
+          const children = await loadDirectory(dirPath);
+          set((state) => {
+            const find = (nodes: FileNode[]): boolean => {
+              for (const n of nodes) {
+                if (n.path === dirPath) {
+                  n.children = children;
+                  n.isExpanded = true;
+                  n.isLoading = false;
+                  return true;
+                }
+                if (n.children && find(n.children)) return true;
+              }
+              return false;
+            };
+            find(state.tree);
+          });
+        } catch {
+          // Directory may have been deleted
+        }
+      }
+    },
+
+    startWatching: async () => {
+      const { rootPath } = get();
+      if (!rootPath) return;
+
+      try {
+        await tauriFs.watch(rootPath);
+      } catch (err) {
+        console.warn('[FileStore] Failed to start watcher:', err);
+        return;
+      }
+
+      const unlisten = await listen<FsChangePayload>('fs:changed', (_event) => {
+        // Debounce: batch rapid changes into a single refresh
+        const current = get();
+        if (current._refreshTimer) {
+          clearTimeout(current._refreshTimer);
+        }
+        const timer = setTimeout(() => {
+          get().refreshExpandedDirs().catch(console.error);
+        }, 300);
+        // Store timer reference (can't use set() for non-immer fields, use object mutation)
+        (get() as any)._refreshTimer = timer;
+      });
+
+      set((state) => {
+        state._watchUnlisten = unlisten as any;
+      });
+    },
+
+    stopWatching: async () => {
+      const state = get();
+      if (state._watchUnlisten) {
+        (state._watchUnlisten as UnlistenFn)();
+        set((s) => { s._watchUnlisten = null; });
+      }
+      if (state._refreshTimer) {
+        clearTimeout(state._refreshTimer);
+        set((s) => { s._refreshTimer = null; });
+      }
+      if (state.rootPath) {
+        try {
+          await tauriFs.unwatch(state.rootPath);
+        } catch {
+          // Ignore
+        }
+      }
     },
   })),
 );

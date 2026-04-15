@@ -9,6 +9,7 @@ import { WelcomePage } from './components/welcome';
 import { SettingsModal } from './components/settings';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from './components/ui/tooltip';
+import { DialogProvider } from './components/ui/dialogs';
 import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
 import { useLayoutStore } from './stores/layout-store';
 import { useSkillsStore } from './stores/skills-store';
@@ -268,6 +269,7 @@ export function App() {
   return (
     <TooltipProvider>
       {!rootPath ? <WelcomePage /> : <IDE />}
+      <DialogProvider />
     </TooltipProvider>
   );
 }

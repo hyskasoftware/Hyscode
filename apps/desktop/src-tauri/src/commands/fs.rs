@@ -1,6 +1,10 @@
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher, Event, EventKind};
+use tauri::{AppHandle, Emitter};
 
 #[derive(Serialize)]
 pub struct FileEntry {
@@ -271,4 +275,107 @@ pub fn list_dir_all(path: String) -> Result<Vec<FileEntry>, String> {
 
     entries.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then(a.name.cmp(&b.name)));
     Ok(entries)
+}
+
+// ── File System Watcher ──────────────────────────────────────────────────────
+
+pub struct FsWatcherState(pub Mutex<HashMap<String, RecommendedWatcher>>);
+
+#[derive(Clone, Serialize)]
+pub struct FsChangeEvent {
+    pub kind: String,    // "create" | "modify" | "remove" | "rename"
+    pub paths: Vec<String>,
+}
+
+fn event_kind_to_string(kind: &EventKind) -> Option<&'static str> {
+    match kind {
+        EventKind::Create(_) => Some("create"),
+        EventKind::Modify(_) => Some("modify"),
+        EventKind::Remove(_) => Some("remove"),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+pub fn fs_watch(path: String, app: AppHandle, state: tauri::State<'_, FsWatcherState>) -> Result<(), String> {
+    let mut watchers = state.0.lock().map_err(|e| e.to_string())?;
+
+    // If already watching this path, do nothing
+    if watchers.contains_key(&path) {
+        return Ok(());
+    }
+
+    let watch_path = PathBuf::from(&path);
+    if !watch_path.exists() {
+        return Err(format!("Path not found: {}", path));
+    }
+
+    let app_handle = app.clone();
+    let mut watcher = RecommendedWatcher::new(
+        move |res: Result<Event, notify::Error>| {
+            if let Ok(event) = res {
+                if let Some(kind_str) = event_kind_to_string(&event.kind) {
+                    let paths: Vec<String> = event.paths.iter()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .collect();
+                    let _ = app_handle.emit("fs:changed", FsChangeEvent {
+                        kind: kind_str.to_string(),
+                        paths,
+                    });
+                }
+            }
+        },
+        Config::default(),
+    ).map_err(|e| format!("Failed to create watcher: {}", e))?;
+
+    watcher.watch(&watch_path, RecursiveMode::Recursive)
+        .map_err(|e| format!("Failed to watch path: {}", e))?;
+
+    watchers.insert(path, watcher);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn fs_unwatch(path: String, state: tauri::State<'_, FsWatcherState>) -> Result<(), String> {
+    let mut watchers = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(mut watcher) = watchers.remove(&path) {
+        let watch_path = PathBuf::from(&path);
+        let _ = watcher.unwatch(&watch_path);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn copy_path(from: String, to: String) -> Result<(), String> {
+    let from_path = PathBuf::from(&from);
+    let to_path = PathBuf::from(&to);
+    if !from_path.exists() {
+        return Err(format!("Source not found: {}", from));
+    }
+    if from_path.is_dir() {
+        copy_dir_recursive(&from_path, &to_path)
+    } else {
+        if let Some(parent) = to_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dirs: {}", e))?;
+        }
+        fs::copy(&from_path, &to_path)
+            .map(|_| ())
+            .map_err(|e| format!("Failed to copy file: {}", e))
+    }
+}
+
+fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
+    fs::create_dir_all(dst).map_err(|e| format!("Failed to create dir: {}", e))?;
+    let entries = fs::read_dir(src).map_err(|e| format!("Failed to read dir: {}", e))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path).map_err(|e| format!("Failed to copy: {}", e))?;
+        }
+    }
+    Ok(())
 }

@@ -14,6 +14,7 @@ import { useEditorStore, useFileStore, useProjectStore, useSettingsStore } from 
 import { pickFile, pickFolder, saveFileDialog } from '../../lib/tauri-dialog';
 import { tauriFs } from '../../lib/tauri-fs';
 import { getViewerType } from '../../lib/utils';
+import { promptInput } from '../ui/dialogs';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export function FileMenu() {
@@ -44,13 +45,12 @@ export function FileMenu() {
 
   const handleNewFile = async () => {
     if (!rootPath) return;
-    const name = prompt('New file name:');
+    const name = await promptInput({ title: 'New File', placeholder: 'Enter file name' });
     if (!name?.trim()) return;
     const sep = rootPath.includes('/') ? '/' : '\\';
     const fullPath = rootPath + sep + name.trim();
     try {
       await tauriFs.createFile(fullPath, '');
-      await openFolder(rootPath);
       // Open the new file in a tab
       const fileName = name.trim();
       const ext = fileName.split('.').pop()?.toLowerCase() ?? '';

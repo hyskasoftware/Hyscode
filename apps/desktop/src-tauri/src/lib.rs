@@ -7,6 +7,7 @@ mod commands;
 use commands::keychain::KeychainState;
 use commands::lsp::LspState;
 use commands::db::DbState;
+use commands::fs::FsWatcherState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +20,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(commands::pty::PtyState(Mutex::new(HashMap::new())))
         .manage(LspState(Mutex::new(HashMap::new())))
+        .manage(FsWatcherState(Mutex::new(HashMap::new())))
         .manage(KeychainState(Mutex::new(commands::keychain::load_keychain())))
         .manage({
             let app_dir = dirs::data_dir()
@@ -38,6 +40,9 @@ pub fn run() {
             commands::fs::create_directory,
             commands::fs::get_home_dir,
             commands::fs::list_dir_all,
+            commands::fs::fs_watch,
+            commands::fs::fs_unwatch,
+            commands::fs::copy_path,
             // Git commands
             commands::git::git_is_repo,
             commands::git::git_init,
