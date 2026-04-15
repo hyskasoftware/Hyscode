@@ -28,7 +28,7 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
   const isInline = !className;
   if (isInline) {
     return (
-      <code className="rounded-[4px] bg-[#1e1e1e] px-1.5 py-0.5 text-[11px] font-mono text-[#e8912d]" {...props}>
+      <code className="rounded-[4px] bg-[#1e1e1e] px-1.5 py-0.5 text-[11px] font-mono text-[#e8912d] select-text cursor-text" {...props}>
         {children}
       </code>
     );
@@ -58,7 +58,7 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
           )}
         </button>
       </div>
-      <pre className="overflow-x-auto p-3 text-[11.5px] leading-[1.6]">
+      <pre className="overflow-x-auto p-3 text-[11.5px] leading-[1.6] select-text cursor-text">
         <code ref={codeRef} className={className} {...props}>
           {children}
         </code>
@@ -104,7 +104,7 @@ const REHYPE_PLUGINS = [rehypeHighlight];
 
 const MarkdownContent = memo(function MarkdownContent({ content }: { content: string }) {
   return (
-    <div className="agent-markdown text-[12.5px] leading-[1.7] text-foreground/90">
+    <div className="agent-markdown select-text cursor-text text-[12.5px] leading-[1.7] text-foreground/90">
       <ReactMarkdown
         remarkPlugins={REMARK_PLUGINS}
         rehypePlugins={REHYPE_PLUGINS}

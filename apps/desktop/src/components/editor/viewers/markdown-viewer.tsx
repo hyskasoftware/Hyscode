@@ -67,7 +67,7 @@ export function MarkdownViewer({
       {/* Content area */}
       {mode === 'preview' ? (
         <div className="flex-1 overflow-auto p-6">
-          <article className="markdown-preview">
+          <article className="markdown-preview select-text cursor-text">
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
               {content}
             </ReactMarkdown>
