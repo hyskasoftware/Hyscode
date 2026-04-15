@@ -6,5 +6,6 @@ export { useProjectStore } from './project-store';
 export { useGitStore } from './git-store';
 export { useTerminalStore } from './terminal-store';
 export { useExtensionStore } from './extension-store';
+export { useLspStore } from './lsp-store';
 export { useSkillsStore } from './skills-store';
 export { useLayoutStore } from './layout-store';

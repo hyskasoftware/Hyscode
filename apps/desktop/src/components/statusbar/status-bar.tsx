@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
-import { GitBranch, Circle, Blocks } from 'lucide-react';
+import { GitBranch, Circle, Blocks, Zap } from 'lucide-react';
 import { useGitStore, useEditorStore, useExtensionStore } from '../../stores';
+import { useLspStore } from '../../stores/lsp-store';
+import { detectLanguage } from '../../lib/lsp-bridge';
 import { BranchPicker } from '../git/branch-picker';
 
 export function StatusBar() {
@@ -18,6 +20,10 @@ export function StatusBar() {
 
   const statusBarItems = useExtensionStore((s) => s.contributions.statusBarItems);
   const extensionCount = useExtensionStore((s) => s.extensions.filter((e) => e.enabled).length);
+
+  const serverStatuses = useLspStore((s) => s.serverStatuses);
+  const activeLang = activeTab?.filePath ? detectLanguage(activeTab.filePath) : undefined;
+  const lspInfo = activeLang ? serverStatuses[activeLang] : undefined;
 
   const [branchPickerOpen, setBranchPickerOpen] = useState(false);
   const branchRef = useRef<HTMLButtonElement>(null);
@@ -68,6 +74,23 @@ export function StatusBar() {
           )}
           <span>UTF-8</span>
           <span>{activeTab?.language ?? 'Plain Text'}</span>
+          {lspInfo && (
+            <span
+              className={`flex items-center gap-1 ${
+                lspInfo.status === 'ready'
+                  ? 'text-success'
+                  : lspInfo.status === 'starting'
+                    ? 'text-yellow-400'
+                    : lspInfo.status === 'error'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground'
+              }`}
+              title={`${lspInfo.displayName}: ${lspInfo.status}`}
+            >
+              <Zap className="h-2.5 w-2.5" />
+              <span>{lspInfo.status === 'ready' ? 'LSP' : lspInfo.status}</span>
+            </span>
+          )}
         </div>
       </footer>
       <BranchPicker

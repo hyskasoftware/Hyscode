@@ -7,6 +7,7 @@ import {
   GitBranch,
   Settings2,
   BrainCircuit,
+  Braces,
 } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import { EditorTab } from './tabs/editor-tab';
@@ -15,12 +16,14 @@ import { TerminalTab } from './tabs/terminal-tab';
 import { GitTab } from './tabs/git-tab';
 import { GeneralTab } from './tabs/general-tab';
 import { AiTab } from './tabs/ai-tab';
+import { LanguageServersTab } from './tabs/language-servers-tab';
 
-type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai';
+type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages';
 
 const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'editor', icon: Code2, label: 'Editor' },
   { id: 'theme', icon: Palette, label: 'Themes' },
+  { id: 'languages', icon: Braces, label: 'Languages' },
   { id: 'terminal', icon: Terminal, label: 'Terminal' },
   { id: 'git', icon: GitBranch, label: 'Git' },
   { id: 'ai', icon: BrainCircuit, label: 'AI & Providers' },
@@ -30,6 +33,7 @@ const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
 const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
   editor: <EditorTab />,
   theme: <ThemeTab />,
+  languages: <LanguageServersTab />,
   terminal: <TerminalTab />,
   git: <GitTab />,
   ai: <AiTab />,

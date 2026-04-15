@@ -89,6 +89,7 @@ pub fn run() {
             commands::lsp::lsp_send,
             commands::lsp::lsp_stop,
             commands::lsp::lsp_list_active,
+            commands::lsp::lsp_probe_server,
             // Keychain commands
             commands::keychain::keychain_set,
             commands::keychain::keychain_get,

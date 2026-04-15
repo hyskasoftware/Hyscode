@@ -21,6 +21,7 @@ import { saveFileDialog } from '../../lib/tauri-dialog';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
 import { useAgentDecorations } from '../../hooks/use-agent-decorations';
 import { defineAllMonacoThemes, getMonacoThemeName } from '../../lib/monaco-themes';
+import { LspBridge, detectLanguage } from '../../lib/lsp-bridge';
 import type * as monacoEditor from 'monaco-editor';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -192,14 +193,39 @@ export function EditorArea() {
     };
   }, [activeTab?.filePath]);
 
+  // Track previous active tab for LSP close notifications
+  const prevTabRef = useRef<{ filePath: string; language: string } | null>(null);
+
+  // Notify LSP when a text file is opened / closed
+  useEffect(() => {
+    // Close previous document
+    if (prevTabRef.current) {
+      const { filePath, language } = prevTabRef.current;
+      LspBridge.onFileClosed(filePath, language).catch(() => {});
+    }
+
+    // Open new document
+    if (activeTab && isTextViewer && content !== null) {
+      const lang = detectLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
+      LspBridge.onFileOpened(activeTab.filePath, lang, content).catch(() => {});
+      prevTabRef.current = { filePath: activeTab.filePath, language: lang };
+    } else {
+      prevTabRef.current = null;
+    }
+  }, [activeTab?.filePath, isTextViewer, content !== null]);
+
   const handleEditorChange = useCallback(
     (value: string | undefined) => {
       if (!activeTab || value === undefined) return;
       contentRef.current = value;
       setFileContent(activeTab.filePath, value);
       markDirty(activeTab.id, true);
+
+      // Notify LSP of content change (debounced inside bridge)
+      const lang = detectLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
+      LspBridge.onFileChanged(activeTab.filePath, lang, value);
     },
-    [activeTab?.id, activeTab?.filePath, markDirty, setFileContent],
+    [activeTab?.id, activeTab?.filePath, activeTab?.language, markDirty, setFileContent],
   );
 
   // Save with Ctrl+S (only for text-editable viewers)
@@ -303,7 +329,10 @@ export function EditorArea() {
                 editorInstanceRef.current = editor;
                 monacoInstanceRef.current = monaco;
               }}
-              beforeMount={defineAllMonacoThemes}
+              beforeMount={(monaco) => {
+                defineAllMonacoThemes(monaco);
+                LspBridge.setMonaco(monaco);
+              }}
               options={{
                 fontFamily: `'${editorFontFamily}', 'JetBrains Mono', 'Fira Code', monospace`,
                 fontSize: editorFontSize,

@@ -3,6 +3,9 @@ export type { LspConnectionStatus } from './lsp-connection';
 export { TauriLspTransport } from './tauri-transport';
 export { MonacoLspAdapter } from './monaco-adapter';
 export { LspManager } from './lsp-manager';
+export { registerAllLanguages, detectLanguage } from './language-registry';
+export { BUILTIN_SERVERS, getBuiltinServerForLanguage, getBuiltinServerById, getUniqueServerCommands } from './builtin-servers';
+export type { BuiltinServerConfig } from './builtin-servers';
 export type {
   LspMessage,
   LspRequest,

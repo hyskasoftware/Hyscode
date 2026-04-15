@@ -17,6 +17,8 @@ import { useEffect, useRef } from 'react';
 import { pickFolder, pickFile } from './lib/tauri-dialog';
 import { initProviders } from './lib/init-providers';
 import { HarnessBridge } from './lib/harness-bridge';
+import { LspBridge } from './lib/lsp-bridge';
+import { startExtensionLspSync } from './lib/extension-lsp-bridge';
 import { getViewerType } from './lib/utils';
 
 import { isLightTheme } from './lib/monaco-themes';
@@ -46,6 +48,8 @@ function IDE() {
   const fileRootPath = useFileStore((s) => s.rootPath);
   const openFolder = useFileStore((s) => s.openFolder);
   const bridgeInitRef = useRef(false);
+  const lspInitRef = useRef(false);
+  const extSyncRef = useRef<(() => void) | null>(null);
 
   const terminalLocation = useLayoutStore((s) => s.terminalLocation);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
@@ -85,6 +89,35 @@ function IDE() {
     return () => {
       HarnessBridge.destroy();
       bridgeInitRef.current = false;
+    };
+  }, [projectRootPath]);
+
+  // Initialize LspBridge when project is open
+  useEffect(() => {
+    if (!projectRootPath || lspInitRef.current) return;
+    lspInitRef.current = true;
+
+    (async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const { listen } = await import('@tauri-apps/api/event');
+        await LspBridge.init(
+          invoke as Parameters<typeof LspBridge.init>[0],
+          listen as unknown as Parameters<typeof LspBridge.init>[1],
+          projectRootPath,
+        );
+        // Sync extension-contributed language servers
+        extSyncRef.current = startExtensionLspSync();
+      } catch (err) {
+        console.warn('[App] Failed to initialize LSP bridge:', err);
+      }
+    })();
+
+    return () => {
+      extSyncRef.current?.();
+      extSyncRef.current = null;
+      LspBridge.destroy();
+      lspInitRef.current = false;
     };
   }, [projectRootPath]);
 

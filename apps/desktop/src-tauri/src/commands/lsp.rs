@@ -165,3 +165,81 @@ pub async fn lsp_list_active(app: tauri::AppHandle) -> Result<Vec<String>, Strin
 
     Ok(processes.keys().cloned().collect())
 }
+
+/// Check if a command exists on the system PATH or in common package manager global bin directories.
+/// Returns true if the command is found, false otherwise.
+#[tauri::command]
+pub async fn lsp_probe_server(command: String) -> Result<bool, String> {
+    // 1. Try `where` / `which` against the current PATH
+    #[cfg(target_os = "windows")]
+    let path_found = std::process::Command::new("where")
+        .arg(&command)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    #[cfg(not(target_os = "windows"))]
+    let path_found = std::process::Command::new("which")
+        .arg(&command)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    if path_found {
+        return Ok(true);
+    }
+
+    // 2. Fallback: check common package-manager global bin directories directly.
+    //    On Windows, npm installs `.cmd` wrappers; on Unix plain executables.
+    #[cfg(target_os = "windows")]
+    {
+        let candidates: Vec<std::path::PathBuf> = {
+            let mut v = vec![];
+            // %APPDATA%\npm  (npm / pnpm global on Windows)
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                let base = std::path::PathBuf::from(&appdata).join("npm");
+                v.push(base.join(format!("{}.cmd", command)));
+                v.push(base.join(&command));
+            }
+            // %LOCALAPPDATA%\pnpm
+            if let Ok(local) = std::env::var("LOCALAPPDATA") {
+                let base = std::path::PathBuf::from(&local).join("pnpm");
+                v.push(base.join(format!("{}.cmd", command)));
+                v.push(base.join(&command));
+            }
+            v
+        };
+        for p in &candidates {
+            if p.exists() {
+                return Ok(true);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let candidates: Vec<std::path::PathBuf> = vec![
+            // npm global (default prefix)
+            std::path::PathBuf::from(&home).join(".npm-global/bin").join(&command),
+            // pnpm global
+            std::path::PathBuf::from(&home).join(".local/share/pnpm").join(&command),
+            // yarn global
+            std::path::PathBuf::from(&home).join(".yarn/bin").join(&command),
+            // system npm via /usr/local/bin
+            std::path::PathBuf::from("/usr/local/bin").join(&command),
+            std::path::PathBuf::from("/usr/bin").join(&command),
+        ];
+        for p in &candidates {
+            if p.exists() {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
+}
