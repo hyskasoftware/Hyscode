@@ -20,7 +20,9 @@ pub async fn lsp_start(
     root_path: String,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
-    let mut child = Command::new(&command)
+    // Resolve the full path to the command if it's not directly on PATH.
+    let resolved = resolve_lsp_command(&command);
+    let mut child = Command::new(&resolved)
         .args(&args)
         .current_dir(&root_path)
         .stdin(Stdio::piped())
@@ -242,4 +244,72 @@ pub async fn lsp_probe_server(command: String) -> Result<bool, String> {
     }
 
     Ok(false)
+}
+
+/// Resolve an LSP command to its full path, checking common global bin directories
+/// if the command isn't found directly on PATH.
+fn resolve_lsp_command(command: &str) -> String {
+    // First check if the command is directly available
+    #[cfg(target_os = "windows")]
+    let on_path = std::process::Command::new("where")
+        .arg(command)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    #[cfg(not(target_os = "windows"))]
+    let on_path = std::process::Command::new("which")
+        .arg(command)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    if on_path {
+        return command.to_string();
+    }
+
+    // Fallback: check common package-manager global bin directories
+    #[cfg(target_os = "windows")]
+    {
+        let mut candidates: Vec<std::path::PathBuf> = vec![];
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            let base = std::path::PathBuf::from(&appdata).join("npm");
+            candidates.push(base.join(format!("{}.cmd", command)));
+            candidates.push(base.join(command));
+        }
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            let base = std::path::PathBuf::from(&local).join("pnpm");
+            candidates.push(base.join(format!("{}.cmd", command)));
+            candidates.push(base.join(command));
+        }
+        for p in &candidates {
+            if p.exists() {
+                return p.to_string_lossy().to_string();
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let candidates: Vec<std::path::PathBuf> = vec![
+            std::path::PathBuf::from(&home).join(".npm-global/bin").join(command),
+            std::path::PathBuf::from(&home).join(".local/share/pnpm").join(command),
+            std::path::PathBuf::from(&home).join(".yarn/bin").join(command),
+            std::path::PathBuf::from("/usr/local/bin").join(command),
+            std::path::PathBuf::from("/usr/bin").join(command),
+        ];
+        for p in &candidates {
+            if p.exists() {
+                return p.to_string_lossy().to_string();
+            }
+        }
+    }
+
+    // Return original command as-is if no resolution found
+    command.to_string()
 }

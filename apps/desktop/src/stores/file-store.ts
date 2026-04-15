@@ -22,6 +22,7 @@ interface FileState {
   rootPath: string | null;
   tree: FileNode[];
   fileCache: Map<string, string>;
+  showHidden: boolean;
   _watchUnlisten: UnlistenFn | null;
   _refreshTimer: ReturnType<typeof setTimeout> | null;
   setRootPath: (path: string) => void;
@@ -34,6 +35,7 @@ interface FileState {
   expandDirectory: (path: string) => Promise<void>;
   refreshExpandedDirs: () => Promise<void>;
   closeFolder: () => void;
+  toggleShowHidden: () => Promise<void>;
   startWatching: () => Promise<void>;
   stopWatching: () => Promise<void>;
 }
@@ -55,6 +57,9 @@ export const useFileStore = create<FileState>()(
     rootPath: null,
     tree: [],
     fileCache: new Map(),
+    showHidden: (() => {
+      try { return localStorage.getItem('hscode-show-hidden') === 'true'; } catch { return false; }
+    })(),
     _watchUnlisten: null,
     _refreshTimer: null,
 
@@ -93,7 +98,7 @@ export const useFileStore = create<FileState>()(
     getFileContent: (path) => get().fileCache.get(path),
 
     loadDirectory: async (path) => {
-      const entries = await tauriFs.listDir(path);
+      const entries = await tauriFs.listDir(path, get().showHidden);
       return entriesToNodes(entries);
     },
 
@@ -204,6 +209,14 @@ export const useFileStore = create<FileState>()(
           // Directory may have been deleted
         }
       }
+    },
+
+    toggleShowHidden: async () => {
+      const newVal = !get().showHidden;
+      set((state) => { state.showHidden = newVal; });
+      try { localStorage.setItem('hscode-show-hidden', String(newVal)); } catch {}
+      const { rootPath, openFolder } = get();
+      if (rootPath) await openFolder(rootPath);
     },
 
     startWatching: async () => {

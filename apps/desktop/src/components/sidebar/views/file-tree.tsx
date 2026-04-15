@@ -204,6 +204,7 @@ function FileTreeNode({
       : '';
 
   const isActive = !node.isDir && tabs.find((t) => t.filePath === node.path)?.id === activeTabId;
+  const isHidden = node.name.startsWith('.');
 
   const handleClick = async () => {
     if (node.isDir) {
@@ -259,7 +260,7 @@ function FileTreeNode({
         onContextMenu={(e) => onContextMenu(e, node)}
         className={`flex w-full items-center gap-1 rounded-sm px-1 py-[3px] text-[11px] transition-colors ${
           isActive ? 'bg-accent-muted' : 'hover:bg-surface-raised'
-        } ${nameColorClass || 'text-foreground'}`}
+        } ${nameColorClass || 'text-foreground'} ${isHidden ? 'opacity-60' : ''}`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
         {node.isDir ? (
@@ -590,9 +591,7 @@ export function FileTree() {
     setContextMenu(null);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      // Open the containing folder with the OS file manager
-      const target = node.isDir ? node.path : getParentPath(node.path);
-      await invoke('plugin:shell|open', { path: target });
+      await invoke('reveal_path', { path: node.path });
     } catch (err) {
       console.error('Failed to reveal in file manager:', err);
     }

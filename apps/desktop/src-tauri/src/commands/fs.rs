@@ -75,7 +75,8 @@ pub fn delete_path(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn list_dir(path: String) -> Result<Vec<FileEntry>, String> {
+pub fn list_dir(path: String, show_hidden: Option<bool>) -> Result<Vec<FileEntry>, String> {
+    let show_hidden = show_hidden.unwrap_or(false);
     let path = PathBuf::from(&path);
     if !path.is_dir() {
         return Err(format!("Not a directory: {}", path.display()));
@@ -91,8 +92,13 @@ pub fn list_dir(path: String) -> Result<Vec<FileEntry>, String> {
             .map_err(|e| format!("Failed to read metadata: {}", e))?;
         let name = entry.file_name().to_string_lossy().to_string();
 
-        // Skip hidden files and common ignore patterns
-        if name.starts_with('.') || name == "node_modules" || name == "target" {
+        // Always skip heavy build/dependency directories
+        if name == "node_modules" || name == "target" {
+            continue;
+        }
+
+        // Skip hidden entries unless explicitly requested
+        if !show_hidden && name.starts_with('.') {
             continue;
         }
 
@@ -377,5 +383,44 @@ fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
             fs::copy(&src_path, &dst_path).map_err(|e| format!("Failed to copy: {}", e))?;
         }
     }
+    Ok(())
+}
+
+/// Open the OS file manager and highlight/select the given path.
+#[tauri::command]
+pub fn reveal_path(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("Path not found: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg("/select,")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to reveal: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to reveal: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Try xdg-open on the parent directory
+        let target = if p.is_dir() { p } else { p.parent().unwrap_or(&p).to_path_buf() };
+        std::process::Command::new("xdg-open")
+            .arg(target.to_string_lossy().to_string())
+            .spawn()
+            .map_err(|e| format!("Failed to reveal: {}", e))?;
+    }
+
     Ok(())
 }

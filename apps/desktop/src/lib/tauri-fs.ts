@@ -26,7 +26,8 @@ export const tauriFs = {
   writeFile: (path: string, content: string) => invoke<void>('write_file', { path, content }),
   createFile: (path: string, content?: string) => invoke<void>('create_file', { path, content }),
   deletePath: (path: string) => invoke<void>('delete_path', { path }),
-  listDir: (path: string) => invoke<FileEntry[]>('list_dir', { path }),
+  listDir: (path: string, showHidden?: boolean) =>
+    invoke<FileEntry[]>('list_dir', { path, showHidden: showHidden ?? false }),
   statPath: (path: string) => invoke<FileStat>('stat_path', { path }),
   searchFiles: (root: string, query: string, maxResults?: number) =>
     invoke<SearchResult[]>('search_files', { root, query, maxResults }),

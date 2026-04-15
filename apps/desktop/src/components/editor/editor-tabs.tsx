@@ -1,14 +1,25 @@
-import { X, Circle, GitCompare, Wand2, Loader2 } from 'lucide-react';
+import { X, Circle, GitCompare, Wand2, Loader2, Pin } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import { useEditorStore } from '../../stores';
 import { useAgentStore } from '../../stores/agent-store';
 import { useShallow } from 'zustand/shallow';
+import { TabContextMenu } from './tab-context-menu';
 import type { AgentEditPhase } from '../../stores/agent-store';
+import type { Tab } from '../../stores/editor-store';
 
 export function EditorTabs() {
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const closeTab = useEditorStore((s) => s.closeTab);
+
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: Tab } | null>(null);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, tab: Tab) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, tab });
+  }, []);
 
   // Map filePath → phase for active edit sessions
   const editPhaseMap = useAgentStore(
@@ -42,7 +53,11 @@ export function EditorTabs() {
                 : 'text-muted-foreground hover:text-foreground hover:bg-surface-raised'
             }`}
             onClick={() => setActiveTab(tab.id)}
+            onContextMenu={(e) => handleContextMenu(e, tab)}
           >
+            {tab.isPinned && (
+              <Pin className="h-2.5 w-2.5 shrink-0 text-accent opacity-60" />
+            )}
             {isDiff && <GitCompare className="h-3 w-3 shrink-0 text-accent" />}
             {isStreaming && !isDiff && (
               <Loader2 className="h-3 w-3 shrink-0 text-purple-400 animate-spin" />
@@ -50,7 +65,7 @@ export function EditorTabs() {
             {isPendingReview && !isDiff && (
               <Wand2 className="h-3 w-3 shrink-0 text-purple-400" />
             )}
-            <span className="truncate max-w-[120px]">{tab.fileName}</span>
+            <span className={`truncate max-w-[120px] ${tab.isPreview ? 'italic' : ''}`}>{tab.fileName}</span>
             {tab.isDirty && (
               <Circle className="h-2 w-2 shrink-0 fill-accent text-accent" />
             )}
@@ -67,6 +82,15 @@ export function EditorTabs() {
           </div>
         );
       })}
+
+      {contextMenu && (
+        <TabContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          tab={contextMenu.tab}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

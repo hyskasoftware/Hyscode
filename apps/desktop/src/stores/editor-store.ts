@@ -28,10 +28,14 @@ interface EditorState {
   openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview' | 'type' | 'diffProps' | 'viewerType' | 'markdownMode'> & { type?: Tab['type']; diffProps?: Tab['diffProps']; viewerType?: ViewerType; markdownMode?: Tab['markdownMode'] }) => void;
   openUntitled: () => void;
   closeTab: (id: string) => void;
+  closeOtherTabs: (id: string) => void;
+  closeTabsToTheRight: (id: string) => void;
+  closeSavedTabs: () => void;
   closeAllTabs: () => void;
   setActiveTab: (id: string) => void;
   markDirty: (id: string, dirty: boolean) => void;
   pinTab: (id: string) => void;
+  unpinTab: (id: string) => void;
   setMarkdownMode: (id: string, mode: 'preview' | 'code') => void;
 }
 
@@ -104,6 +108,30 @@ export const useEditorStore = create<EditorState>()(
         state.activeTabId = null;
       }),
 
+    closeOtherTabs: (id) =>
+      set((state) => {
+        state.tabs = state.tabs.filter((t) => t.id === id);
+        state.activeTabId = id;
+      }),
+
+    closeTabsToTheRight: (id) =>
+      set((state) => {
+        const idx = state.tabs.findIndex((t) => t.id === id);
+        if (idx < 0) return;
+        state.tabs = state.tabs.slice(0, idx + 1);
+        if (state.activeTabId && !state.tabs.find((t) => t.id === state.activeTabId)) {
+          state.activeTabId = id;
+        }
+      }),
+
+    closeSavedTabs: () =>
+      set((state) => {
+        state.tabs = state.tabs.filter((t) => t.isDirty);
+        if (state.activeTabId && !state.tabs.find((t) => t.id === state.activeTabId)) {
+          state.activeTabId = state.tabs[state.tabs.length - 1]?.id ?? null;
+        }
+      }),
+
     setActiveTab: (id) =>
       set((state) => {
         state.activeTabId = id;
@@ -121,6 +149,14 @@ export const useEditorStore = create<EditorState>()(
         if (tab) {
           tab.isPinned = true;
           tab.isPreview = false;
+        }
+      }),
+
+    unpinTab: (id) =>
+      set((state) => {
+        const tab = state.tabs.find((t) => t.id === id);
+        if (tab) {
+          tab.isPinned = false;
         }
       }),
 

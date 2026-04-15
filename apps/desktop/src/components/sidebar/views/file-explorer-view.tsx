@@ -1,4 +1,4 @@
-import { FolderOpen, RefreshCw, FilePlus, FolderPlus } from 'lucide-react';
+import { FolderOpen, RefreshCw, FilePlus, FolderPlus, Eye, EyeOff } from 'lucide-react';
 import { useFileStore, useProjectStore } from '../../../stores';
 import { pickFolder } from '../../../lib/tauri-dialog';
 import { tauriFs } from '../../../lib/tauri-fs';
@@ -8,6 +8,8 @@ import { FileTree } from './file-tree';
 export function FileExplorerView() {
   const rootPath = useFileStore((s) => s.rootPath);
   const openFolder = useFileStore((s) => s.openFolder);
+  const showHidden = useFileStore((s) => s.showHidden);
+  const toggleShowHidden = useFileStore((s) => s.toggleShowHidden);
   const projectName = useProjectStore((s) => s.name);
   const openProject = useProjectStore((s) => s.openProject);
 
@@ -86,6 +88,17 @@ export function FileExplorerView() {
             title="New Folder"
           >
             <FolderPlus className="h-3 w-3" />
+          </button>
+          <button
+            onClick={toggleShowHidden}
+            className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors ${
+              showHidden
+                ? 'text-foreground bg-muted'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+            title={showHidden ? 'Hide Hidden Files' : 'Show Hidden Files'}
+          >
+            {showHidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
           </button>
           <button
             onClick={handleRefresh}

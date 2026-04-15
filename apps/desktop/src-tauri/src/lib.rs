@@ -43,6 +43,7 @@ pub fn run() {
             commands::fs::fs_watch,
             commands::fs::fs_unwatch,
             commands::fs::copy_path,
+            commands::fs::reveal_path,
             // Git commands
             commands::git::git_is_repo,
             commands::git::git_init,
