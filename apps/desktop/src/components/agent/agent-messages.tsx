@@ -28,7 +28,7 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
   const isInline = !className;
   if (isInline) {
     return (
-      <code className="rounded-[4px] bg-[#1e1e1e] px-1.5 py-0.5 text-[11px] font-mono text-[#e8912d] select-text cursor-text" {...props}>
+      <code className="rounded-[3px] bg-accent/8 px-1.5 py-[1px] text-[11.5px] font-mono text-accent select-text cursor-text" {...props}>
         {children}
       </code>
     );
@@ -37,18 +37,25 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
   const lang = className?.replace('hljs language-', '').replace('language-', '') ?? '';
 
   return (
-    <div className="group/code relative my-2 overflow-hidden rounded-md border border-border/40 bg-[#0d1117]">
+    <div className="group/code relative my-2.5 overflow-hidden rounded-lg border border-border/30 bg-[#0d1117] shadow-sm shadow-black/10">
       {/* Header bar */}
-      <div className="flex h-7 items-center justify-between border-b border-border/30 bg-[#161b22] px-3">
-        <span className="text-[10px] font-medium text-muted-foreground">{lang || 'code'}</span>
+      <div className="flex h-8 items-center justify-between border-b border-border/20 bg-[#161b22]/80 px-3">
+        <div className="flex items-center gap-1.5">
+          <div className="flex gap-1">
+            <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
+            <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
+            <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
+          </div>
+          <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">{lang || 'code'}</span>
+        </div>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
         >
           {copied ? (
             <>
               <Check className="h-3 w-3 text-green-400" />
-              <span className="text-green-400">Copied</span>
+              <span className="text-green-400">Copied!</span>
             </>
           ) : (
             <>
@@ -58,7 +65,7 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
           )}
         </button>
       </div>
-      <pre className="overflow-x-auto p-3 text-[11.5px] leading-[1.6] select-text cursor-text">
+      <pre className="overflow-x-auto p-3.5 text-[11.5px] leading-[1.7] select-text cursor-text">
         <code ref={codeRef} className={className} {...props}>
           {children}
         </code>
@@ -73,30 +80,40 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
 const MARKDOWN_COMPONENTS = {
   code: CodeBlock as any,
   pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-  p: ({ children }: { children?: React.ReactNode }) => <p className="my-1.5">{children}</p>,
-  ul: ({ children }: { children?: React.ReactNode }) => <ul className="my-1.5 ml-4 list-disc space-y-0.5">{children}</ul>,
-  ol: ({ children }: { children?: React.ReactNode }) => <ol className="my-1.5 ml-4 list-decimal space-y-0.5">{children}</ol>,
-  li: ({ children }: { children?: React.ReactNode }) => <li className="text-foreground/85">{children}</li>,
-  h1: ({ children }: { children?: React.ReactNode }) => <h1 className="mb-2 mt-4 text-[15px] font-semibold text-foreground">{children}</h1>,
-  h2: ({ children }: { children?: React.ReactNode }) => <h2 className="mb-1.5 mt-3 text-[14px] font-semibold text-foreground">{children}</h2>,
-  h3: ({ children }: { children?: React.ReactNode }) => <h3 className="mb-1 mt-2.5 text-[13px] font-semibold text-foreground">{children}</h3>,
+  p: ({ children }: { children?: React.ReactNode }) => <p className="my-1.5 leading-[1.75]">{children}</p>,
+  ul: ({ children }: { children?: React.ReactNode }) => <ul className="my-2 ml-4 list-disc space-y-1 marker:text-muted-foreground/40">{children}</ul>,
+  ol: ({ children }: { children?: React.ReactNode }) => <ol className="my-2 ml-4 list-decimal space-y-1 marker:text-muted-foreground/40">{children}</ol>,
+  li: ({ children }: { children?: React.ReactNode }) => <li className="text-foreground/85 pl-0.5">{children}</li>,
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h1 className="mb-2 mt-5 flex items-center gap-2 text-[15px] font-semibold text-foreground">
+      <span className="inline-block h-4 w-[3px] rounded-full bg-accent/70" />{children}
+    </h1>
+  ),
+  h2: ({ children }: { children?: React.ReactNode }) => (
+    <h2 className="mb-1.5 mt-4 flex items-center gap-2 text-[14px] font-semibold text-foreground">
+      <span className="inline-block h-3.5 w-[2px] rounded-full bg-accent/50" />{children}
+    </h2>
+  ),
+  h3: ({ children }: { children?: React.ReactNode }) => <h3 className="mb-1 mt-3 text-[13px] font-semibold text-foreground">{children}</h3>,
   strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-foreground">{children}</strong>,
+  em: ({ children }: { children?: React.ReactNode }) => <em className="italic text-foreground/75">{children}</em>,
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-    <a href={href} className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" target="_blank" rel="noopener noreferrer">
+    <a href={href} className="text-accent underline decoration-accent/30 underline-offset-2 transition-colors hover:decoration-accent hover:text-accent/90" target="_blank" rel="noopener noreferrer">
       {children}
     </a>
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="my-2 border-l-2 border-accent/40 pl-3 text-muted-foreground italic">{children}</blockquote>
+    <blockquote className="my-2.5 rounded-r-md border-l-[3px] border-accent/40 bg-accent/[0.04] py-1 pl-3 pr-2 text-muted-foreground italic">{children}</blockquote>
   ),
   table: ({ children }: { children?: React.ReactNode }) => (
-    <div className="my-2 overflow-x-auto rounded-md border border-border/40">
+    <div className="my-2.5 overflow-x-auto rounded-lg border border-border/30 shadow-sm shadow-black/5">
       <table className="w-full text-[11px]">{children}</table>
     </div>
   ),
-  th: ({ children }: { children?: React.ReactNode }) => <th className="border-b border-border/40 bg-surface-raised px-3 py-1.5 text-left font-medium text-foreground">{children}</th>,
-  td: ({ children }: { children?: React.ReactNode }) => <td className="border-b border-border/20 px-3 py-1.5 text-foreground/80">{children}</td>,
-  hr: () => <hr className="my-3 border-border/30" />,
+  thead: ({ children }: { children?: React.ReactNode }) => <thead className="bg-surface-raised/60">{children}</thead>,
+  th: ({ children }: { children?: React.ReactNode }) => <th className="border-b border-border/30 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</th>,
+  td: ({ children }: { children?: React.ReactNode }) => <td className="border-b border-border/15 px-3 py-1.5 text-foreground/80">{children}</td>,
+  hr: () => <hr className="my-4 border-0 h-px bg-gradient-to-r from-transparent via-border/40 to-transparent" />,
 };
 
 const REMARK_PLUGINS = [remarkGfm];
@@ -123,34 +140,40 @@ const ThinkingBlock = memo(function ThinkingBlock({ content, isStreaming }: { co
   const lineCount = useMemo(() => content.split('\n').length, [content]);
 
   return (
-    <div className="my-1.5 rounded-md border border-border/30 bg-[#161b22]/60 overflow-hidden">
+    <div className="agent-fade-in my-2 overflow-hidden rounded-lg border border-purple-500/15 bg-purple-500/[0.03]">
+      {/* Shimmer bar at top when streaming */}
+      {isStreaming && (
+        <div className="h-[2px] w-full agent-shimmer-bar opacity-40" />
+      )}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-purple-500/[0.03]"
       >
         {expanded ? (
-          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <ChevronDown className="h-3 w-3 shrink-0 text-purple-400/60" />
         ) : (
-          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <ChevronRight className="h-3 w-3 shrink-0 text-purple-400/60" />
         )}
-        <Brain className="h-3 w-3 shrink-0 text-purple-400/70" />
-        <span className="text-[10px] font-medium text-purple-400/70">Thinking</span>
+        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-500/10">
+          <Brain className="h-3 w-3 text-purple-400" />
+        </div>
+        <span className="text-[11px] font-medium text-purple-400/80">Thinking</span>
         {isStreaming && (
-          <span className="ml-1 flex items-center gap-0.5">
-            <span className="h-1 w-1 animate-pulse rounded-full bg-purple-400/60" />
-            <span className="h-1 w-1 animate-pulse rounded-full bg-purple-400/60 [animation-delay:150ms]" />
-            <span className="h-1 w-1 animate-pulse rounded-full bg-purple-400/60 [animation-delay:300ms]" />
+          <span className="ml-1 flex items-center gap-[3px]">
+            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-purple-400/70" />
+            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-purple-400/70" style={{ animationDelay: '0.16s' }} />
+            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-purple-400/70" style={{ animationDelay: '0.32s' }} />
           </span>
         )}
         {!isStreaming && (
-          <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/50">
+          <span className="ml-auto rounded-full bg-purple-500/8 px-2 py-0.5 text-[9px] tabular-nums text-purple-400/50">
             {lineCount} lines
           </span>
         )}
       </button>
       {expanded && (
-        <div className="border-t border-border/20 px-3 py-2 max-h-[300px] overflow-y-auto">
-          <pre className="whitespace-pre-wrap text-[11px] leading-[1.6] text-muted-foreground/70 font-mono">
+        <div className="border-t border-purple-500/10 px-3.5 py-2.5 max-h-[300px] overflow-y-auto">
+          <pre className="whitespace-pre-wrap text-[11px] leading-[1.65] text-muted-foreground/60 font-mono">
             {content}
           </pre>
         </div>
@@ -163,13 +186,16 @@ const ThinkingBlock = memo(function ThinkingBlock({ content, isStreaming }: { co
 
 function StreamingIndicator() {
   return (
-    <div className="flex items-center gap-2 py-1">
-      <div className="flex items-center gap-1">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:150ms]" />
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:300ms]" />
+    <div className="agent-fade-in flex items-center gap-2.5 py-2">
+      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10">
+        <Sparkles className="h-3 w-3 text-accent animate-pulse" />
       </div>
-      <span className="text-[11px] text-muted-foreground">Thinking...</span>
+      <div className="flex items-center gap-[3px]">
+        <span className="agent-dot-bounce h-[5px] w-[5px] rounded-full bg-accent/70" />
+        <span className="agent-dot-bounce h-[5px] w-[5px] rounded-full bg-accent/70" style={{ animationDelay: '0.16s' }} />
+        <span className="agent-dot-bounce h-[5px] w-[5px] rounded-full bg-accent/70" style={{ animationDelay: '0.32s' }} />
+      </div>
+      <span className="text-[11px] text-muted-foreground/70">Generating response...</span>
     </div>
   );
 }
@@ -179,17 +205,18 @@ function StreamingIndicator() {
 const ReasoningText = memo(function ReasoningText({ content }: { content: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="mb-1">
+    <div className="mb-1.5">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-muted-foreground/80 transition-colors"
+        className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] text-muted-foreground/50 transition-colors hover:bg-white/[0.02] hover:text-muted-foreground/80"
       >
         {open ? <ChevronDown className="h-2.5 w-2.5" /> : <ChevronRight className="h-2.5 w-2.5" />}
+        <Brain className="h-2.5 w-2.5" />
         <span>Reasoning</span>
       </button>
       {open && (
-        <div className="mt-1 max-h-[160px] overflow-y-auto rounded border border-border/20 bg-[#0d1117]/40 px-2.5 py-1.5">
-          <div className="text-[11px] leading-relaxed text-muted-foreground/60">
+        <div className="agent-fade-in mt-1 max-h-[180px] overflow-y-auto rounded-md border border-border/15 bg-surface-raised/40 px-3 py-2">
+          <div className="text-[11px] leading-[1.65] text-muted-foreground/60">
             {content}
           </div>
         </div>
@@ -202,9 +229,14 @@ const ReasoningText = memo(function ReasoningText({ content }: { content: string
 
 const ErrorMessage = memo(function ErrorMessage({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2.5">
-      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-      <p className="text-[12px] leading-relaxed text-red-300/90">{message}</p>
+    <div className="agent-fade-in flex items-start gap-2.5 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-3.5 py-3">
+      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-red-500/10">
+        <AlertCircle className="h-3 w-3 text-red-400" />
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-red-400/70">Error</span>
+        <p className="text-[12px] leading-relaxed text-red-300/90">{message}</p>
+      </div>
     </div>
   );
 });
@@ -231,12 +263,12 @@ const MessageItem = memo(function MessageItem({
     <div className="group/msg">
       {/* User message */}
       {msg.role === 'user' && (
-        <div className="mb-3 mt-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
-              <User className="h-3 w-3 text-foreground/70" />
+        <div className="mb-3 mt-2">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted/80">
+              <User className="h-3 w-3 text-foreground/60" />
             </div>
-            <span className="text-[11px] font-semibold text-foreground">You</span>
+            <span className="text-[11px] font-semibold text-foreground/90">You</span>
           </div>
           <div className="pl-7">
             <MarkdownContent content={msg.content} />
@@ -246,13 +278,16 @@ const MessageItem = memo(function MessageItem({
 
       {/* Assistant message */}
       {msg.role === 'assistant' && (
-        <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-1')}>
+        <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-2')}>
           {!isConsecutiveAssistant && (
-            <div className="flex items-center gap-2 mb-1">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent/12">
                 <Bot className="h-3 w-3 text-accent" />
               </div>
-              <span className="text-[11px] font-semibold text-foreground">HysCode</span>
+              <span className="text-[11px] font-semibold text-foreground/90">HysCode</span>
+              {isActivelyStreaming && (
+                <span className="h-1.5 w-1.5 rounded-full bg-accent agent-pulse-ring" />
+              )}
             </div>
           )}
           <div className="pl-7">
@@ -282,7 +317,7 @@ const MessageItem = memo(function MessageItem({
         </div>
       )}
 
-      {showSeparator && <div className="border-b border-border/20 my-2" />}
+      {showSeparator && <div className="my-3 h-px bg-gradient-to-r from-transparent via-border/25 to-transparent" />}
     </div>
   );
 });
