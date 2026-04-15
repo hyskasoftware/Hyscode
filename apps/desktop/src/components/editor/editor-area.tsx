@@ -22,6 +22,7 @@ import { useGitDecorations } from '../../hooks/use-git-decorations';
 import { useAgentDecorations } from '../../hooks/use-agent-decorations';
 import { defineAllMonacoThemes, getMonacoThemeName } from '../../lib/monaco-themes';
 import { LspBridge, detectLanguage } from '../../lib/lsp-bridge';
+import { registerAllLanguages } from '@hyscode/lsp-client';
 import type * as monacoEditor from 'monaco-editor';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -321,7 +322,7 @@ export function EditorArea() {
           <Suspense fallback={<EditorLoading />}>
             <MonacoEditor
               key={activeTab.filePath}
-              language={activeTab.language}
+              language={detectLanguage(activeTab.filePath)}
               value={content ?? ''}
               onChange={handleEditorChange}
               theme={monacoTheme}
@@ -331,6 +332,7 @@ export function EditorArea() {
               }}
               beforeMount={(monaco) => {
                 defineAllMonacoThemes(monaco);
+                registerAllLanguages(monaco);
                 LspBridge.setMonaco(monaco);
               }}
               options={{

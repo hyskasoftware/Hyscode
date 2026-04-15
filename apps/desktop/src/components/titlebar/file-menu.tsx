@@ -15,6 +15,7 @@ import { pickFile, pickFolder, saveFileDialog } from '../../lib/tauri-dialog';
 import { tauriFs } from '../../lib/tauri-fs';
 import { getViewerType } from '../../lib/utils';
 import { promptInput } from '../ui/dialogs';
+import { detectLanguage } from '../../lib/lsp-bridge';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export function FileMenu() {
@@ -53,12 +54,11 @@ export function FileMenu() {
       await tauriFs.createFile(fullPath, '');
       // Open the new file in a tab
       const fileName = name.trim();
-      const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
       openTab({
         id: fullPath,
         filePath: fullPath,
         fileName,
-        language: ext || 'plaintext',
+        language: detectLanguage(fullPath),
         viewerType: getViewerType(fileName),
       });
     } catch (err) {
@@ -71,12 +71,11 @@ export function FileMenu() {
     if (!path) return;
     const sep = path.includes('/') ? '/' : '\\';
     const fileName = path.split(sep).pop() ?? 'file';
-    const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
     openTab({
       id: path,
       filePath: path,
       fileName,
-      language: ext || 'plaintext',
+      language: detectLanguage(path),
       viewerType: getViewerType(fileName),
     });
   };

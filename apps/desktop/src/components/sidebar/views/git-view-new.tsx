@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useGitStore, useEditorStore } from '../../../stores';
 import { getViewerType } from '../../../lib/utils';
+import { detectLanguage } from '../../../lib/lsp-bridge';
 import { GitFileItem } from '../../git/git-file-item';
 import { GitLogView } from '../../git/git-log-view';
 import { promptInput, promptConfirm } from '../../ui/dialogs';
@@ -249,7 +250,7 @@ export function GitView() {
         id: `diff:${isStaged ? 'staged' : 'unstaged'}:${file.path}`,
         filePath: file.path,
         fileName: `${fileName} (${isStaged ? 'Staged' : 'Working Tree'})`,
-        language: getLanguageFromPath(file.path),
+        language: detectLanguage(file.path),
         type: 'diff',
         diffProps: { filePath: file.path, staged: isStaged },
       });
@@ -264,7 +265,7 @@ export function GitView() {
         id: file.path,
         filePath: file.path,
         fileName,
-        language: getLanguageFromPath(file.path),
+        language: detectLanguage(file.path),
         viewerType: getViewerType(fileName),
       });
     },
@@ -567,14 +568,4 @@ function MenuBtn({
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getLanguageFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  const map: Record<string, string> = {
-    ts: 'typescript', tsx: 'typescriptreact',
-    js: 'javascript', jsx: 'javascriptreact',
-    json: 'json', md: 'markdown', css: 'css', html: 'html',
-    rs: 'rust', py: 'python', toml: 'toml', yaml: 'yaml',
-    yml: 'yaml', sql: 'sql', sh: 'shell',
-  };
-  return map[ext] || 'plaintext';
-}
+// Language detection delegated to detectLanguage() from @hyscode/lsp-client

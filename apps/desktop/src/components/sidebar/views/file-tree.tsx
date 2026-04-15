@@ -15,6 +15,7 @@ import {
 import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
 import { tauriFs } from '../../../lib/tauri-fs';
 import { getViewerType } from '../../../lib/utils';
+import { detectLanguage } from '../../../lib/lsp-bridge';
 import { getFileIcon, getFolderIcon, FolderIcon as DefaultFolderIcon } from './file-icons';
 import { promptInput, promptConfirm } from '../../ui/dialogs';
 import type { FileNode } from '../../../stores/file-store';
@@ -74,15 +75,7 @@ function getDirGitInfo(
   return { count, dominantStatus };
 }
 
-function getLanguage(name: string): string {
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  const map: Record<string, string> = {
-    ts: 'typescript', tsx: 'typescriptreact', js: 'javascript', jsx: 'javascriptreact',
-    json: 'json', md: 'markdown', css: 'css', html: 'html', rs: 'rust', py: 'python',
-    toml: 'toml', yaml: 'yaml', yml: 'yaml', sql: 'sql', sh: 'shell', bash: 'shell',
-  };
-  return map[ext] || 'plaintext';
-}
+// Language detection delegated to detectLanguage() from @hyscode/lsp-client
 
 function sortNodes(nodes: FileNode[]): FileNode[] {
   return [...nodes].sort((a, b) => {
@@ -228,7 +221,7 @@ function FileTreeNode({
           id: node.path,
           filePath: node.path,
           fileName: node.name,
-          language: getLanguage(node.name),
+          language: detectLanguage(node.path),
           viewerType: getViewerType(node.name),
         });
       }

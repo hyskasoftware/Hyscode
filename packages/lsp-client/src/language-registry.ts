@@ -9,10 +9,13 @@ type MonacoInstance = typeof import('monaco-editor');
 
 const EXTENSION_MAP: Record<string, string> = {
   // TypeScript / JavaScript
+  // tsx/jsx map to typescript/javascript so Monaco's built-in tokenizer provides
+  // full syntax highlighting. The TypeScript language service is configured below
+  // to understand JSX syntax.
   ts: 'typescript',
-  tsx: 'typescriptreact',
+  tsx: 'typescript',
   js: 'javascript',
-  jsx: 'javascriptreact',
+  jsx: 'javascript',
   mjs: 'javascript',
   cjs: 'javascript',
   mts: 'typescript',
@@ -305,26 +308,41 @@ export function registerAllLanguages(monaco: MonacoInstance): void {
 // ── Individual Language Registrations ────────────────────────────────────────
 
 function registerTypescriptReact(monaco: MonacoInstance) {
-  // Monaco has typescript but not typescriptreact as a separate language
-  // Register it as an alias that uses the typescript tokenizer
-  const existing = monaco.languages.getLanguages().find((l) => l.id === 'typescriptreact');
-  if (existing) return;
+  // Configure Monaco's TypeScript language service to understand JSX/TSX syntax.
+  // Both .ts/.tsx use 'typescript' and .js/.jsx use 'javascript' as language IDs
+  // so that Monaco's built-in Monarch tokenizer provides full syntax highlighting.
+  // Cast to any because monaco.languages.typescript is marked deprecated in v0.55+ types
+  // but the runtime API still exists and works.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tsLang = (monaco.languages as any).typescript;
+  if (!tsLang) return;
 
-  monaco.languages.register({
-    id: 'typescriptreact',
-    extensions: ['.tsx'],
-    aliases: ['TypeScript React', 'TSX'],
-    mimetypes: ['text/typescriptreact'],
-  });
+  const { typescriptDefaults, javascriptDefaults, JsxEmit, ScriptTarget, ModuleResolutionKind } = tsLang;
 
-  // Also register javascriptreact if missing
-  const existingJsx = monaco.languages.getLanguages().find((l) => l.id === 'javascriptreact');
-  if (!existingJsx) {
-    monaco.languages.register({
-      id: 'javascriptreact',
-      extensions: ['.jsx'],
-      aliases: ['JavaScript React', 'JSX'],
-      mimetypes: ['text/javascriptreact'],
+  if (typescriptDefaults) {
+    typescriptDefaults.setCompilerOptions({
+      ...typescriptDefaults.getCompilerOptions(),
+      jsx: JsxEmit?.ReactJSX ?? 4,
+      jsxFactory: 'React.createElement',
+      jsxFragmentFactory: 'React.Fragment',
+      target: ScriptTarget?.ESNext ?? 99,
+      moduleResolution: ModuleResolutionKind?.NodeJs ?? 2,
+      allowSyntheticDefaultImports: true,
+      esModuleInterop: true,
+      allowJs: true,
+      noEmit: true,
+    });
+  }
+
+  if (javascriptDefaults) {
+    javascriptDefaults.setCompilerOptions({
+      ...javascriptDefaults.getCompilerOptions(),
+      jsx: JsxEmit?.ReactJSX ?? 4,
+      jsxFactory: 'React.createElement',
+      jsxFragmentFactory: 'React.Fragment',
+      target: ScriptTarget?.ESNext ?? 99,
+      allowJs: true,
+      noEmit: true,
     });
   }
 }
@@ -789,7 +807,7 @@ function registerIgnore(monaco: MonacoInstance) {
 }
 
 function registerIni(monaco: MonacoInstance) {
-  const existing = monaco.languages.getLanguages().find((l) => l.id === 'ini');
+  const existing = monaco.languages.getLanguages().find((l: { id: string }) => l.id === 'ini');
   if (existing) return;
 
   monaco.languages.register({

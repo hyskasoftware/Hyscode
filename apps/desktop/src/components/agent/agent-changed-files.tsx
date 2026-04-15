@@ -4,17 +4,8 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useEditorStore } from '@/stores/editor-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { cn } from '@/lib/utils';
+import { detectLanguage } from '@/lib/lsp-bridge';
 import type { AgentEditSession } from '@/stores/agent-store';
-
-function getLanguage(filePath: string): string {
-  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
-  const map: Record<string, string> = {
-    ts: 'typescript', tsx: 'typescriptreact', js: 'javascript', jsx: 'javascriptreact',
-    json: 'json', css: 'css', html: 'html', md: 'markdown', rs: 'rust',
-    py: 'python', toml: 'toml', yaml: 'yaml', yml: 'yaml',
-  };
-  return map[ext] ?? 'plaintext';
-}
 
 function computeLineCounts(session: AgentEditSession) {
   const oldLines = session.originalContent?.split('\n').length ?? 0;
@@ -62,7 +53,7 @@ export function AgentChangedFiles() {
       id: filePath,
       filePath,
       fileName,
-      language: getLanguage(filePath),
+      language: detectLanguage(filePath),
     });
   };
 
