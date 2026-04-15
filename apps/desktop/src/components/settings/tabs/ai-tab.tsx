@@ -239,7 +239,10 @@ export function AiTab() {
 
       {/* ─── Generation Settings ───────────────────────────────────── */}
       <Section title="Generation">
-        <Row label="Temperature">
+        <Row
+          label="Temperature"
+          description="Controls creativity: 0.0 = deterministic, 1.0 = balanced, 2.0 = highly creative. Lower values produce consistent code; higher values produce varied responses."
+        >
           <NumberInput
             value={store.temperature}
             onChange={(v) => store.set('temperature', v)}
