@@ -45,6 +45,138 @@ const SEVERITY_CONFIG: Record<ReviewSeverity, { label: string; color: string; bg
   p2: { label: 'Suggestion', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/25' },
 };
 
+const CATEGORIES = ['bug', 'style', 'performance', 'security', 'logic', 'readability', 'other'] as const;
+
+// ─── Inline Comment Form ─────────────────────────────────────────────────────
+// Floats inside the editor container anchored to a specific line
+
+interface InlineFormProps {
+  line: number;
+  top: number;
+  filePath: string;
+  onClose: () => void;
+}
+
+function InlineCommentForm({ line, top, filePath, onClose }: InlineFormProps) {
+  const addComment = useReviewStore((s) => s.addComment);
+  const [message, setMessage] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  const [severity, setSeverity] = useState<ReviewSeverity>('p1');
+  const [category, setCategory] = useState<string>('bug');
+  const msgRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    msgRef.current?.focus();
+  }, []);
+
+  const handleSubmit = () => {
+    if (!message.trim()) return;
+    addComment({
+      id: crypto.randomUUID(),
+      filePath,
+      line,
+      severity,
+      category,
+      message: message.trim(),
+      suggestion: suggestion.trim() || undefined,
+      resolved: false,
+    });
+    onClose();
+  };
+
+  return (
+    <div
+      style={{ position: 'absolute', left: 8, right: 8, top: top + 22, zIndex: 50 }}
+      className="rounded-lg border border-border/50 bg-surface shadow-xl"
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border/30 px-3 py-1.5">
+        <div className="flex items-center gap-1.5">
+          <Plus className="h-3 w-3 text-accent" />
+          <span className="text-[10px] font-semibold text-foreground">Comment on line {line}</span>
+        </div>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+
+      <div className="p-2.5 space-y-2">
+        {/* Severity + Category */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-0.5 rounded bg-surface-raised p-0.5">
+            {(['p0', 'p1', 'p2'] as ReviewSeverity[]).map((s) => {
+              const cfg = SEVERITY_CONFIG[s];
+              return (
+                <button
+                  key={s}
+                  onClick={() => setSeverity(s)}
+                  className={cn(
+                    'rounded px-2 py-0.5 text-[9px] font-bold uppercase transition-colors',
+                    severity === s ? cn(cfg.bg, cfg.color) : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {cfg.label}
+                </button>
+              );
+            })}
+          </div>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded bg-surface-raised border border-border/40 px-1.5 py-0.5 text-[9px] text-foreground focus:outline-none focus:border-accent/50"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Message */}
+        <textarea
+          ref={msgRef}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.ctrlKey) handleSubmit();
+            if (e.key === 'Escape') onClose();
+          }}
+          placeholder="Describe the issue… (Ctrl+Enter to submit)"
+          rows={2}
+          className="w-full resize-none rounded bg-surface-raised border border-border/40 px-2 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-accent/50 leading-relaxed"
+        />
+
+        {/* Suggestion */}
+        <input
+          value={suggestion}
+          onChange={(e) => setSuggestion(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+          placeholder="Suggestion / fix (optional)"
+          className="w-full rounded bg-surface-raised border border-border/40 px-2 py-1 text-[10px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-accent/50"
+        />
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={onClose}
+            className="rounded px-2.5 py-1 text-[9px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!message.trim()}
+            className="flex items-center gap-1 rounded bg-accent/15 px-2.5 py-1 text-[9px] font-medium text-accent hover:bg-accent/25 disabled:opacity-30 transition-colors"
+          >
+            <Send className="h-2.5 w-2.5" />
+            Add Comment
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Inline Comment Annotation ──────────────────────────────────────────────
 
 function InlineComment({ comment }: { comment: ReviewComment }) {
@@ -101,32 +233,51 @@ export function ReviewDiffPanel() {
   const themeId = useSettingsStore((s) => s.themeId);
   const monacoTheme = getMonacoThemeName(themeId);
 
-  const addComment = useReviewStore((s) => s.addComment);
-
   const [original, setOriginal] = useState('');
   const [modified, setModified] = useState('');
   const [loading, setLoading] = useState(false);
   const [sideBySide, setSideBySide] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [quickLine, setQuickLine] = useState('');
-  const [quickMsg, setQuickMsg] = useState('');
-  const [quickSev, setQuickSev] = useState<ReviewSeverity>('p1');
 
-  const handleQuickAdd = () => {
-    if (!quickMsg.trim() || !selectedFile) return;
-    addComment({
-      id: crypto.randomUUID(),
-      filePath: selectedFile,
-      line: parseInt(quickLine, 10) || 1,
-      severity: quickSev,
-      category: 'general',
-      message: quickMsg.trim(),
-      resolved: false,
+  // Hover gutter state
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const hoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoverLine, setHoverLine] = useState<number | null>(null);
+  const [hoverTop, setHoverTop] = useState(0);
+
+  // Inline form state
+  const [formLine, setFormLine] = useState<number | null>(null);
+  const [formTop, setFormTop] = useState(0);
+
+  // Register Monaco hover/mouse events
+  const handleEditorMount = useCallback((editor: any) => {
+    const mod = editor.getModifiedEditor();
+
+    mod.onMouseMove((e: any) => {
+      if (hoverClearTimer.current) {
+        clearTimeout(hoverClearTimer.current);
+        hoverClearTimer.current = null;
+      }
+      const line = e.target?.position?.lineNumber;
+      if (!line) return;
+      const pos = mod.getScrolledVisiblePosition({ lineNumber: line, column: 1 });
+      if (pos) {
+        setHoverLine(line);
+        setHoverTop(pos.top);
+      }
     });
-    setQuickMsg('');
-    setQuickLine('');
-    setShowQuickAdd(false);
-  };
+
+    mod.onMouseLeave(() => {
+      hoverClearTimer.current = setTimeout(() => setHoverLine(null), 250);
+    });
+  }, []);
+
+  const openForm = useCallback((line: number, top: number) => {
+    setFormLine(line);
+    setFormTop(top);
+    setHoverLine(null);
+  }, []);
+
+  const closeForm = useCallback(() => setFormLine(null), []);
 
   // Comments for current file
   const fileComments = useMemo(
@@ -137,6 +288,12 @@ export function ReviewDiffPanel() {
   // Current file index for navigation
   const currentIndex = files.findIndex((f) => f.path === selectedFile);
   const currentFile = files[currentIndex] ?? null;
+
+  // Reset overlay state when file changes
+  useEffect(() => {
+    setFormLine(null);
+    setHoverLine(null);
+  }, [selectedFile]);
 
   // Load diff content when file changes
   useEffect(() => {
@@ -238,18 +395,6 @@ export function ReviewDiffPanel() {
             <SplitSquareHorizontal className="h-3 w-3" />
           </button>
           <button
-            onClick={() => setShowQuickAdd(!showQuickAdd)}
-            className={cn(
-              'flex h-5 items-center gap-1 rounded px-1.5 text-[9px] font-medium transition-colors',
-              showQuickAdd
-                ? 'bg-accent/10 text-accent'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-            )}
-            title="Add comment"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-          <button
             onClick={() => markFileReviewed(selectedFile)}
             className={cn(
               'flex h-5 items-center gap-1 rounded px-2 text-[10px] font-medium transition-colors',
@@ -264,98 +409,81 @@ export function ReviewDiffPanel() {
         </div>
       </div>
 
-      {/* Quick-add comment bar */}
-      {showQuickAdd && (
-        <div className="shrink-0 flex items-center gap-1.5 border-b border-border/30 px-3 py-1.5 bg-surface-raised/40">
-          <input
-            type="number"
-            min={1}
-            placeholder="Line"
-            value={quickLine}
-            onChange={(e) => setQuickLine(e.target.value)}
-            className="w-12 rounded bg-surface border border-border/40 px-1.5 py-1 text-[10px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-accent/50"
-          />
-          <div className="flex items-center gap-0.5 rounded bg-surface p-0.5">
-            {(['p0', 'p1', 'p2'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setQuickSev(s)}
-                className={cn(
-                  'rounded px-1.5 py-0.5 text-[8px] font-bold uppercase transition-colors',
-                  quickSev === s
-                    ? s === 'p0' ? 'bg-red-500/15 text-red-400'
-                      : s === 'p1' ? 'bg-amber-500/15 text-amber-400'
-                      : 'bg-blue-500/15 text-blue-400'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-          <input
-            value={quickMsg}
-            onChange={(e) => setQuickMsg(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd(); }}
-            placeholder="Comment..."
-            className="flex-1 rounded bg-surface border border-border/40 px-2 py-1 text-[10px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-accent/50"
-          />
-          <button
-            onClick={handleQuickAdd}
-            disabled={!quickMsg.trim()}
-            className="rounded bg-accent/15 px-2 py-1 text-[9px] font-medium text-accent hover:bg-accent/25 disabled:opacity-30 transition-colors"
-          >
-            Add
-          </button>
+      {/* Inline comment annotations */}
+      {fileComments.length > 0 && (
+        <div className="shrink-0 max-h-[35%] overflow-auto border-b border-border/20 py-1">
+          {fileComments.map((c) => (
+            <InlineComment key={c.id} comment={c} />
+          ))}
         </div>
       )}
 
-      {/* Diff + inline comments */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {/* Inline annotations above diff */}
-        {fileComments.length > 0 && (
-          <div className="shrink-0 max-h-[40%] overflow-auto border-b border-border/20 py-1">
-            {fileComments.map((c) => (
-              <InlineComment key={c.id} comment={c} />
-            ))}
+      {/* Editor container — relative so the gutter button & form can be absolutely positioned */}
+      <div ref={editorContainerRef} className="relative flex-1 overflow-hidden">
+        {loading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        )}
-
-        {/* Diff viewer */}
-        <div className="flex-1 overflow-hidden">
-          {loading ? (
+        ) : (
+          <Suspense fallback={
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : (
-            <Suspense fallback={
-              <div className="flex h-full items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            }>
-              <MonacoDiffEditor
-                original={original}
-                modified={modified}
-                language={detectLang(selectedFile)}
-                theme={monacoTheme}
-                beforeMount={defineAllMonacoThemes}
-                options={{
-                  fontFamily: "'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace",
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                  readOnly: true,
-                  renderSideBySide: sideBySide,
-                  scrollBeyondLastLine: false,
-                  smoothScrolling: true,
-                  minimap: { enabled: false },
-                  padding: { top: 8 },
-                  overviewRulerLanes: 0,
-                  overviewRulerBorder: false,
-                }}
-              />
-            </Suspense>
-          )}
-        </div>
+          }>
+            <MonacoDiffEditor
+              original={original}
+              modified={modified}
+              language={detectLang(selectedFile)}
+              theme={monacoTheme}
+              beforeMount={defineAllMonacoThemes}
+              onMount={handleEditorMount}
+              options={{
+                fontFamily: "'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace",
+                fontSize: 13,
+                lineHeight: 1.6,
+                readOnly: true,
+                renderSideBySide: sideBySide,
+                scrollBeyondLastLine: false,
+                smoothScrolling: true,
+                minimap: { enabled: false },
+                padding: { top: 8 },
+                overviewRulerLanes: 0,
+                overviewRulerBorder: false,
+              }}
+            />
+          </Suspense>
+        )}
+
+        {/* Gutter + button — appears on line hover, anchored to hovered line Y */}
+        {hoverLine !== null && formLine === null && (
+          <button
+            style={{ position: 'absolute', top: hoverTop, left: 4, zIndex: 40 }}
+            className="flex h-5 w-5 items-center justify-center rounded bg-accent/80 text-white shadow-md hover:bg-accent transition-colors"
+            onMouseEnter={() => {
+              if (hoverClearTimer.current) {
+                clearTimeout(hoverClearTimer.current);
+                hoverClearTimer.current = null;
+              }
+            }}
+            onMouseLeave={() => {
+              hoverClearTimer.current = setTimeout(() => setHoverLine(null), 150);
+            }}
+            onClick={() => openForm(hoverLine, hoverTop)}
+            title={`Add comment on line ${hoverLine}`}
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )}
+
+        {/* Inline comment form anchored below the clicked line */}
+        {formLine !== null && selectedFile && (
+          <InlineCommentForm
+            line={formLine}
+            top={formTop}
+            filePath={selectedFile}
+            onClose={closeForm}
+          />
+        )}
       </div>
     </div>
   );

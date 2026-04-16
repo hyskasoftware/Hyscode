@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ViewerType } from '../lib/utils';
 
 export interface Tab {
@@ -41,7 +40,6 @@ interface EditorState {
 }
 
 export const useEditorStore = create<EditorState>()(
-  persist(
   immer((set) => ({
     tabs: [],
     activeTabId: null,
@@ -175,16 +173,4 @@ export const useEditorStore = create<EditorState>()(
         if (tab) tab.markdownMode = mode;
       }),
   })),
-  {
-    name: 'hyscode-editor-store',
-    storage: createJSONStorage(() => localStorage),
-    partialize: (state) => ({
-      tabs: state.tabs.filter((t) => !t.filePath.startsWith('untitled:')).map((t) => ({
-        ...t,
-        isDirty: false,
-      })),
-      activeTabId: state.activeTabId,
-    }),
-  },
-  ),
 );

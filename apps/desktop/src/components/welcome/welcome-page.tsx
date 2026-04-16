@@ -1,6 +1,7 @@
 import { FolderOpen, Clock, Trash2, ArrowRight } from 'lucide-react';
 import { useProjectStore, useFileStore } from '../../stores';
 import { pickFolder } from '../../lib/tauri-dialog';
+import { switchProject } from '../../lib/project-persistence';
 import type { RecentProject } from '../../stores/project-store';
 import { BrandMark } from '../brand-mark';
 
@@ -13,12 +14,14 @@ export function WelcomePage() {
   const handleOpenFolder = async () => {
     const path = await pickFolder();
     if (path) {
+      await switchProject(null, path);
       openProject(path);
       await openFolder(path);
     }
   };
 
   const handleOpenRecent = async (project: RecentProject) => {
+    await switchProject(null, project.path);
     openProject(project.path);
     await openFolder(project.path);
   };

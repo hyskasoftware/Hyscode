@@ -10,13 +10,14 @@ import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from 
 import { useLayoutStore } from './stores/layout-store';
 import { useSkillsStore } from './stores/skills-store';
 import { useExtensionStore } from './stores/extension-store';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { pickFolder, pickFile } from './lib/tauri-dialog';
 import { initProviders } from './lib/init-providers';
 import { HarnessBridge } from './lib/harness-bridge';
 import { LspBridge } from './lib/lsp-bridge';
 import { startExtensionLspSync } from './lib/extension-lsp-bridge';
 import { getViewerType } from './lib/utils';
+import { saveProjectState, switchProject, closeCurrentProject } from './lib/project-persistence';
 
 import { isLightTheme } from './lib/monaco-themes';
 
@@ -47,17 +48,35 @@ function IDE() {
   const bridgeInitRef = useRef(false);
   const lspInitRef = useRef(false);
   const extSyncRef = useRef<(() => void) | null>(null);
+  const restoredRef = useRef(false);
 
   const workspaceMode = useLayoutStore((s) => s.workspaceMode);
 
   useThemeEffect();
 
   // On mount: if fileStore is empty but projectStore has a path (from persistence),
-  // reload the directory tree
+  // reload the directory tree and restore per-project state
   useEffect(() => {
     if (projectRootPath && !fileRootPath) {
       openFolder(projectRootPath).catch(console.error);
     }
+    // Restore per-project state on first mount (startup)
+    if (projectRootPath && !restoredRef.current) {
+      restoredRef.current = true;
+      switchProject(null, projectRootPath).catch(console.error);
+    }
+  }, []);
+
+  // Save project state before the window unloads (IDE close / refresh)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const currentPath = useProjectStore.getState().rootPath;
+      if (currentPath) {
+        saveProjectState(currentPath);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
   // Initialize HarnessBridge when project is open
@@ -140,6 +159,24 @@ export function App() {
   const openTab = useEditorStore((s) => s.openTab);
   const closeTab = useEditorStore((s) => s.closeTab);
 
+  // Project lifecycle: open a new project with state save/restore
+  const handleOpenProject = useCallback(async (path: string) => {
+    const currentPath = useProjectStore.getState().rootPath;
+    await switchProject(currentPath, path);
+    openProject(path);
+    await openFolder(path);
+  }, [openProject, openFolder]);
+
+  // Project lifecycle: close current project with state save
+  const handleCloseProject = useCallback(() => {
+    const currentPath = useProjectStore.getState().rootPath;
+    if (currentPath) {
+      closeCurrentProject(currentPath);
+    }
+    closeProject();
+    closeFolder();
+  }, [closeProject, closeFolder]);
+
   // Initialize AI providers on app startup (once)
   useEffect(() => {
     initProviders().catch(console.error);
@@ -179,8 +216,7 @@ export function App() {
           clearChord();
           const path = await pickFolder();
           if (path) {
-            openProject(path);
-            await openFolder(path);
+            await handleOpenProject(path);
           }
           return;
         }
@@ -188,8 +224,7 @@ export function App() {
           // Ctrl+K F → Close Folder
           e.preventDefault();
           clearChord();
-          closeProject();
-          closeFolder();
+          handleCloseProject();
           return;
         }
       }
@@ -244,7 +279,7 @@ export function App() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [openProject, openFolder, closeProject, closeFolder, openUntitled, openTab, closeTab]);
+  }, [handleOpenProject, handleCloseProject, openUntitled, openTab, closeTab]);
 
   return (
     <TooltipProvider>

@@ -146,12 +146,21 @@ export const useReviewStore = create<ReviewState>()(
           }
         }
 
-        const entries: ReviewFileEntry[] = unique.map((f) => ({
-          path: f.path,
-          status: f.status,
-          commentCount: 0,
-          reviewed: false,
-        }));
+        // Preserve reviewed flags and comment counts from any previously
+        // restored snapshot (per-project persistence).
+        const prevFiles = get().files;
+        const prevComments = get().comments;
+
+        const entries: ReviewFileEntry[] = unique.map((f) => {
+          const prev = prevFiles.find((pf) => pf.path === f.path);
+          const commentCount = prevComments.filter((c) => c.filePath === f.path).length;
+          return {
+            path: f.path,
+            status: f.status,
+            commentCount,
+            reviewed: prev?.reviewed ?? false,
+          };
+        });
 
         set((s) => {
           s.files = entries;

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useReviewStore } from '@/stores/review-store';
 import { useGitStore } from '@/stores/git-store';
+import { useProjectStore } from '@/stores/project-store';
 import { cn } from '@/lib/utils';
 import type { ReviewSource, ReviewFileEntry } from '@/stores/review-store';
 
@@ -136,11 +137,12 @@ export function ReviewFileList() {
   const source = useReviewStore((s) => s.source);
   const currentBranch = useGitStore((s) => s.currentBranch);
   const isGitRepo = useGitStore((s) => s.isGitRepo);
+  const projectRootPath = useProjectStore((s) => s.rootPath);
 
-  // Load files on mount and when source changes
+  // Load files on mount, when source changes, or when the project switches
   useEffect(() => {
     loadFiles();
-  }, [source]);
+  }, [source, projectRootPath]);
 
   // Separate by status groups
   const { modified, added, deleted, other } = useMemo(() => {
