@@ -22,6 +22,18 @@ const OPENROUTER_MODELS: AIModel[] = [
     outputPricePerMToken: 15,
   },
   {
+    id: 'anthropic/claude-opus-4-7',
+    name: 'Claude Opus 4.7 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: MAX_CONTEXT_WINDOW,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 5,
+    outputPricePerMToken: 25,
+  },
+  {
     id: 'anthropic/claude-opus-4-6',
     name: 'Claude Opus 4.6 (via OpenRouter)',
     provider: 'openrouter',

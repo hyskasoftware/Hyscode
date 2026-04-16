@@ -191,6 +191,18 @@ function parseAnthropicEvent(data: string, indexToId: Map<number, string>): Stre
 
 const ANTHROPIC_MODELS: AIModel[] = [
   {
+    id: 'claude-opus-4-7',
+    name: 'Claude Opus 4.7',
+    provider: 'anthropic',
+    contextWindow: 300_000, // actual: 1M, capped at 300k
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 5,
+    outputPricePerMToken: 25,
+  },
+  {
     id: 'claude-opus-4-6',
     name: 'Claude Opus 4.6',
     provider: 'anthropic',

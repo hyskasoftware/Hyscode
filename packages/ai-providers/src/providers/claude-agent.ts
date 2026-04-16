@@ -14,6 +14,18 @@ import type {
 
 const CLAUDE_AGENT_MODELS: AIModel[] = [
   {
+    id: 'claude-opus-4-7',
+    name: 'Claude Opus 4.7 (Agent)',
+    provider: 'claude-agent',
+    contextWindow: 200_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 5,
+    outputPricePerMToken: 25,
+  },
+  {
     id: 'claude-sonnet-4-6',
     name: 'Claude Sonnet 4.6 (Agent)',
     provider: 'claude-agent',
