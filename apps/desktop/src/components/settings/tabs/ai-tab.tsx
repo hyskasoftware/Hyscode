@@ -7,6 +7,7 @@ import { tauriInvoke } from '@/lib/tauri-invoke';
 import { reinitProvider } from '@/lib/init-providers';
 import { McpServerForm } from './mcp-server-form';
 import { CopilotAuthRow } from './copilot-auth-row';
+import { CopilotBillingInfo } from './copilot-billing-info';
 import { ProviderSetupGuide } from './provider-setup-guide';
 import {
   PROVIDERS,
@@ -269,6 +270,7 @@ export function AiTab() {
             </button>
           </div>
           <CopilotAuthRow />
+          <CopilotBillingInfo />
         </div>
       </Section>
 
