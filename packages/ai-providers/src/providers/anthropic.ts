@@ -191,11 +191,23 @@ function parseAnthropicEvent(data: string, indexToId: Map<number, string>): Stre
 
 const ANTHROPIC_MODELS: AIModel[] = [
   {
-    id: 'claude-sonnet-4-20250514',
-    name: 'Claude Sonnet 4',
+    id: 'claude-opus-4-6',
+    name: 'Claude Opus 4.6',
     provider: 'anthropic',
-    contextWindow: 200_000,
-    maxOutputTokens: 16_384,
+    contextWindow: 300_000, // actual: 1M, capped at 300k
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 5,
+    outputPricePerMToken: 25,
+  },
+  {
+    id: 'claude-sonnet-4-6',
+    name: 'Claude Sonnet 4.6',
+    provider: 'anthropic',
+    contextWindow: 300_000, // actual: 1M, capped at 300k
+    maxOutputTokens: 64_000,
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
@@ -203,28 +215,16 @@ const ANTHROPIC_MODELS: AIModel[] = [
     outputPricePerMToken: 15,
   },
   {
-    id: 'claude-opus-4-20250514',
-    name: 'Claude Opus 4',
+    id: 'claude-haiku-4-5',
+    name: 'Claude Haiku 4.5',
     provider: 'anthropic',
     contextWindow: 200_000,
-    maxOutputTokens: 16_384,
+    maxOutputTokens: 64_000,
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
-    inputPricePerMToken: 15,
-    outputPricePerMToken: 75,
-  },
-  {
-    id: 'claude-3-5-haiku-20241022',
-    name: 'Claude 3.5 Haiku',
-    provider: 'anthropic',
-    contextWindow: 200_000,
-    maxOutputTokens: 8_192,
-    supportsTools: true,
-    supportsStreaming: true,
-    supportsVision: true,
-    inputPricePerMToken: 0.8,
-    outputPricePerMToken: 4,
+    inputPricePerMToken: 1,
+    outputPricePerMToken: 5,
   },
 ];
 

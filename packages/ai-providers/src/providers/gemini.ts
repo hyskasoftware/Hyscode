@@ -169,41 +169,79 @@ function* parseGeminiResponse(data: string): Iterable<StreamChunk> {
 // ─── Provider Implementation ────────────────────────────────────────────────
 
 const GEMINI_MODELS: AIModel[] = [
+  // ── Gemini 3.x Preview models ──
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro Preview',
     provider: 'gemini',
-    contextWindow: 1_048_576,
-    maxOutputTokens: 8_192,
+    contextWindow: 300_000, // actual: 1,048,576, capped at 300k
+    maxOutputTokens: 65_536,
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
-    inputPricePerMToken: 0.075,
-    outputPricePerMToken: 0.3,
+    inputPricePerMToken: 2.0,
+    outputPricePerMToken: 12.0,
   },
   {
-    id: 'gemini-2.0-pro',
-    name: 'Gemini 2.0 Pro',
+    id: 'gemini-3-flash-preview',
+    name: 'Gemini 3 Flash Preview',
     provider: 'gemini',
-    contextWindow: 2_097_152,
-    maxOutputTokens: 8_192,
+    contextWindow: 300_000, // actual: 1,048,576, capped at 300k
+    maxOutputTokens: 65_536,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 0.5,
+    outputPricePerMToken: 3.0,
+  },
+  {
+    id: 'gemini-3.1-flash-lite-preview',
+    name: 'Gemini 3.1 Flash-Lite Preview',
+    provider: 'gemini',
+    contextWindow: 300_000, // actual: 1,048,576, capped at 300k
+    maxOutputTokens: 65_536,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 0.25,
+    outputPricePerMToken: 1.5,
+  },
+  // ── Gemini 2.5 stable models ──
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
+    provider: 'gemini',
+    contextWindow: 300_000, // actual: 1,048,576, capped at 300k
+    maxOutputTokens: 65_536,
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
     inputPricePerMToken: 1.25,
-    outputPricePerMToken: 10,
+    outputPricePerMToken: 10.0,
   },
   {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro',
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
     provider: 'gemini',
-    contextWindow: 2_097_152,
-    maxOutputTokens: 8_192,
+    contextWindow: 300_000, // actual: 1,048,576, capped at 300k
+    maxOutputTokens: 65_536,
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
-    inputPricePerMToken: 1.25,
-    outputPricePerMToken: 5,
+    inputPricePerMToken: 0.3,
+    outputPricePerMToken: 2.5,
+  },
+  {
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash-Lite',
+    provider: 'gemini',
+    contextWindow: 300_000, // actual: 1,048,576, capped at 300k
+    maxOutputTokens: 65_536,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 0.1,
+    outputPricePerMToken: 0.4,
   },
 ];
 

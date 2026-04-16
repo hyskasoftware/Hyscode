@@ -19,10 +19,30 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { TokenUsage } from '@/stores/agent-store';
+import { useSettingsStore } from '@/stores/settings-store';
+import { getProviderRegistry } from '@hyscode/ai-providers';
+import type { AIModel } from '@hyscode/ai-providers';
 
 // ─── Context Window Pie Popup ─────────────────────────────────────────────────
 
-const CONTEXT_WINDOW_DEFAULT = 200_000;
+const CONTEXT_WINDOW_FALLBACK = 200_000;
+
+/** Look up the active model from the provider registry */
+function useActiveModel(): AIModel | null {
+  const providerId = useSettingsStore((s) => s.activeProviderId);
+  const modelId = useSettingsStore((s) => s.activeModelId);
+  if (!providerId || !modelId) return null;
+  const provider = getProviderRegistry().get(providerId);
+  return provider?.models.find((m) => m.id === modelId) ?? null;
+}
+
+/** Format a dollar amount compactly */
+function fmtCost(dollars: number): string {
+  if (dollars < 0.001) return '<$0.001';
+  if (dollars < 0.01) return `$${dollars.toFixed(4)}`;
+  if (dollars < 1) return `$${dollars.toFixed(3)}`;
+  return `$${dollars.toFixed(2)}`;
+}
 
 function PieChart({ pct, size = 14, color = 'var(--color-accent)' }: { pct: number; size?: number; color?: string }) {
   const r = size / 2 - 1.5;
@@ -58,8 +78,19 @@ function PieChart({ pct, size = 14, color = 'var(--color-accent)' }: { pct: numb
 function ContextPieButton({ usage, messageCount }: { usage: TokenUsage | null; messageCount: number }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const pct = usage ? usage.inputTokens / CONTEXT_WINDOW_DEFAULT : 0;
+  const model = useActiveModel();
+  const contextWindow = model?.contextWindow ?? CONTEXT_WINDOW_FALLBACK;
+  const pct = usage ? usage.inputTokens / contextWindow : 0;
   const pctDisplay = Math.round(pct * 100);
+
+  // Cost estimation
+  const inputCost = usage && model?.inputPricePerMToken
+    ? (usage.inputTokens / 1_000_000) * model.inputPricePerMToken
+    : null;
+  const outputCost = usage && model?.outputPricePerMToken
+    ? (usage.outputTokens / 1_000_000) * model.outputPricePerMToken
+    : null;
+  const totalCost = inputCost != null && outputCost != null ? inputCost + outputCost : null;
 
   useEffect(() => {
     if (!open) return;
@@ -98,7 +129,7 @@ function ContextPieButton({ usage, messageCount }: { usage: TokenUsage | null; m
             <PieChart pct={pct} size={32} color={pieColor} />
             <div className="flex flex-col">
               <span className="text-[11px] font-semibold text-foreground">{pctDisplay}% used</span>
-              <span className="text-[9px] text-muted-foreground">of ~{(CONTEXT_WINDOW_DEFAULT / 1000).toFixed(0)}k context window</span>
+              <span className="text-[9px] text-muted-foreground">of ~{(contextWindow / 1000).toFixed(0)}k context window</span>
             </div>
           </div>
 
@@ -112,6 +143,14 @@ function ContextPieButton({ usage, messageCount }: { usage: TokenUsage | null; m
               </>
             ) : (
               <span className="text-[10px] text-muted-foreground">No data yet</span>
+            )}
+            {totalCost != null && (
+              <>
+                <div className="my-1 border-t border-border/20" />
+                <StatRow label="Input cost" value={fmtCost(inputCost!)} />
+                <StatRow label="Output cost" value={fmtCost(outputCost!)} />
+                <StatRow label="Est. total cost" value={fmtCost(totalCost)} accent />
+              </>
             )}
             <StatRow label="Messages" value={String(messageCount)} />
           </div>
