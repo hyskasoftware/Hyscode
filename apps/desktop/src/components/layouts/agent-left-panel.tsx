@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Settings, Blocks } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronDown, ChevronRight, Settings, Blocks, X } from 'lucide-react';
 import { SessionHistory } from '../agent/session-history';
 import { FileExplorerView } from '../sidebar/views/file-explorer-view';
+import { ExtensionsView } from '../sidebar/views/extensions-view';
 import { useSettingsStore } from '../../stores/settings-store';
 
 
@@ -33,8 +35,44 @@ function CollapsibleSection({
   );
 }
 
+function ExtensionsModal({ onClose }: { onClose: () => void }) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+      {/* Panel */}
+      <div className="relative flex h-[78vh] w-[680px] max-w-[90vw] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-border/40 bg-surface-raised px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <Blocks className="h-4 w-4 text-accent" />
+            <span className="text-[13px] font-semibold text-foreground">Extensions</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-hidden">
+          <ExtensionsView />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function AgentLeftPanel() {
   const openSettings = useSettingsStore((s) => s.openSettings);
+  const [extensionsOpen, setExtensionsOpen] = useState(false);
 
   return (
     <div className="flex h-full flex-col">
@@ -68,13 +106,15 @@ export function AgentLeftPanel() {
           Settings
         </button>
         <button
-          onClick={() => openSettings()}
+          onClick={() => setExtensionsOpen(true)}
           className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
         >
           <Blocks className="h-3 w-3" />
           Extensions
         </button>
       </div>
+
+      {extensionsOpen && <ExtensionsModal onClose={() => setExtensionsOpen(false)} />}
     </div>
   );
 }
