@@ -128,6 +128,7 @@ pub fn run() {
             commands::db::db_list_mode_policies,
             commands::db::db_update_mode_policy,
             // Device management commands
+            commands::devices::check_sdk_paths,
             commands::devices::list_devices,
             commands::devices::list_emulators,
             commands::devices::start_emulator,
