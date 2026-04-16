@@ -13,6 +13,7 @@ import {
   Files,
 } from 'lucide-react';
 import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
+import { useLayoutStore } from '../../../stores/layout-store';
 import { tauriFs } from '../../../lib/tauri-fs';
 import { getViewerType } from '../../../lib/utils';
 import { detectLanguage } from '../../../lib/lsp-bridge';
@@ -190,6 +191,9 @@ function FileTreeNode({
   const { expandDirectory, toggleExpand } = useFileStore();
   const { openTab, tabs } = useEditorStore();
   const activeTabId = useEditorStore((s) => s.activeTabId);
+  const workspaceMode = useLayoutStore((s) => s.workspaceMode);
+  const agentPreviewFile = useLayoutStore((s) => s.agentPreviewFile);
+  const setAgentPreviewFile = useLayoutStore((s) => s.setAgentPreviewFile);
 
   const relPath = useMemo(() => {
     if (!rootPath) return node.path;
@@ -212,7 +216,11 @@ function FileTreeNode({
       ? GIT_NAME_COLORS[dirGit.dominantStatus ?? 'M'] ?? ''
       : '';
 
-  const isActive = !node.isDir && tabs.find((t) => t.filePath === node.path)?.id === activeTabId;
+  const isActive = !node.isDir && (
+    workspaceMode === 'agent'
+      ? agentPreviewFile === node.path
+      : tabs.find((t) => t.filePath === node.path)?.id === activeTabId
+  );
   const isHidden = node.name.startsWith('.');
 
   const handleClick = async () => {
@@ -222,6 +230,9 @@ function FileTreeNode({
       } else {
         toggleExpand(node.path);
       }
+    } else if (workspaceMode === 'agent') {
+      // In agent mode, open file in the preview panel
+      setAgentPreviewFile(node.path);
     } else {
       const existing = tabs.find((t) => t.filePath === node.path);
       if (existing) {

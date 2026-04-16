@@ -1,6 +1,8 @@
 import { Suspense, lazy, useState, useMemo, useEffect } from 'react';
-import { Terminal, GitCompare, Eye, FileCode2, Check, Undo2, Loader2 } from 'lucide-react';
+import { Terminal, GitCompare, GitBranch, Eye, FileCode2, Check, Undo2, Loader2 } from 'lucide-react';
+import { MarkdownViewer } from '../editor/viewers/markdown-viewer';
 import { TerminalPanel } from '../terminal';
+import { GitView } from '../sidebar/views/git-view-new';
 import { useAgentStore } from '@/stores/agent-store';
 import { useLayoutStore } from '@/stores/layout-store';
 import { useSettingsStore } from '@/stores/settings-store';
@@ -41,9 +43,70 @@ function computeLineCounts(session: AgentEditSession) {
   return { added, removed };
 }
 
-// ─── Changes Tab ────────────────────────────────────────────────────────────
+// ─── Changes Tab (with Agent + Git sub-tabs) ───────────────────────────────
+
+type ChangesSubTab = 'agent' | 'git';
 
 function ChangesTab() {
+  const [subTab, setSubTab] = useState<ChangesSubTab>('agent');
+
+  const pendingCount = useAgentStore(
+    (s) => s.agentEditSessions.filter(
+      (es) => es.phase === 'streaming' || es.phase === 'pending_review',
+    ).length,
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Sub-tab bar */}
+      <div className="flex shrink-0 items-center gap-0.5 border-b border-border/30 px-2 py-1">
+        <button
+          onClick={() => setSubTab('agent')}
+          className={cn(
+            'flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
+            subTab === 'agent'
+              ? 'bg-accent/10 text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+          )}
+        >
+          <GitCompare className="h-3 w-3" />
+          Agent
+          {pendingCount > 0 && (
+            <span className="rounded-full bg-accent/20 px-1 text-[9px] font-medium text-accent tabular-nums">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setSubTab('git')}
+          className={cn(
+            'flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
+            subTab === 'git'
+              ? 'bg-accent/10 text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+          )}
+        >
+          <GitBranch className="h-3 w-3" />
+          Git
+        </button>
+      </div>
+
+      {/* Sub-tab content */}
+      <div className="relative flex-1 overflow-hidden">
+        <div className={cn('absolute inset-0', subTab === 'agent' ? 'z-10' : 'z-0 invisible')}>
+          <AgentChangesContent />
+        </div>
+        <div className={cn('absolute inset-0', subTab === 'git' ? 'z-10' : 'z-0 invisible')}>
+          <GitView />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Agent Changes Content ──────────────────────────────────────────────────
+
+function AgentChangesContent() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const allSessions = useAgentStore((s) => s.agentEditSessions);
   const themeId = useSettingsStore((s) => s.themeId);
@@ -217,6 +280,10 @@ function PreviewTab() {
   const monacoTheme = getMonacoThemeName(themeId);
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mdMode, setMdMode] = useState<'preview' | 'code'>('preview');
+
+  // Reset markdown mode when file changes
+  useEffect(() => { setMdMode('preview'); }, [previewFile]);
 
   useEffect(() => {
     if (!previewFile) { setContent(null); return; }
@@ -255,6 +322,18 @@ function PreviewTab() {
   if (loading) return <LoadingSpinner />;
 
   const fileName = previewFile.split(/[\\/]/).pop() ?? previewFile;
+  const isMarkdown = /\.mdx?$/i.test(previewFile);
+
+  if (isMarkdown) {
+    return (
+      <MarkdownViewer
+        content={content ?? ''}
+        mode={mdMode}
+        onModeChange={setMdMode}
+        language="markdown"
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
