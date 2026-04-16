@@ -101,6 +101,7 @@ let _instance: HarnessBridge | null = null;
 export class HarnessBridge {
   private harness: Harness;
   private approvalResolvers = new Map<string, (approved: boolean) => void>();
+  private modeSwitchResolvers = new Map<string, (approved: boolean) => void>();
   /** Accumulated tool results for the current iteration (flushed between turns). */
   private pendingToolResults: Array<{ toolCallId: string; output: string; isError: boolean }> = [];
   /** Tool call IDs seen in the current iteration (for building assistant blocks). */
@@ -154,6 +155,7 @@ export class HarnessBridge {
       },
       onEvent: (event) => this.handleEvent(event),
       onApprovalRequest: (pending) => this.handleApprovalRequest(pending),
+      onModeSwitchRequest: (request) => this.handleModeSwitchRequest(request),
       skillLoader,
     });
   }
@@ -266,8 +268,28 @@ export class HarnessBridge {
             tokenEstimate,
             metadata: { filePath, fileName },
           });
-        } catch (err) {
-          dbg(`Erro ao ler contexto ${filePath}: ${err}`);
+        } catch {
+          // Might be a directory — list its tree instead
+          try {
+            const entries = await tauriInvokeRaw<Array<{ name: string; is_dir: boolean }>>(
+              'list_dir_all', { path: filePath },
+            );
+            const tree = entries
+              .map((e) => `${e.is_dir ? '📁' : '📄'} ${e.name}`)
+              .join('\n');
+            const dirName = filePath.split(/[\\/]/).pop() ?? filePath;
+            const tokenEstimate = Math.ceil(tree.length / 4);
+            this.harness.addContextSource({
+              id: `ctx-dir-${filePath}`,
+              type: 'context_chip',
+              priority: 'high',
+              content: `<directory path="${filePath}">\n${tree}\n</directory>`,
+              tokenEstimate,
+              metadata: { filePath, fileName: dirName, isDirectory: true },
+            });
+          } catch (dirErr) {
+            dbg(`Erro ao ler contexto ${filePath}: ${dirErr}`);
+          }
         }
       }
     }
@@ -481,6 +503,14 @@ export class HarnessBridge {
     } else {
       this.debug(`Delegação rejeitada: ${req.fromMode} → ${req.toMode}`);
     }
+
+    // Resolve the promise that pauses the harness loop
+    const resolver = this.modeSwitchResolvers.get(req.id);
+    if (resolver) {
+      resolver(approved);
+      this.modeSwitchResolvers.delete(req.id);
+    }
+
     store.resolveModeSwitch(approved);
   }
 
@@ -911,21 +941,20 @@ export class HarnessBridge {
       }
 
       case 'mode_switch_request': {
-        const req = event.request;
-        this.debug(`Delegação solicitada: ${req.fromMode} → ${req.toMode} (${req.reason})`);
-        store.setPendingModeSwitch(req);
+        // Handled by onModeSwitchRequest callback (which pauses the loop).
+        // The callback already sets pendingModeSwitch in the store.
         break;
       }
 
       case 'mode_switch_resolved': {
+        // Handled by resolveModeSwitch() which is called from the UI.
+        // The harness emits this after the callback resolves — just log it.
         const req = event.request;
         if (event.approved) {
-          this.debug(`Delegação aprovada: → ${req.toMode}`);
-          this.setAgentType(req.toMode as AgentType);
+          this.debug(`Delegação resolvida: aprovada → ${req.toMode}`);
         } else {
-          this.debug(`Delegação rejeitada: ${req.fromMode} → ${req.toMode}`);
+          this.debug(`Delegação resolvida: rejeitada (${req.fromMode} → ${req.toMode})`);
         }
-        store.setPendingModeSwitch(null);
         break;
       }
 
@@ -970,6 +999,35 @@ export class HarnessBridge {
     // Wait for UI resolution
     return new Promise<boolean>((resolve) => {
       this.approvalResolvers.set(pending.id, resolve);
+    });
+  }
+
+  /**
+   * Handle a mode switch request from the harness.
+   * Pauses the agent loop until the user approves/denies via the ModeSwitchDialog.
+   */
+  private async handleModeSwitchRequest(request: {
+    id: string;
+    fromMode: string;
+    toMode: string;
+    reason: string;
+    contextSummary: string;
+  }): Promise<boolean> {
+    this.debug(`Delegação solicitada: ${request.fromMode} → ${request.toMode} (${request.reason})`);
+
+    // Push to store so ModeSwitchDialog renders
+    const store = useAgentStore.getState();
+    store.setPendingModeSwitch({
+      id: request.id,
+      fromMode: request.fromMode as import('@hyscode/agent-harness').AgentType,
+      toMode: request.toMode as import('@hyscode/agent-harness').AgentType,
+      reason: request.reason,
+      contextSummary: request.contextSummary,
+    });
+
+    // Wait for UI resolution (resolveModeSwitch calls our resolver)
+    return new Promise<boolean>((resolve) => {
+      this.modeSwitchResolvers.set(request.id, resolve);
     });
   }
 

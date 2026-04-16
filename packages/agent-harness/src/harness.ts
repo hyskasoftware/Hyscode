@@ -42,6 +42,8 @@ export interface HarnessOptions {
   onEvent?: HarnessEventHandler;
   /** Approval callback */
   onApprovalRequest?: (pending: { id: string; toolName: string; input: Record<string, unknown>; description: string }) => Promise<boolean>;
+  /** Mode switch callback — returns true if approved, false if denied */
+  onModeSwitchRequest?: (request: { id: string; fromMode: string; toMode: string; reason: string; contextSummary: string }) => Promise<boolean>;
   /** SDD database interface */
   sddDb?: SddDatabase;
   /** Skill loader config */
@@ -65,6 +67,7 @@ export class Harness {
   private cancelled = false;
   private abortController: AbortController | null = null;
   private toolCallHistory: ToolCallRecord[] = [];
+  private onModeSwitchRequest: HarnessOptions['onModeSwitchRequest'] = undefined;
   private activeSkills: Skill[] = [];
 
   // ─── Middleware ────────────────────────────────────────────────────
@@ -105,6 +108,9 @@ export class Harness {
         });
       });
     }
+
+    // Store mode switch callback
+    this.onModeSwitchRequest = options.onModeSwitchRequest;
 
     // Register built-in tools
     for (const tool of getAllBuiltinTools()) {
@@ -583,21 +589,37 @@ export class Harness {
           }
         }
 
-        // Handle mode switch delegation request
+        // Handle mode switch delegation request — PAUSE and wait for user decision
         if (record.output.metadata?.action === 'mode_switch') {
           const targetMode = record.output.metadata.targetMode as string;
           const reason = (record.output.metadata.reason as string) || '';
           const contextSummary = (record.output.metadata.contextSummary as string) || '';
-          this.emit({
-            type: 'mode_switch_request',
-            request: {
-              id: crypto.randomUUID(),
-              fromMode: this.agentType,
-              toMode: targetMode as import('./types').AgentType,
-              reason,
-              contextSummary,
-            },
-          });
+          const switchRequest = {
+            id: crypto.randomUUID(),
+            fromMode: this.agentType,
+            toMode: targetMode as import('./types').AgentType,
+            reason,
+            contextSummary,
+          };
+          this.emit({ type: 'mode_switch_request', request: switchRequest });
+
+          // Wait for user approval/denial (like tool approvals)
+          if (this.onModeSwitchRequest) {
+            const approved = await this.onModeSwitchRequest({
+              id: switchRequest.id,
+              fromMode: switchRequest.fromMode,
+              toMode: switchRequest.toMode,
+              reason: switchRequest.reason,
+              contextSummary: switchRequest.contextSummary,
+            });
+            this.emit({ type: 'mode_switch_resolved', request: switchRequest, approved });
+            // Override the tool output so the agent knows the user's decision
+            if (approved) {
+              record.output.output = `Mode switch APPROVED by user. Switching to ${targetMode} agent now. You can stop — the ${targetMode} agent will take over with your context summary.`;
+            } else {
+              record.output.output = `Mode switch DENIED by user. The user chose to stay in the current mode (${this.agentType}). Ask the user what they'd like to change or adjust in the plan before proceeding. Do NOT request another mode switch immediately — engage with the user first.`;
+            }
+          }
         }
 
         // ── Tool output compaction ──

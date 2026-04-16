@@ -1,5 +1,6 @@
-import { Send, Square, Paperclip, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check, ArrowRight } from 'lucide-react';
-import { useState, useRef, useMemo } from 'react';
+import { Send, Square, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check, ArrowRight, Plus } from 'lucide-react';
+import { useState, useRef, useMemo, useCallback } from 'react';
+import { ContextMentionPicker } from './context-mention-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
@@ -130,7 +131,9 @@ const APPROVAL_MODES: ApprovalMode[] = ['manual', 'yolo', 'custom'];
 
 export function AgentInput() {
   const [input, setInput] = useState('');
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputWrapperRef = useRef<HTMLDivElement>(null);
 
   const mode = useAgentStore((s) => s.mode);
   const setMode = useAgentStore((s) => s.setMode);
@@ -198,25 +201,6 @@ export function AgentInput() {
     }
   };
 
-  const handleAttachFile = async () => {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        multiple: true,
-        title: 'Attach context file',
-      });
-      if (selected) {
-        const paths = Array.isArray(selected) ? selected : [selected];
-        const addCtx = useAgentStore.getState().addContextFile;
-        for (const p of paths) {
-          if (typeof p === 'string') addCtx(p);
-        }
-      }
-    } catch {
-      // dialog cancelled or not available
-    }
-  };
-
   const handleModeChange = (newMode: AgentMode) => {
     try {
       HarnessBridge.get().setAgentType(newMode);
@@ -229,18 +213,51 @@ export function AgentInput() {
     useSettingsStore.getState().set('approvalMode', mode);
   };
 
+  const handleMentionSelect = useCallback((path: string) => {
+    // Special tokens are not file paths
+    if (path.startsWith('__') && path.endsWith('__')) return;
+    useAgentStore.getState().addContextFile(path);
+    // Remove the trailing '@' from input if present
+    setInput((prev) => {
+      const trimmed = prev.replace(/@\s*$/, '');
+      return trimmed;
+    });
+    setMentionPickerOpen(false);
+    textareaRef.current?.focus();
+  }, []);
+
   return (
     <div className="shrink-0 bg-surface-raised px-2.5 pt-1.5 pb-2.5 flex flex-col gap-1.5">
       {/* Textarea area */}
-      <div className="px-1 py-1">
+      <div ref={inputWrapperRef} className="relative px-1 py-1">
+        <ContextMentionPicker
+          open={mentionPickerOpen}
+          onClose={() => setMentionPickerOpen(false)}
+          onSelect={handleMentionSelect}
+        />
         <Textarea
           ref={textareaRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setInput(val);
+            // Detect '@' typed at the end or after a space
+            if (val.endsWith('@') && (val.length === 1 || val[val.length - 2] === ' ' || val[val.length - 2] === '\n')) {
+              setMentionPickerOpen(true);
+            }
+          }}
           placeholder={currentCap.placeholder}
           className="max-h-32 min-h-[36px] w-full border-0 bg-transparent text-xs leading-relaxed focus-visible:ring-0 resize-none overflow-y-auto"
           onKeyDown={(e) => {
+            if (mentionPickerOpen && (e.key === 'Escape' || e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+              // Let the picker handle these keys
+              return;
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
+              if (mentionPickerOpen) {
+                // Don't send when picker is open
+                return;
+              }
               e.preventDefault();
               handleSend();
             }
@@ -468,13 +485,13 @@ export function AgentInput() {
                   variant="ghost"
                   size="icon-xs"
                   className="text-muted-foreground hover:text-foreground"
-                  onClick={handleAttachFile}
+                  onClick={() => setMentionPickerOpen((v) => !v)}
                 />
               }
             >
-              <Paperclip />
+              <Plus className="h-3.5 w-3.5" />
             </TooltipTrigger>
-            <TooltipContent side="top">Attach file</TooltipContent>
+            <TooltipContent side="top">Add context (@)</TooltipContent>
           </Tooltip>
 
           {isStreaming ? (
