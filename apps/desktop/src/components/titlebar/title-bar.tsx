@@ -1,12 +1,18 @@
-import { useState } from 'react';
 import { FileMenu } from './file-menu';
 import { ViewMenu } from './view-menu';
 import { BrandMark } from '../brand-mark';
+import { useLayoutStore } from '../../stores/layout-store';
+import type { WorkspaceMode } from '../../stores/layout-store';
 
-type WorkspaceMode = 'editor' | 'build' | 'review';
+const MODE_LABELS: Record<WorkspaceMode, string> = {
+  editor: 'editor',
+  agent: 'agent',
+  review: 'review',
+};
 
 export function TitleBar() {
-  const [mode, setMode] = useState<WorkspaceMode>('editor');
+  const mode = useLayoutStore((s) => s.workspaceMode);
+  const setMode = useLayoutStore((s) => s.setWorkspaceMode);
 
   return (
     <header
@@ -26,7 +32,7 @@ export function TitleBar() {
       {/* Center: filled mode pills */}
       <div className="flex flex-1 items-center justify-center">
         <div className="flex items-center gap-0.5 rounded-pill bg-surface-raised p-[3px]">
-          {(['editor', 'build', 'review'] as const).map((m) => (
+          {(['editor', 'agent', 'review'] as const).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -36,7 +42,7 @@ export function TitleBar() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {m}
+              {MODE_LABELS[m]}
             </button>
           ))}
         </div>

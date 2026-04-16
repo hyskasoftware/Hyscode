@@ -180,7 +180,7 @@ function StatRow({ label, value, accent }: { label: string; value: string; accen
   );
 }
 
-export function AgentPanel() {
+export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } = {}) {
   const sddPhase = useAgentStore((s) => s.sddPhase);
   const sddSpec = useAgentStore((s) => s.sddSpec);
   const sddTasks = useAgentStore((s) => s.sddTasks);
@@ -282,7 +282,7 @@ export function AgentPanel() {
           <AgentMessages />
 
           {/* Changed files summary (above input) */}
-          <AgentChangedFiles />
+          {!hideChangedFiles && <AgentChangedFiles />}
 
           {/* Input + selectors at the bottom */}
           <AgentInput />
