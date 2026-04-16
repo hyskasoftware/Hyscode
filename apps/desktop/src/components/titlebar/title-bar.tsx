@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FileMenu } from './file-menu';
 import { ViewMenu } from './view-menu';
+import { BrandMark } from '../brand-mark';
 
 type WorkspaceMode = 'editor' | 'build' | 'review';
 
@@ -12,8 +13,12 @@ export function TitleBar() {
       data-tauri-drag-region
       className="flex h-10 items-center bg-background px-2"
     >
-      {/* Left: File + View menus */}
-      <div className="flex items-center shrink-0">
+      {/* Left: brand + menus */}
+      <div className="flex items-center shrink-0 gap-2">
+        <div data-tauri-drag-region className="flex items-center gap-2 px-1">
+          <BrandMark className="h-4 w-4 rounded-[4px]" alt="HysCode" />
+          <span className="text-[11px] font-medium text-muted-foreground">HysCode</span>
+        </div>
         <FileMenu />
         <ViewMenu />
       </div>

@@ -1,7 +1,8 @@
-import { FolderOpen, Clock, Trash2, Code2, ArrowRight } from 'lucide-react';
+import { FolderOpen, Clock, Trash2, ArrowRight } from 'lucide-react';
 import { useProjectStore, useFileStore } from '../../stores';
 import { pickFolder } from '../../lib/tauri-dialog';
 import type { RecentProject } from '../../stores/project-store';
+import { BrandMark } from '../brand-mark';
 
 export function WelcomePage() {
   const openProject = useProjectStore((s) => s.openProject);
@@ -48,9 +49,7 @@ export function WelcomePage() {
       <div className="flex w-full max-w-2xl flex-col items-center gap-10 px-8">
         {/* Logo and title */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface-raised">
-            <Code2 className="h-8 w-8 text-accent" />
-          </div>
+          <BrandMark className="h-16 w-16 rounded-2xl shadow-sm shadow-black/10" />
           <h1 className="text-2xl font-light tracking-tight text-foreground">
             HysCode
           </h1>

@@ -1,6 +1,7 @@
-import { Code2, FolderOpen } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
 import { useProjectStore, useFileStore } from '../../stores';
 import { pickFolder } from '../../lib/tauri-dialog';
+import { BrandMark } from '../brand-mark';
 
 export function EditorWelcome() {
   const openProject = useProjectStore((s) => s.openProject);
@@ -17,7 +18,7 @@ export function EditorWelcome() {
   return (
     <div className="flex flex-1 items-center justify-center text-muted-foreground">
       <div className="flex flex-col items-center gap-3 text-center">
-        <Code2 className="h-12 w-12 opacity-15" />
+        <BrandMark className="h-12 w-12 rounded-xl opacity-80" />
         <p className="text-sm font-light tracking-tight text-foreground">HysCode</p>
         <p className="text-[11px] opacity-50">
           Open a file from the explorer or start a conversation with the agent

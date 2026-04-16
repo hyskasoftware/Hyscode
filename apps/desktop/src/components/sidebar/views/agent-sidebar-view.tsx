@@ -1,5 +1,4 @@
 import {
-  Bot,
   Settings,
   MessageSquare,
   Hammer,
@@ -33,6 +32,7 @@ import { HarnessBridge } from '../../../lib/harness-bridge';
 import { McpBridge } from '../../../lib/mcp-bridge';
 import { tauriInvoke } from '../../../lib/tauri-invoke';
 import { cn } from '../../../lib/utils';
+import { BrandMark } from '../../../components/brand-mark';
 import { getAllAgentDefinitions, getModePolicy } from '@hyscode/agent-harness';
 import type { AgentMode, SessionSummary, ChatMessage } from '../../../stores/agent-store';
 import type { ApprovalMode } from '../../../stores/settings-store';
@@ -561,7 +561,7 @@ export function AgentSidebarView() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border/30">
-        <Bot className="h-3.5 w-3.5 text-accent" />
+        <BrandMark className="h-3.5 w-3.5 rounded-sm" alt="HysCode" />
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Agent
         </span>

@@ -1,9 +1,10 @@
-import { Bot, Terminal, GripVertical } from 'lucide-react';
+import { Terminal, GripVertical } from 'lucide-react';
 import { useLayoutStore } from '@/stores/layout-store';
 import { AgentPanel } from '@/components/agent';
 import { TerminalPanel } from '@/components/terminal';
 import { useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { BrandMark } from '@/components/brand-mark';
 
 /**
  * Wraps AgentPanel and (optionally) TerminalPanel in a tabbed container
@@ -43,7 +44,7 @@ export function SidebarPanel() {
               : 'text-muted-foreground hover:text-foreground hover:bg-muted',
           )}
         >
-          <Bot className="h-3 w-3 shrink-0" />
+          <BrandMark className="h-3 w-3 shrink-0 rounded-[3px]" alt="HysCode" />
           Chat
         </button>
         <button

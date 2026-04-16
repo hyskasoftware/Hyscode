@@ -1,4 +1,4 @@
-import { Sparkles, User, Bot, ChevronDown, ChevronRight, Copy, Check, Brain, AlertCircle } from 'lucide-react';
+import { Sparkles, User, ChevronDown, ChevronRight, Copy, Check, Brain, AlertCircle } from 'lucide-react';
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,6 +8,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { ToolCallGroup } from './tool-call-card';
 import { ApprovalDialog } from './approval-dialog';
 import { ModeSwitchDialog } from './mode-switch-dialog';
+import { BrandMark } from '@/components/brand-mark';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/stores/agent-store';
 
@@ -282,9 +283,7 @@ const MessageItem = memo(function MessageItem({
         <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-2')}>
           {!isConsecutiveAssistant && (
             <div className="flex items-center gap-2 mb-1.5">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent/12">
-                <Bot className="h-3 w-3 text-accent" />
-              </div>
+              <BrandMark className="h-5 w-5 shrink-0 rounded-md shadow-sm shadow-black/10" alt="HysCode" />
               <span className="text-[11px] font-semibold text-foreground/90">HysCode</span>
               {isActivelyStreaming && (
                 <span className="h-1.5 w-1.5 rounded-full bg-accent agent-pulse-ring" />
