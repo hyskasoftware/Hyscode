@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { AgentType, SddStatus, SddTask, ModeSwitchRequest } from '@hyscode/agent-harness';
+import type { AgentType, SddStatus, SddTask, ModeSwitchRequest, AgentQuestion } from '@hyscode/agent-harness';
 import type { MessageContent } from '@hyscode/ai-providers';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -105,6 +105,12 @@ export interface SessionSummary {
   updatedAt: string;
 }
 
+export interface PendingUserQuestion {
+  id: string;
+  title?: string;
+  questions: AgentQuestion[];
+}
+
 // ─── State ──────────────────────────────────────────────────────────────────
 
 interface AgentState {
@@ -143,6 +149,9 @@ interface AgentState {
   // Mode switch / delegation
   pendingModeSwitch: ModeSwitchRequest | null;
   delegationChain: Array<{ fromMode: AgentMode; toMode: AgentMode; reason: string }>;
+
+  // User questions (ask_user tool)
+  pendingUserQuestion: PendingUserQuestion | null;
 
   // Session history
   sessions: SessionSummary[];
@@ -211,6 +220,9 @@ interface AgentState {
   setPendingModeSwitch: (request: ModeSwitchRequest | null) => void;
   resolveModeSwitch: (approved: boolean) => void;
 
+  // User questions (ask_user tool)
+  setPendingUserQuestion: (question: PendingUserQuestion | null) => void;
+
   // Session history
   setSessions: (sessions: SessionSummary[]) => void;
   setSessionsLoading: (loading: boolean) => void;
@@ -242,6 +254,7 @@ export const useAgentStore = create<AgentState>()(
     agentTasks: [],
     pendingModeSwitch: null,
     delegationChain: [],
+    pendingUserQuestion: null,
     sessions: [],
     sessionsLoading: false,
     historyOpen: false,
@@ -384,6 +397,7 @@ export const useAgentStore = create<AgentState>()(
         state.tokenUsage = null;
         state.pendingModeSwitch = null;
         state.delegationChain = [];
+        state.pendingUserQuestion = null;
       }),
 
     // ─── Tool Calls ──────────────────────────────────────────────────
@@ -558,6 +572,13 @@ export const useAgentStore = create<AgentState>()(
           state.mode = req.toMode as AgentMode;
         }
         state.pendingModeSwitch = null;
+      }),
+
+    // ─── User Questions ──────────────────────────────────────────────
+
+    setPendingUserQuestion: (question) =>
+      set((state) => {
+        state.pendingUserQuestion = question;
       }),
 
     // ─── Session History ─────────────────────────────────────────────

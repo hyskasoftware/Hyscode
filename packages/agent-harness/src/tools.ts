@@ -3,7 +3,7 @@
 // Each tool maps to Tauri backend commands via invoke().
 
 import type { ToolDefinition } from '@hyscode/ai-providers';
-import type { ToolHandler, ToolResult, ToolExecutionContext, ToolCategory } from './types';
+import type { ToolHandler, ToolResult, ToolExecutionContext, ToolCategory, AgentQuestion } from './types';
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
@@ -1042,6 +1042,106 @@ Use simple glob patterns: "*.tsx", "**/*.test.ts", "src/**/index.ts".`,
   },
 );
 
+// ─── Ask User Tool ──────────────────────────────────────────────────────────
+
+export const askUserTool = defineTool(
+  'ask_user',
+  `Ask the user one or more clarifying questions before proceeding. Use this when you need specific information to make better decisions — for example layout preferences, technology choices, scope clarifications, or design trade-offs.
+Each question can have predefined options (numbered choices) and/or allow free-form text input. The agent loop pauses until the user answers.`,
+  {
+    title: {
+      type: 'string',
+      description: 'Short heading for the question card (e.g. "Let me ask a few questions to shape the layout")',
+    },
+    questions: {
+      type: 'array',
+      description: 'Array of questions to present to the user',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Unique identifier for this question (e.g. "q1", "layout")' },
+          question: { type: 'string', description: 'The question text to display' },
+          options: {
+            type: 'array',
+            description: 'Optional predefined answer choices',
+            items: {
+              type: 'object',
+              properties: {
+                label: { type: 'string', description: 'Display label for the option' },
+                description: { type: 'string', description: 'Optional description shown below the label' },
+              },
+              required: ['label'],
+            },
+          },
+          allow_freeform: {
+            type: 'boolean',
+            description: 'Whether the user can type a custom answer. Defaults to true.',
+          },
+        },
+        required: ['id', 'question'],
+      },
+    },
+  },
+  ['questions'],
+  'meta',
+  false,
+  async (input, ctx) => {
+    if (!ctx.askUser) {
+      return {
+        success: false,
+        output: '',
+        error: 'ask_user is not available in this environment. Proceed with your best judgment instead.',
+      };
+    }
+
+    const rawQuestions = input.questions as Array<{
+      id: string;
+      question: string;
+      options?: Array<{ label: string; description?: string }>;
+      allow_freeform?: boolean;
+    }>;
+
+    if (!rawQuestions || rawQuestions.length === 0) {
+      return { success: false, output: '', error: 'No questions provided.' };
+    }
+
+    const questions: AgentQuestion[] = rawQuestions.map((q) => ({
+      id: q.id,
+      question: q.question,
+      options: q.options,
+      allowFreeform: q.allow_freeform !== false,
+    }));
+
+    const title = (input.title as string) || undefined;
+
+    try {
+      const answers = await ctx.askUser(questions, title);
+
+      if (answers.length === 0) {
+        return {
+          success: true,
+          output: 'The user skipped the questions without answering. Proceed with your best judgment based on available context.',
+        };
+      }
+
+      const formatted = answers
+        .map((a) => `Q: ${questions.find((q) => q.id === a.id)?.question ?? a.id}\nA: ${a.answer}`)
+        .join('\n\n');
+
+      return {
+        success: true,
+        output: `User answers:\n\n${formatted}`,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        output: '',
+        error: `Failed to get user answers: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  },
+);
+
 // ─── Export All Tools ───────────────────────────────────────────────────────
 
 export function getAllBuiltinTools(): ToolHandler[] {
@@ -1077,5 +1177,6 @@ export function getAllBuiltinTools(): ToolHandler[] {
     createSkillTool,
     manageTasksTool,
     requestModeSwitchTool,
+    askUserTool,
   ];
 }

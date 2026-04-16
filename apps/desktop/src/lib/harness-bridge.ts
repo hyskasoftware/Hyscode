@@ -102,6 +102,7 @@ export class HarnessBridge {
   private harness: Harness;
   private approvalResolvers = new Map<string, (approved: boolean) => void>();
   private modeSwitchResolvers = new Map<string, (approved: boolean) => void>();
+  private userQuestionResolvers = new Map<string, (answers: import('@hyscode/agent-harness').AgentQuestionAnswer[]) => void>();
   /** Accumulated tool results for the current iteration (flushed between turns). */
   private pendingToolResults: Array<{ toolCallId: string; output: string; isError: boolean }> = [];
   /** Tool call IDs seen in the current iteration (for building assistant blocks). */
@@ -169,6 +170,7 @@ export class HarnessBridge {
       onEvent: (event) => this.handleEvent(event),
       onApprovalRequest: (pending) => this.handleApprovalRequest(pending),
       onModeSwitchRequest: (request) => this.handleModeSwitchRequest(request),
+      onUserQuestionRequest: (questions, title) => this.handleUserQuestionRequest(questions, title),
       skillLoader,
     });
   }
@@ -1005,6 +1007,16 @@ export class HarnessBridge {
         store.removeGatheredContextFile(event.filePath);
         break;
       }
+
+      case 'user_question_request': {
+        this.debug(`❓ Agent asking questions (${event.questions.length}): ${event.title ?? ''}`);
+        break;
+      }
+
+      case 'user_question_answered': {
+        this.debug(`✅ User answered ${event.answers.length} question(s)`);
+        break;
+      }
     }
   }
 
@@ -1088,6 +1100,33 @@ export class HarnessBridge {
     return new Promise<boolean>((resolve) => {
       this.modeSwitchResolvers.set(request.id, resolve);
     });
+  }
+
+  private async handleUserQuestionRequest(
+    questions: import('@hyscode/agent-harness').AgentQuestion[],
+    title?: string,
+  ): Promise<import('@hyscode/agent-harness').AgentQuestionAnswer[]> {
+    const id = crypto.randomUUID();
+    this.debug(`Agent is asking ${questions.length} question(s): ${title ?? '(no title)'}`);
+
+    // Push to store so AgentQuestionCard renders
+    const store = useAgentStore.getState();
+    store.setPendingUserQuestion({ id, title, questions });
+
+    // Wait for UI resolution
+    return new Promise<import('@hyscode/agent-harness').AgentQuestionAnswer[]>((resolve) => {
+      this.userQuestionResolvers.set(id, resolve);
+    });
+  }
+
+  /** Called by UI when the user submits answers to agent questions */
+  resolveUserQuestion(id: string, answers: import('@hyscode/agent-harness').AgentQuestionAnswer[]): void {
+    const resolver = this.userQuestionResolvers.get(id);
+    if (resolver) {
+      this.userQuestionResolvers.delete(id);
+      useAgentStore.getState().setPendingUserQuestion(null);
+      resolver(answers);
+    }
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────

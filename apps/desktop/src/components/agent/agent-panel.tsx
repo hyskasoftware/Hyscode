@@ -9,6 +9,7 @@ import { SddSpecReview } from './sdd/sdd-spec-review';
 import { SddTaskList } from './sdd/sdd-task-list';
 import { AgentTaskList } from './agent-task-list';
 import { AgentChangedFiles } from './agent-changed-files';
+import { AgentQuestionCard } from './agent-question-card';
 import { useAgentStore } from '@/stores/agent-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { Button } from '@/components/ui/button';
@@ -274,6 +275,9 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
 
           {/* Context chips */}
           <ContextChipsBar />
+
+          {/* Agent questions — wizard card (shown when agent uses ask_user tool) */}
+          <AgentQuestionCard />
 
           {/* Agent task tracking (shown when agent creates tasks) */}
           <AgentTaskList />

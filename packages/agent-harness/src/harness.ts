@@ -14,6 +14,8 @@ import type {
   ToolExecutionContext,
   ToolHandler,
   Skill,
+  AgentQuestion,
+  AgentQuestionAnswer,
 } from './types';
 import { DEFAULT_HARNESS_CONFIG } from './types';
 import { ContextManager } from './context-manager';
@@ -44,6 +46,8 @@ export interface HarnessOptions {
   onApprovalRequest?: (pending: { id: string; toolName: string; input: Record<string, unknown>; description: string }) => Promise<boolean>;
   /** Mode switch callback — returns true if approved, false if denied */
   onModeSwitchRequest?: (request: { id: string; fromMode: string; toMode: string; reason: string; contextSummary: string }) => Promise<boolean>;
+  /** User question callback — pauses agent loop, returns user answers */
+  onUserQuestionRequest?: (questions: AgentQuestion[], title?: string) => Promise<AgentQuestionAnswer[]>;
   /** SDD database interface */
   sddDb?: SddDatabase;
   /** Skill loader config */
@@ -68,6 +72,7 @@ export class Harness {
   private abortController: AbortController | null = null;
   private toolCallHistory: ToolCallRecord[] = [];
   private onModeSwitchRequest: HarnessOptions['onModeSwitchRequest'] = undefined;
+  private onUserQuestionRequest: HarnessOptions['onUserQuestionRequest'] = undefined;
   private activeSkills: Skill[] = [];
 
   // ─── Middleware ────────────────────────────────────────────────────
@@ -111,6 +116,9 @@ export class Harness {
 
     // Store mode switch callback
     this.onModeSwitchRequest = options.onModeSwitchRequest;
+
+    // Store user question callback
+    this.onUserQuestionRequest = options.onUserQuestionRequest;
 
     // Register built-in tools
     for (const tool of getAllBuiltinTools()) {
@@ -515,6 +523,15 @@ export class Harness {
           getTokens: () => this.contextManager.getGatheredTokens(),
           clear: () => this.contextManager.clearGatheredFiles(),
         },
+        askUser: this.onUserQuestionRequest
+          ? async (questions: AgentQuestion[], title?: string) => {
+              const id = crypto.randomUUID();
+              this.emit({ type: 'user_question_request', id, title, questions });
+              const answers = await this.onUserQuestionRequest!(questions, title);
+              this.emit({ type: 'user_question_answered', id, answers });
+              return answers;
+            }
+          : undefined,
       };
 
       // Wire auto-gather middleware to the gathered context interface

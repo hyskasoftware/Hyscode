@@ -41,6 +41,8 @@ export interface ToolExecutionContext {
     getTokens(): number;
     clear(): void;
   };
+  /** Ask the user a set of questions. Pauses the agent loop until answered. */
+  askUser?: (questions: AgentQuestion[], title?: string) => Promise<AgentQuestionAnswer[]>;
 }
 
 /** Emitted when a tool writes/edits/creates a file so the UI can track it */
@@ -304,7 +306,9 @@ export type HarnessEvent =
   | { type: 'mode_switch_request'; request: ModeSwitchRequest }
   | { type: 'mode_switch_resolved'; request: ModeSwitchRequest; approved: boolean }
   | { type: 'context_gathered'; filePath: string; relevance: number; reason: string; tokenEstimate: number }
-  | { type: 'context_dropped'; filePath: string };
+  | { type: 'context_dropped'; filePath: string }
+  | { type: 'user_question_request'; id: string; title?: string; questions: AgentQuestion[] }
+  | { type: 'user_question_answered'; id: string; answers: AgentQuestionAnswer[] };
 
 export type HarnessEventHandler = (event: HarnessEvent) => void;
 
@@ -316,6 +320,34 @@ export interface ModeSwitchRequest {
   toMode: AgentType;
   reason: string;
   contextSummary: string;
+}
+
+// ─── Agent ↔ User Questions ─────────────────────────────────────────────────
+// Allows the agent to ask the user clarifying questions mid-turn.
+
+export interface AgentQuestion {
+  /** Unique ID for this question (e.g. "q1", "layout") */
+  id: string;
+  /** The question text to display */
+  question: string;
+  /** Optional predefined options the user can pick from */
+  options?: AgentQuestionOption[];
+  /** Whether the user can type a free-form answer (default: true) */
+  allowFreeform?: boolean;
+}
+
+export interface AgentQuestionOption {
+  /** Display label */
+  label: string;
+  /** Optional description shown below the label */
+  description?: string;
+}
+
+export interface AgentQuestionAnswer {
+  /** Matches AgentQuestion.id */
+  id: string;
+  /** The user's answer (selected option label or free-form text) */
+  answer: string;
 }
 
 // ─── Skill Types ────────────────────────────────────────────────────────────

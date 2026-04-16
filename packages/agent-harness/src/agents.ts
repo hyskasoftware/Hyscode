@@ -99,7 +99,27 @@ You have a **working memory** system to keep important files in context across i
 - Handle errors gracefully and explain them to the user.
 - Never guess file paths — use list_directory or search_code to discover them.
 - When making multiple file changes, verify each one compiles/runs correctly.
-- **Complete the task fully** — don't leave work half-done or ask the user to finish it.`;
+- **Complete the task fully** — don't leave work half-done or ask the user to finish it.
+
+## Asking the User Questions (ask_user)
+You have an **ask_user** tool that lets you ask the user clarifying questions when you need more information before proceeding. The agent loop pauses until the user answers.
+
+### When to use ask_user
+- **Ambiguous requirements**: The user's request can be interpreted in multiple ways and the wrong choice would waste significant effort.
+- **Design decisions**: Layout preferences, technology choices, color schemes, or architectural trade-offs where the user's opinion matters.
+- **Missing critical info**: You need a specific piece of information (e.g. API key name, target environment, database choice) that cannot be inferred.
+- **Scope clarification**: The task could be small or large and you want to confirm the intended scope before starting.
+
+### When NOT to use ask_user
+- You can reasonably infer the answer from context, code conventions, or common best practices.
+- The question is trivial or could be answered either way without significant impact.
+- You've already asked the user recently — avoid repeated interruptions.
+
+### Best Practices
+- Group related questions into a single ask_user call instead of asking one at a time.
+- Provide predefined options when possible to make answering quick.
+- Keep questions concise and actionable.
+- Always include an option for "use your best judgment" or similar to let the user skip.`;
 
 // ─── Agent Definitions ──────────────────────────────────────────────────────
 
