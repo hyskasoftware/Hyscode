@@ -5,7 +5,7 @@ import { SettingsModal } from './components/settings';
 import { ExtensionOverlays } from './components/editor/extension-overlays';
 import { TooltipProvider } from './components/ui/tooltip';
 import { DialogProvider } from './components/ui/dialogs';
-import { EditorLayout, AgentLayout, ReviewComingSoon } from './components/layouts';
+import { EditorLayout, AgentLayout, ReviewLayout } from './components/layouts';
 import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
 import { useLayoutStore } from './stores/layout-store';
 import { useSkillsStore } from './stores/skills-store';
@@ -120,7 +120,7 @@ function IDE() {
       <div className="flex flex-1 overflow-hidden p-1.5 pt-0">
         {workspaceMode === 'editor' && <EditorLayout />}
         {workspaceMode === 'agent' && <AgentLayout />}
-        {workspaceMode === 'review' && <ReviewComingSoon />}
+        {workspaceMode === 'review' && <ReviewLayout />}
       </div>
 
       <StatusBar />

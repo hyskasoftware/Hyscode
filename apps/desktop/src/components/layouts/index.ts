@@ -1,3 +1,3 @@
 export { EditorLayout } from './editor-layout';
 export { AgentLayout } from './agent-layout';
-export { ReviewComingSoon } from './review-coming-soon';
+export { ReviewLayout } from './review-layout';
