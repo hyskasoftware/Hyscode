@@ -7,10 +7,10 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Holds a single PTY session: the master writer (stdin) and child process.
 pub(crate) struct PtySession {
-    writer: Box<dyn Write + Send>,
-    master: Box<dyn MasterPty + Send>,
+    pub(crate) writer: Box<dyn Write + Send>,
+    pub(crate) master: Box<dyn MasterPty + Send>,
     #[allow(dead_code)]
-    child: Box<dyn portable_pty::Child + Send>,
+    pub(crate) child: Box<dyn portable_pty::Child + Send>,
 }
 
 /// Tauri managed state: map of pty_id → PtySession.

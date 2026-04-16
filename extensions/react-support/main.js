@@ -4,20 +4,74 @@
 export function activate(context) {
   console.log('[react-support] Extension activated');
 
-  // The HysCode APIs would be available in the sandbox environment
-  // For now, we register the command handlers that the extension system will wire up
+  const api = context._api || globalThis.hyscode;
+  if (!api) {
+    console.warn('[react-support] HysCode API not available');
+    return;
+  }
 
-  // Command: Wrap selection with React Fragment
-  // When integrated with the command registry, this will wrap selected text in <>...</>
+  if (api.commands) {
+    // ── Wrap Selection with React Fragment ─────────────────────────────────
+    api.commands.register('react-support.wrapWithFragment', async () => {
+      if (!api.editor) return;
+      const selection = api.editor.getSelection?.();
+      if (!selection) return;
+      const text = selection.text || '';
+      const indented = text.split('\n').map(l => '  ' + l).join('\n');
+      api.editor.replaceSelection?.(`<>\n${indented}\n</>`);
+    });
 
-  // Command: Wrap selection with <div>
-  // When integrated with the command registry, this will wrap selected text in <div>...</div>
+    // ── Wrap Selection with <div> ──────────────────────────────────────────
+    api.commands.register('react-support.wrapWithDiv', async () => {
+      if (!api.editor) return;
+      const selection = api.editor.getSelection?.();
+      if (!selection) return;
+      const text = selection.text || '';
+      const indented = text.split('\n').map(l => '  ' + l).join('\n');
+      api.editor.replaceSelection?.(`<div>\n${indented}\n</div>`);
+    });
 
-  // Command: New React Component
-  // When integrated, this will create a new component file from template
+    // ── New React Component ────────────────────────────────────────────────
+    api.commands.register('react-support.newComponent', async () => {
+      const name = await api.window?.showInputBox?.({
+        prompt: 'Component name',
+        placeHolder: 'MyComponent',
+      });
+      if (!name) return;
 
-  // Command: Toggle JSX Comment
-  // When integrated, this will toggle {/* ... */} comments in JSX
+      const content = `interface ${name}Props {
+  // props
+}
+
+export function ${name}({}: ${name}Props) {
+  return (
+    <div>
+      ${name}
+    </div>
+  );
+}
+`;
+      if (api.workspace && api.workspace.createFile) {
+        await api.workspace.createFile(`${name}.tsx`, content);
+      }
+    });
+
+    // ── Toggle JSX Comment ─────────────────────────────────────────────────
+    api.commands.register('react-support.toggleJsxComment', async () => {
+      if (!api.editor) return;
+      const selection = api.editor.getSelection?.();
+      if (!selection) return;
+      const text = selection.text || '';
+      const trimmed = text.trim();
+      // If already wrapped in JSX comment, unwrap
+      if (trimmed.startsWith('{/*') && trimmed.endsWith('*/}')) {
+        const inner = trimmed.slice(3, -3).trim();
+        api.editor.replaceSelection?.(inner);
+      } else {
+        api.editor.replaceSelection?.(`{/* ${text} */}`);
+      }
+    });
+  }
 
   console.log('[react-support] Commands registered');
 }

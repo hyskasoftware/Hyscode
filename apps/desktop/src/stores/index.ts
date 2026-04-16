@@ -9,3 +9,4 @@ export { useExtensionStore } from './extension-store';
 export { useLspStore } from './lsp-store';
 export { useSkillsStore } from './skills-store';
 export { useLayoutStore } from './layout-store';
+export { useDeviceStore } from './device-store';

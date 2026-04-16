@@ -129,6 +129,11 @@ interface SettingsState {
   // ─ Skills ─
   skillsPath: string;
 
+  // ─ Mobile / Devices ─
+  flutterSdkPath: string;
+  androidSdkPath: string;
+  reactNativeAutoDetect: boolean;
+
   // ─ Settings modal ─
   settingsOpen: boolean;
 
@@ -217,6 +222,11 @@ export const useSettingsStore = create<SettingsState>()(
 
       // Skills
       skillsPath: '',
+
+      // Mobile / Devices
+      flutterSdkPath: '',
+      androidSdkPath: '',
+      reactNativeAutoDetect: true,
 
       // Settings modal
       settingsOpen: false,

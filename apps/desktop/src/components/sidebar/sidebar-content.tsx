@@ -6,6 +6,7 @@ import {
   SkillsView,
   ExtensionsView,
   AgentSidebarView,
+  DevicesView,
 } from './views';
 
 interface SidebarContentProps {
@@ -26,5 +27,7 @@ export function SidebarContent({ view }: SidebarContentProps) {
       return <ExtensionsView />;
     case 'agent':
       return <AgentSidebarView />;
+    case 'devices':
+      return <DevicesView />;
   }
 }

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { GitBranch, Circle, Blocks, Zap } from 'lucide-react';
+import { GitBranch, Circle, Blocks, Zap, Smartphone } from 'lucide-react';
 import { useGitStore, useEditorStore, useExtensionStore } from '../../stores';
 import { useLspStore } from '../../stores/lsp-store';
+import { useDeviceStore } from '../../stores/device-store';
 import { detectLanguage } from '../../lib/lsp-bridge';
 import { BranchPicker } from '../git/branch-picker';
 
@@ -24,6 +25,10 @@ export function StatusBar() {
   const serverStatuses = useLspStore((s) => s.serverStatuses);
   const activeLang = activeTab?.filePath ? detectLanguage(activeTab.filePath) : undefined;
   const lspInfo = activeLang ? serverStatuses[activeLang] : undefined;
+
+  const devices = useDeviceStore((s) => s.devices);
+  const selectedDeviceId = useDeviceStore((s) => s.selectedDeviceId);
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
 
   const [branchPickerOpen, setBranchPickerOpen] = useState(false);
   const branchRef = useRef<HTMLButtonElement>(null);
@@ -70,6 +75,15 @@ export function StatusBar() {
             <span className="flex items-center gap-1" title={`${extensionCount} extension(s) active`}>
               <Blocks className="h-2.5 w-2.5" />
               <span>{extensionCount}</span>
+            </span>
+          )}
+          {selectedDevice && (
+            <span
+              className="flex items-center gap-1 text-accent"
+              title={`Target: ${selectedDevice.name} (${selectedDevice.platform})`}
+            >
+              <Smartphone className="h-2.5 w-2.5" />
+              <span className="max-w-[120px] truncate">{selectedDevice.name}</span>
             </span>
           )}
           <span>UTF-8</span>

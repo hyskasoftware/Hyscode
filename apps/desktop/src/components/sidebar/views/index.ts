@@ -4,3 +4,4 @@ export { GitView } from './git-view-new';
 export { SkillsView } from './skills-view';
 export { ExtensionsView } from './extensions-view';
 export { AgentSidebarView } from './agent-sidebar-view';
+export { DevicesView } from './devices-view';

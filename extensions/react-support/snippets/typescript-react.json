@@ -407,5 +407,138 @@
       "/>"
     ],
     "description": "Input controlado React tipado"
+  },
+
+  "React Native StyleSheet": {
+    "prefix": ["rnstyle", "stylesheet"],
+    "body": [
+      "const styles = StyleSheet.create({",
+      "  container: {",
+      "    flex: 1,",
+      "    ${1:alignItems: 'center'},",
+      "    ${2:justifyContent: 'center'},",
+      "  },",
+      "  $0",
+      "});"
+    ],
+    "description": "React Native StyleSheet.create"
+  },
+  "React Native Functional Component": {
+    "prefix": ["rnfc", "rncomponent"],
+    "body": [
+      "import { View, Text, StyleSheet } from 'react-native';",
+      "",
+      "interface ${1:${TM_FILENAME_BASE}}Props {",
+      "  $2",
+      "}",
+      "",
+      "export function ${1:${TM_FILENAME_BASE}}({ $3 }: ${1:${TM_FILENAME_BASE}}Props) {",
+      "  return (",
+      "    <View style={styles.container}>",
+      "      <Text>$0</Text>",
+      "    </View>",
+      "  );",
+      "}",
+      "",
+      "const styles = StyleSheet.create({",
+      "  container: {",
+      "    flex: 1,",
+      "  },",
+      "});"
+    ],
+    "description": "React Native functional component"
+  },
+  "React Native Screen": {
+    "prefix": ["rnscreen", "screen"],
+    "body": [
+      "import { View, Text, StyleSheet } from 'react-native';",
+      "import { SafeAreaView } from 'react-native-safe-area-context';",
+      "",
+      "export function ${1:${TM_FILENAME_BASE}}Screen() {",
+      "  return (",
+      "    <SafeAreaView style={styles.container}>",
+      "      <View style={styles.content}>",
+      "        <Text style={styles.title}>${2:Screen Title}</Text>",
+      "        $0",
+      "      </View>",
+      "    </SafeAreaView>",
+      "  );",
+      "}",
+      "",
+      "const styles = StyleSheet.create({",
+      "  container: {",
+      "    flex: 1,",
+      "    backgroundColor: '#fff',",
+      "  },",
+      "  content: {",
+      "    flex: 1,",
+      "    padding: 16,",
+      "  },",
+      "  title: {",
+      "    fontSize: 24,",
+      "    fontWeight: 'bold',",
+      "  },",
+      "});"
+    ],
+    "description": "React Native screen with SafeAreaView"
+  },
+  "React Native FlatList": {
+    "prefix": ["rnflatlist", "flatlist"],
+    "body": [
+      "<FlatList",
+      "  data={${1:data}}",
+      "  keyExtractor={(item) => item.${2:id}}",
+      "  renderItem={({ item }) => (",
+      "    <View>",
+      "      <Text>{item.${3:name}}</Text>",
+      "    </View>",
+      "  )}",
+      "  $0",
+      "/>"
+    ],
+    "description": "React Native FlatList"
+  },
+  "React Native TouchableOpacity": {
+    "prefix": ["rntouchable", "touchable"],
+    "body": [
+      "<TouchableOpacity",
+      "  onPress={() => {",
+      "    $0",
+      "  }}",
+      "  style={${1:styles.button}}",
+      ">",
+      "  <Text style={${2:styles.buttonText}}>${3:Press me}</Text>",
+      "</TouchableOpacity>"
+    ],
+    "description": "React Native TouchableOpacity"
+  },
+  "React Native useNavigation": {
+    "prefix": ["rnnav", "usenavigation"],
+    "body": "const navigation = useNavigation<${1:NativeStackNavigationProp<RootStackParamList>}>();",
+    "description": "React Navigation useNavigation hook"
+  },
+  "React Native Stack Navigator": {
+    "prefix": ["rnstack", "stacknav"],
+    "body": [
+      "import { createNativeStackNavigator } from '@react-navigation/native-stack';",
+      "",
+      "type ${1:RootStack}ParamList = {",
+      "  ${2:Home}: undefined;",
+      "  ${3:Details}: { id: string };",
+      "};",
+      "",
+      "const Stack = createNativeStackNavigator<${1:RootStack}ParamList>();",
+      "",
+      "export function ${1:RootStack}Navigator() {",
+      "  return (",
+      "    <Stack.Navigator>",
+      "      <Stack.Screen name=\"${2:Home}\" component={${2:Home}Screen} />",
+      "      <Stack.Screen name=\"${3:Details}\" component={${3:Details}Screen} />",
+      "      $0",
+      "    </Stack.Navigator>",
+      "  );",
+      "}"
+    ],
+    "description": "React Navigation Stack Navigator"
   }
 }

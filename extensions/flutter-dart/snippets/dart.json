@@ -1,0 +1,429 @@
+{
+  "Stateless Widget": {
+    "prefix": ["stless", "stateless"],
+    "body": [
+      "class ${1:MyWidget} extends StatelessWidget {",
+      "  const ${1:MyWidget}({super.key});",
+      "",
+      "  @override",
+      "  Widget build(BuildContext context) {",
+      "    return ${2:Container}(",
+      "      $0",
+      "    );",
+      "  }",
+      "}"
+    ],
+    "description": "Flutter StatelessWidget"
+  },
+  "Stateful Widget": {
+    "prefix": ["stful", "stateful"],
+    "body": [
+      "class ${1:MyWidget} extends StatefulWidget {",
+      "  const ${1:MyWidget}({super.key});",
+      "",
+      "  @override",
+      "  State<${1:MyWidget}> createState() => _${1:MyWidget}State();",
+      "}",
+      "",
+      "class _${1:MyWidget}State extends State<${1:MyWidget}> {",
+      "  @override",
+      "  Widget build(BuildContext context) {",
+      "    return ${2:Container}(",
+      "      $0",
+      "    );",
+      "  }",
+      "}"
+    ],
+    "description": "Flutter StatefulWidget"
+  },
+  "Animated Widget": {
+    "prefix": ["stani", "animated"],
+    "body": [
+      "class ${1:MyWidget} extends StatefulWidget {",
+      "  const ${1:MyWidget}({super.key});",
+      "",
+      "  @override",
+      "  State<${1:MyWidget}> createState() => _${1:MyWidget}State();",
+      "}",
+      "",
+      "class _${1:MyWidget}State extends State<${1:MyWidget}>",
+      "    with SingleTickerProviderStateMixin {",
+      "  late final AnimationController _controller;",
+      "",
+      "  @override",
+      "  void initState() {",
+      "    super.initState();",
+      "    _controller = AnimationController(",
+      "      vsync: this,",
+      "      duration: const Duration(milliseconds: ${2:300}),",
+      "    );",
+      "  }",
+      "",
+      "  @override",
+      "  void dispose() {",
+      "    _controller.dispose();",
+      "    super.dispose();",
+      "  }",
+      "",
+      "  @override",
+      "  Widget build(BuildContext context) {",
+      "    return ${3:Container}(",
+      "      $0",
+      "    );",
+      "  }",
+      "}"
+    ],
+    "description": "Flutter StatefulWidget com AnimationController"
+  },
+  "Build Method": {
+    "prefix": ["build", "buildmethod"],
+    "body": [
+      "@override",
+      "Widget build(BuildContext context) {",
+      "  return ${1:Container}(",
+      "    $0",
+      "  );",
+      "}"
+    ],
+    "description": "Override build method"
+  },
+  "initState": {
+    "prefix": ["initstate", "init"],
+    "body": [
+      "@override",
+      "void initState() {",
+      "  super.initState();",
+      "  $0",
+      "}"
+    ],
+    "description": "Override initState"
+  },
+  "dispose": {
+    "prefix": ["dispose"],
+    "body": [
+      "@override",
+      "void dispose() {",
+      "  $0",
+      "  super.dispose();",
+      "}"
+    ],
+    "description": "Override dispose"
+  },
+  "setState": {
+    "prefix": ["setstate", "ss"],
+    "body": [
+      "setState(() {",
+      "  $0",
+      "});"
+    ],
+    "description": "setState call"
+  },
+  "FutureBuilder": {
+    "prefix": ["futbuild", "futurebuilder"],
+    "body": [
+      "FutureBuilder<${1:dynamic}>(",
+      "  future: ${2:future},",
+      "  builder: (context, snapshot) {",
+      "    if (snapshot.connectionState == ConnectionState.waiting) {",
+      "      return const CircularProgressIndicator();",
+      "    }",
+      "    if (snapshot.hasError) {",
+      "      return Text('Error: \\${snapshot.error}');",
+      "    }",
+      "    final data = snapshot.data;",
+      "    return ${3:Container}(",
+      "      $0",
+      "    );",
+      "  },",
+      ")"
+    ],
+    "description": "Flutter FutureBuilder"
+  },
+  "StreamBuilder": {
+    "prefix": ["strbuild", "streambuilder"],
+    "body": [
+      "StreamBuilder<${1:dynamic}>(",
+      "  stream: ${2:stream},",
+      "  builder: (context, snapshot) {",
+      "    if (snapshot.connectionState == ConnectionState.waiting) {",
+      "      return const CircularProgressIndicator();",
+      "    }",
+      "    if (snapshot.hasError) {",
+      "      return Text('Error: \\${snapshot.error}');",
+      "    }",
+      "    final data = snapshot.data;",
+      "    return ${3:Container}(",
+      "      $0",
+      "    );",
+      "  },",
+      ")"
+    ],
+    "description": "Flutter StreamBuilder"
+  },
+  "ListView.builder": {
+    "prefix": ["listbuild", "listviewbuilder"],
+    "body": [
+      "ListView.builder(",
+      "  itemCount: ${1:items}.length,",
+      "  itemBuilder: (context, index) {",
+      "    final item = ${1:items}[index];",
+      "    return ${2:ListTile}(",
+      "      title: Text('${3:\\${item}}'),",
+      "      $0",
+      "    );",
+      "  },",
+      ")"
+    ],
+    "description": "Flutter ListView.builder"
+  },
+  "GridView.builder": {
+    "prefix": ["gridbuild", "gridviewbuilder"],
+    "body": [
+      "GridView.builder(",
+      "  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(",
+      "    crossAxisCount: ${1:2},",
+      "    crossAxisSpacing: ${2:8},",
+      "    mainAxisSpacing: ${3:8},",
+      "  ),",
+      "  itemCount: ${4:items}.length,",
+      "  itemBuilder: (context, index) {",
+      "    return ${5:Card}(",
+      "      $0",
+      "    );",
+      "  },",
+      ")"
+    ],
+    "description": "Flutter GridView.builder"
+  },
+  "BLoC Builder": {
+    "prefix": ["blocbuild", "blocbuilder"],
+    "body": [
+      "BlocBuilder<${1:MyBloc}, ${2:MyState}>(",
+      "  builder: (context, state) {",
+      "    return ${3:Container}(",
+      "      $0",
+      "    );",
+      "  },",
+      ")"
+    ],
+    "description": "Flutter BLoC Builder"
+  },
+  "BLoC Listener": {
+    "prefix": ["bloclisten", "bloclistener"],
+    "body": [
+      "BlocListener<${1:MyBloc}, ${2:MyState}>(",
+      "  listener: (context, state) {",
+      "    $0",
+      "  },",
+      "  child: ${3:Container}(),",
+      ")"
+    ],
+    "description": "Flutter BLoC Listener"
+  },
+  "Consumer (Provider)": {
+    "prefix": ["consumer", "providerconsumer"],
+    "body": [
+      "Consumer<${1:MyModel}>(",
+      "  builder: (context, ${2:model}, child) {",
+      "    return ${3:Container}(",
+      "      $0",
+      "    );",
+      "  },",
+      ")"
+    ],
+    "description": "Flutter Provider Consumer"
+  },
+  "ChangeNotifierProvider": {
+    "prefix": ["cnprovider", "changenotifier"],
+    "body": [
+      "ChangeNotifierProvider(",
+      "  create: (context) => ${1:MyModel}(),",
+      "  child: ${2:Container}(",
+      "    $0",
+      "  ),",
+      ")"
+    ],
+    "description": "Flutter ChangeNotifierProvider"
+  },
+  "Riverpod Provider": {
+    "prefix": ["rivprov", "riverpodprovider"],
+    "body": [
+      "final ${1:myProvider} = ${2|Provider,StateProvider,FutureProvider,StreamProvider|}((ref) {",
+      "  return $0;",
+      "});"
+    ],
+    "description": "Riverpod Provider"
+  },
+  "Scaffold": {
+    "prefix": ["scaffold"],
+    "body": [
+      "Scaffold(",
+      "  appBar: AppBar(",
+      "    title: const Text('${1:Title}'),",
+      "  ),",
+      "  body: ${2:Center}(",
+      "    child: ${3:Text}('${4:Hello}'),",
+      "  ),",
+      "  floatingActionButton: FloatingActionButton(",
+      "    onPressed: () {",
+      "      $0",
+      "    },",
+      "    child: const Icon(Icons.add),",
+      "  ),",
+      ")"
+    ],
+    "description": "Flutter Scaffold completo"
+  },
+  "MediaQuery": {
+    "prefix": ["mq", "mediaquery"],
+    "body": "final ${1:size} = MediaQuery.of(context).size;",
+    "description": "MediaQuery.of(context)"
+  },
+  "Theme.of": {
+    "prefix": ["thof", "themeof"],
+    "body": "final ${1:theme} = Theme.of(context);",
+    "description": "Theme.of(context)"
+  },
+  "Navigator.push": {
+    "prefix": ["navpush", "navigate"],
+    "body": [
+      "Navigator.of(context).push(",
+      "  MaterialPageRoute(",
+      "    builder: (context) => const ${1:NextPage}(),",
+      "  ),",
+      ");"
+    ],
+    "description": "Navigator.push"
+  },
+  "Navigator.pushNamed": {
+    "prefix": ["navpushn", "pushnamed"],
+    "body": "Navigator.of(context).pushNamed('${1:/route}');",
+    "description": "Navigator.pushNamed"
+  },
+  "showDialog": {
+    "prefix": ["dialog", "showdialog"],
+    "body": [
+      "showDialog(",
+      "  context: context,",
+      "  builder: (context) => AlertDialog(",
+      "    title: const Text('${1:Title}'),",
+      "    content: const Text('${2:Content}'),",
+      "    actions: [",
+      "      TextButton(",
+      "        onPressed: () => Navigator.of(context).pop(),",
+      "        child: const Text('${3:OK}'),",
+      "      ),",
+      "    ],",
+      "  ),",
+      ");"
+    ],
+    "description": "showDialog com AlertDialog"
+  },
+  "Dart Main": {
+    "prefix": ["main", "dartmain"],
+    "body": [
+      "void main() {",
+      "  $0",
+      "}"
+    ],
+    "description": "Dart main function"
+  },
+  "Flutter Main": {
+    "prefix": ["fmain", "fluttermain"],
+    "body": [
+      "import 'package:flutter/material.dart';",
+      "",
+      "void main() {",
+      "  runApp(const ${1:MyApp}());",
+      "}",
+      "",
+      "class ${1:MyApp} extends StatelessWidget {",
+      "  const ${1:MyApp}({super.key});",
+      "",
+      "  @override",
+      "  Widget build(BuildContext context) {",
+      "    return MaterialApp(",
+      "      title: '${2:My App}',",
+      "      theme: ThemeData(",
+      "        colorSchemeSeed: Colors.${3:blue},",
+      "        useMaterial3: true,",
+      "      ),",
+      "      home: const ${4:HomePage}(),",
+      "    );",
+      "  }",
+      "}"
+    ],
+    "description": "Flutter app entry point"
+  },
+  "Dart Class": {
+    "prefix": ["dclass", "dartclass"],
+    "body": [
+      "class ${1:MyClass} {",
+      "  ${1:MyClass}({",
+      "    ${2:required this.name},",
+      "  });",
+      "",
+      "  ${3:final String name};",
+      "",
+      "  $0",
+      "}"
+    ],
+    "description": "Dart class"
+  },
+  "Freezed Class": {
+    "prefix": ["freezed", "freezedclass"],
+    "body": [
+      "import 'package:freezed_annotation/freezed_annotation.dart';",
+      "",
+      "part '${TM_FILENAME_BASE}.freezed.dart';",
+      "part '${TM_FILENAME_BASE}.g.dart';",
+      "",
+      "@freezed",
+      "class ${1:MyModel} with _\\$${1:MyModel} {",
+      "  const factory ${1:MyModel}({",
+      "    required ${2:String} ${3:name},",
+      "    $0",
+      "  }) = _${1:MyModel};",
+      "",
+      "  factory ${1:MyModel}.fromJson(Map<String, dynamic> json) =>",
+      "      _\\$${1:MyModel}FromJson(json);",
+      "}"
+    ],
+    "description": "Freezed data class"
+  },
+  "Dart Test": {
+    "prefix": ["dtest", "darttest"],
+    "body": [
+      "import 'package:flutter_test/flutter_test.dart';",
+      "",
+      "void main() {",
+      "  group('${1:group}', () {",
+      "    test('${2:should}', () {",
+      "      $0",
+      "    });",
+      "  });",
+      "}"
+    ],
+    "description": "Dart test file"
+  },
+  "Widget Test": {
+    "prefix": ["wtest", "widgettest"],
+    "body": [
+      "import 'package:flutter/material.dart';",
+      "import 'package:flutter_test/flutter_test.dart';",
+      "",
+      "void main() {",
+      "  testWidgets('${1:widget description}', (tester) async {",
+      "    await tester.pumpWidget(",
+      "      const MaterialApp(",
+      "        home: ${2:MyWidget}(),",
+      "      ),",
+      "    );",
+      "",
+      "    $0",
+      "  });",
+      "}"
+    ],
+    "description": "Flutter widget test"
+  }
+}

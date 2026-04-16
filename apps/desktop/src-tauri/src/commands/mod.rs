@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod claude_agent;
 pub mod db;
+pub mod devices;
 pub mod extension;
 pub mod fs;
 pub mod git;

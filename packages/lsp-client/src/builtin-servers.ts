@@ -31,7 +31,7 @@ export const BUILTIN_SERVERS: BuiltinServerConfig[] = [
     languageIds: ['typescript', 'typescriptreact', 'javascript', 'javascriptreact'],
     command: 'typescript-language-server',
     args: ['--stdio'],
-    rootPatterns: ['tsconfig.json', 'jsconfig.json', 'package.json'],
+    rootPatterns: ['tsconfig.json', 'jsconfig.json', 'package.json', 'app.json', 'react-native.config.js'],
     initializationOptions: {
       preferences: {
         includeCompletionsForModuleExports: true,
@@ -189,7 +189,30 @@ export const BUILTIN_SERVERS: BuiltinServerConfig[] = [
     },
   },
 
-  // ── 10. HTML / CSS / JSON ──────────────────────────────────────────────
+  // ── 10. Dart ───────────────────────────────────────────────────────────
+  {
+    id: 'builtin-dart',
+    displayName: 'Dart Language Server',
+    description: 'Dart language support with Flutter analysis',
+    languageIds: ['dart'],
+    command: 'dart',
+    args: ['language-server', '--protocol=lsp'],
+    rootPatterns: ['pubspec.yaml', 'analysis_options.yaml'],
+    initializationOptions: {
+      closingLabels: true,
+      outline: true,
+      flutterOutline: true,
+    },
+    enabledByDefault: true,
+    installInstructions: {
+      flutter: 'Install Flutter SDK: https://docs.flutter.dev/get-started/install',
+      dart: 'Install Dart SDK: https://dart.dev/get-dart',
+      brew: 'brew install dart',
+      choco: 'choco install dart-sdk',
+    },
+  },
+
+  // ── 11. HTML / CSS / JSON ──────────────────────────────────────────────
   {
     id: 'builtin-html',
     displayName: 'HTML Language Server',

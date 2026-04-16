@@ -127,6 +127,11 @@ pub fn run() {
             // Mode policy commands
             commands::db::db_list_mode_policies,
             commands::db::db_update_mode_policy,
+            // Device management commands
+            commands::devices::list_devices,
+            commands::devices::list_emulators,
+            commands::devices::start_emulator,
+            commands::devices::run_on_device,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

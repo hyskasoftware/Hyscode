@@ -1,0 +1,130 @@
+{
+  "name": "flutter-dart",
+  "displayName": "Flutter & Dart",
+  "version": "1.0.0",
+  "description": "Suporte completo a Flutter e Dart — linguagem, snippets, comandos de hot reload e gerenciamento de widgets",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["flutter", "dart", "widget", "stateless", "stateful", "hot-reload", "mobile"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:dart"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "dart",
+        "aliases": ["Dart"],
+        "extensions": [".dart"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "arb",
+        "aliases": ["Application Resource Bundle"],
+        "extensions": [".arb"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "dart", "path": "snippets/dart.json" }
+    ],
+    "commands": [
+      {
+        "id": "flutter.hotReload",
+        "title": "Hot Reload",
+        "category": "Flutter"
+      },
+      {
+        "id": "flutter.hotRestart",
+        "title": "Hot Restart",
+        "category": "Flutter"
+      },
+      {
+        "id": "flutter.newStatelessWidget",
+        "title": "New Stateless Widget",
+        "category": "Flutter"
+      },
+      {
+        "id": "flutter.newStatefulWidget",
+        "title": "New Stateful Widget",
+        "category": "Flutter"
+      },
+      {
+        "id": "flutter.newProject",
+        "title": "New Flutter Project",
+        "category": "Flutter"
+      },
+      {
+        "id": "flutter.runBuildRunner",
+        "title": "Run Build Runner",
+        "category": "Flutter"
+      },
+      {
+        "id": "flutter.pubGet",
+        "title": "Pub Get",
+        "category": "Flutter"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "flutter.hotReload",
+        "key": "ctrl+shift+r",
+        "when": "editorTextFocus && editorLangId == dart"
+      },
+      {
+        "command": "flutter.hotRestart",
+        "key": "ctrl+shift+f5",
+        "when": "editorTextFocus && editorLangId == dart"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "flutter.hotReload", "group": "1_flutter", "when": "editorLangId == dart" },
+        { "command": "flutter.hotRestart", "group": "1_flutter", "when": "editorLangId == dart" }
+      ],
+      "commandPalette": [
+        { "command": "flutter.hotReload" },
+        { "command": "flutter.hotRestart" },
+        { "command": "flutter.newStatelessWidget" },
+        { "command": "flutter.newStatefulWidget" },
+        { "command": "flutter.newProject" },
+        { "command": "flutter.runBuildRunner" },
+        { "command": "flutter.pubGet" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "flutter-dart.indicator",
+        "text": "⌬ Flutter",
+        "tooltip": "Flutter & Dart support ativo",
+        "alignment": "right",
+        "priority": 45
+      }
+    ],
+    "configuration": {
+      "title": "Flutter & Dart",
+      "properties": {
+        "flutter.sdkPath": {
+          "type": "string",
+          "default": "",
+          "description": "Caminho para o Flutter SDK (deixe vazio para usar $PATH)"
+        },
+        "flutter.enableHotReloadOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hot reload automático ao salvar arquivos .dart"
+        },
+        "dart.lineLength": {
+          "type": "number",
+          "default": 80,
+          "description": "Comprimento máximo de linha para formatação Dart"
+        },
+        "dart.enableLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar análise de lint Dart"
+        }
+      }
+    }
+  }
+}
