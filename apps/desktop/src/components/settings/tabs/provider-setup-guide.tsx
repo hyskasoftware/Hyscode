@@ -171,16 +171,23 @@ function GitHubCopilotGuide() {
         <Step number={5} title="Start using it" last>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Once connected, select <Kbd>GitHub Copilot</Kbd> as your provider.
-            Available models (plan requirements vary):
+            Models available depend on your Copilot plan:
           </p>
           <ModelList
             models={[
-              { name: 'GPT-4.1', desc: 'Fast · all plans · free' },
-              { name: 'GPT-5 Mini', desc: 'Fast · all plans · free' },
-              { name: 'Claude Haiku 4.5', desc: 'Fast · all plans · 0.33×' },
-              { name: 'GPT-5.2', desc: 'Reasoning · Pro+ · 1×' },
-              { name: 'Claude Sonnet 4.6', desc: 'Balanced · Pro+ · 1×' },
-              { name: 'Gemini 2.5 Pro', desc: 'Long context · Pro+ · 1×' },
+              { name: 'GPT-4.1', desc: '0× · free · all plans' },
+              { name: 'GPT-4o', desc: '0× · free · LTS fallback' },
+              { name: 'GPT-5 Mini', desc: '0× · free · all plans' },
+              { name: 'Raptor Mini', desc: '0× · preview · fine-tuned GPT-5 Mini' },
+              { name: 'Grok Code Fast 1', desc: '0.25× · xAI · fast coding' },
+              { name: 'Claude Haiku 4.5', desc: '0.33× · fast lightweight' },
+              { name: 'Gemini 3 Flash', desc: '0.33× · preview · Google' },
+              { name: 'GPT-5.4 Mini', desc: '0.33× · fast agentic' },
+              { name: 'Claude Sonnet 4 / 4.5 / 4.6', desc: '1× · balanced reasoning' },
+              { name: 'Gemini 2.5 Pro / 3.1 Pro', desc: '1× · long context reasoning' },
+              { name: 'GPT-5.2 / 5.2-Codex / 5.3-Codex', desc: '1× · agentic coding' },
+              { name: 'GPT-5.4', desc: '1× · deep reasoning (Xhigh)' },
+              { name: 'Claude Opus 4.5 / 4.6', desc: '3× · most powerful' },
             ]}
           />
         </Step>
@@ -195,8 +202,9 @@ function GitHubCopilotGuide() {
       <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5">
         <p className="text-[11px] leading-relaxed text-amber-400/90">
           <span className="font-medium">Requirement:</span> You must have an active
-          GitHub Copilot subscription (Individual, Business, or Enterprise) for this
-          provider to work.
+          GitHub Copilot subscription (Free, Pro, Pro+, Business, or Enterprise).
+          Models marked 1× or 3× consume premium requests. Free-tier plans have
+          limited premium request allowance.
         </p>
       </div>
     </div>

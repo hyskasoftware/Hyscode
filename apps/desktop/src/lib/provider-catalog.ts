@@ -94,12 +94,30 @@ export const PROVIDERS: ProviderInfo[] = [
     name: 'GitHub Copilot',
     needsKey: false, // Uses OAuth, not API key
     models: [
+      // 0× (free)
       { id: 'gpt-4.1', name: 'GPT-4.1 (Copilot)' },
+      { id: 'gpt-4o', name: 'GPT-4o (Copilot)' },
       { id: 'gpt-5-mini', name: 'GPT-5 Mini (Copilot)' },
-      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (Copilot)' },
-      { id: 'gpt-5.2', name: 'GPT-5.2 (Copilot)' },
-      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6 (Copilot)' },
+      { id: 'raptor-mini', name: 'Raptor Mini (Copilot)' },
+      // 0.25×
+      { id: 'grok-code-fast-1', name: 'Grok Code Fast 1 (Copilot)' },
+      // 0.33×
+      { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5 (Copilot)' },
+      { id: 'gemini-3-flash', name: 'Gemini 3 Flash (Copilot)' },
+      { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini (Copilot)' },
+      // 1×
+      { id: 'claude-sonnet-4', name: 'Claude Sonnet 4 (Copilot)' },
+      { id: 'claude-sonnet-4.5', name: 'Claude Sonnet 4.5 (Copilot)' },
+      { id: 'claude-sonnet-4.6', name: 'Claude Sonnet 4.6 (Copilot)' },
       { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Copilot)' },
+      { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro (Copilot)' },
+      { id: 'gpt-5.2', name: 'GPT-5.2 (Copilot)' },
+      { id: 'gpt-5.2-codex', name: 'GPT-5.2-Codex (Copilot)' },
+      { id: 'gpt-5.3-codex', name: 'GPT-5.3-Codex (Copilot)' },
+      { id: 'gpt-5.4', name: 'GPT-5.4 (Copilot)' },
+      // 3×
+      { id: 'claude-opus-4.5', name: 'Claude Opus 4.5 (Copilot)' },
+      { id: 'claude-opus-4.6', name: 'Claude Opus 4.6 (Copilot)' },
     ],
   },
 ];
