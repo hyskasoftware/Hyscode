@@ -8,6 +8,7 @@ export type {
   ApprovalMode,
   ApprovalConfig,
   PendingToolCall,
+  ToolRiskLevel,
   ContextPriority,
   ContextSource,
   GatheredContextEntry,
@@ -36,7 +37,7 @@ export type {
   TurnRecord,
   EnvironmentContext,
 } from './types';
-export { DEFAULT_HARNESS_CONFIG } from './types';
+export { DEFAULT_HARNESS_CONFIG, SAFE_TOOLS, DESTRUCTIVE_TOOLS, CATEGORY_RISK } from './types';
 
 // ─── Core Modules ───────────────────────────────────────────────────────────
 export { Harness } from './harness';

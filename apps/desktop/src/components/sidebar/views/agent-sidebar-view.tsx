@@ -18,6 +18,9 @@ import {
   ShieldOff,
   ShieldCheck,
   HelpCircle,
+  Brain,
+  Bell,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -55,10 +58,13 @@ const MODE_COLORS: Record<AgentMode, string> = {
   plan: 'text-amber-400',
 };
 
-const APPROVAL_OPTIONS: { value: ApprovalMode; label: string; icon: typeof Shield }[] = [
-  { value: 'manual', label: 'Manual', icon: Shield },
-  { value: 'yolo', label: 'Auto', icon: ShieldOff },
-  { value: 'custom', label: 'Custom', icon: ShieldCheck },
+const APPROVAL_OPTIONS: { value: ApprovalMode; label: string; icon: typeof Shield; color?: string }[] = [
+  { value: 'manual',        label: 'Manual',     icon: Shield,           color: 'text-blue-400' },
+  { value: 'smart',         label: 'Smart',      icon: Brain,            color: 'text-cyan-400' },
+  { value: 'session-trust', label: 'Trust',      icon: ShieldCheck,      color: 'text-emerald-400' },
+  { value: 'notify',        label: 'Notify',     icon: Bell,             color: 'text-violet-400' },
+  { value: 'yolo',          label: 'Auto',       icon: ShieldOff,        color: 'text-amber-400' },
+  { value: 'custom',        label: 'Custom',     icon: SlidersHorizontal, color: 'text-purple-400' },
 ];
 
 const AGENT_DEFS = getAllAgentDefinitions();
@@ -415,15 +421,15 @@ function QuickSettingsSection() {
       {/* Approval Mode */}
       <div className="mb-2">
         <span className="text-[9px] text-muted-foreground block mb-1">Approval</span>
-        <div className="flex gap-0.5">
-          {APPROVAL_OPTIONS.map(({ value, label, icon: Icon }) => (
+        <div className="grid grid-cols-3 gap-0.5">
+          {APPROVAL_OPTIONS.map(({ value, label, icon: Icon, color }) => (
             <button
               key={value}
               onClick={() => setSetting('approvalMode', value)}
               className={cn(
-                'flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 text-[9px] font-medium transition-colors',
+                'flex items-center justify-center gap-1 rounded-md px-1.5 py-1 text-[9px] font-medium transition-colors',
                 approvalMode === value
-                  ? 'bg-accent/15 text-accent'
+                  ? `bg-accent/15 ${color ?? 'text-accent'}`
                   : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted',
               )}
             >

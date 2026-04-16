@@ -42,9 +42,12 @@ export function GeneralTab() {
             value={store.approvalMode}
             onChange={(v) => store.set('approvalMode', v)}
             options={[
-              { value: 'manual', label: 'Manual' },
-              { value: 'yolo', label: 'Auto-approve' },
-              { value: 'custom', label: 'Custom rules' },
+              { value: 'manual',        label: 'Manual – review every call' },
+              { value: 'smart',         label: 'Smart – auto-approve safe tools' },
+              { value: 'session-trust', label: 'Session Trust – approve once per tool' },
+              { value: 'notify',        label: 'Notify Only – auto-approve, log all' },
+              { value: 'yolo',          label: 'Auto-approve – approve everything' },
+              { value: 'custom',        label: 'Custom Rules – per-category config' },
             ]}
           />
         </Row>

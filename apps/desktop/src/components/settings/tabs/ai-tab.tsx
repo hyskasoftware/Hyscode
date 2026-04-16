@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Key, Plus, Trash2, Eye, EyeOff, ToggleLeft, ToggleRight, X, HelpCircle } from 'lucide-react';
+import {
+  Key, Plus, Trash2, Eye, EyeOff, ToggleLeft, ToggleRight, X, HelpCircle,
+  Shield, Brain, Zap, SlidersHorizontal, Check,
+} from 'lucide-react';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { McpServerConfig } from '@/stores/settings-store';
 import { Button } from '@/components/ui/button';
@@ -17,6 +20,7 @@ import {
   getAllEnabledModelsGrouped,
 } from '@/lib/provider-catalog';
 import type { ProviderInfo, ModelInfo } from '@/lib/provider-catalog';
+import type { ToolCategory } from '@hyscode/agent-harness';
 
 export function AiTab() {
   const store = useSettingsStore();
@@ -314,18 +318,26 @@ export function AiTab() {
             max={100}
           />
         </Row>
-        <Row label="Approval Mode">
+        <Row label="Approval Mode" description="Controls when the agent asks before running tools">
           <SelectInput
             value={store.approvalMode}
             onChange={(v) => store.set('approvalMode', v)}
             options={[
-              { value: 'manual', label: 'Manual' },
-              { value: 'yolo', label: 'Auto-approve' },
-              { value: 'custom', label: 'Custom rules' },
+              { value: 'manual',        label: 'Manual' },
+              { value: 'smart',         label: 'Smart' },
+              { value: 'session-trust', label: 'Session Trust' },
+              { value: 'notify',        label: 'Notify Only' },
+              { value: 'yolo',          label: 'Auto-approve' },
+              { value: 'custom',        label: 'Custom Rules' },
             ]}
           />
         </Row>
       </Section>
+
+      {/* ─── Custom Approval Rules ─────────────────────────────────── */}
+      {store.approvalMode === 'custom' && (
+        <CustomApprovalRulesSection />
+      )}
 
       {/* ─── MCP Servers ───────────────────────────────────────────────── */}
       <Section title="MCP Servers">
@@ -386,6 +398,165 @@ export function AiTab() {
 }
 
 // ─── API Key Row ────────────────────────────────────────────────────────────
+
+// ─── Custom Approval Rules ──────────────────────────────────────────────────
+
+const TOOL_CATEGORIES: { id: ToolCategory; label: string; description: string; icon: typeof Shield }[] = [
+  { id: 'filesystem', label: 'File System',  description: 'Read & write files, directories',   icon: Shield },
+  { id: 'terminal',   label: 'Terminal',     description: 'Run shell commands and scripts',     icon: Zap },
+  { id: 'git',        label: 'Git',          description: 'Commits, pushes, branch operations', icon: Shield },
+  { id: 'code',       label: 'Code',         description: 'Edit, refactor, create code files',  icon: Brain },
+  { id: 'browser',    label: 'Browser',      description: 'Open URLs, web scraping',            icon: Shield },
+  { id: 'mcp',        label: 'MCP',          description: 'External MCP server tools',          icon: SlidersHorizontal },
+  { id: 'meta',       label: 'Meta',         description: 'Agent orchestration & delegation',   icon: Brain },
+];
+
+type ToolRuleState = 'auto' | 'ask';
+
+function CustomApprovalRulesSection() {
+  const store = useSettingsStore();
+  const rules = store.customApprovalRules;
+  const [newToolName, setNewToolName] = useState('');
+  const [newToolAuto, setNewToolAuto] = useState(false);
+
+  const getCategoryState = (cat: ToolCategory): ToolRuleState => {
+    const override = rules.categoryRules[cat];
+    if (override === true) return 'auto';
+    if (override === false) return 'ask';
+    // Default: ask (same as manual for unset categories)
+    return 'ask';
+  };
+
+  const setCategoryState = (cat: ToolCategory, state: ToolRuleState) => {
+    store.setCustomCategoryRule(cat, state === 'auto' ? true : false);
+  };
+
+  const handleAddToolRule = () => {
+    const trimmed = newToolName.trim();
+    if (!trimmed) return;
+    store.setCustomToolRule(trimmed, newToolAuto);
+    setNewToolName('');
+    setNewToolAuto(false);
+  };
+
+  const toolOverrides = Object.entries(rules.toolRules);
+
+  return (
+    <Section title="Custom Approval Rules">
+      <p className="text-[10px] text-muted-foreground -mt-1 mb-1">
+        Define approval behavior per tool category. Tool-level overrides take highest priority.
+      </p>
+
+      {/* Category toggles */}
+      <div className="rounded-lg bg-surface-raised overflow-hidden divide-y divide-border/30">
+        {TOOL_CATEGORIES.map(({ id, label, description }) => {
+          const state = getCategoryState(id);
+          return (
+            <div key={id} className="flex items-center justify-between gap-4 px-3 py-2.5">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[12px] text-foreground">{label}</span>
+                <span className="text-[10px] text-muted-foreground">{description}</span>
+              </div>
+              <div className="flex shrink-0 items-center gap-1 rounded-lg bg-muted p-0.5">
+                <button
+                  onClick={() => setCategoryState(id, 'ask')}
+                  className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                    state === 'ask'
+                      ? 'bg-surface text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Ask
+                </button>
+                <button
+                  onClick={() => setCategoryState(id, 'auto')}
+                  className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                    state === 'auto'
+                      ? 'bg-accent/20 text-accent shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Auto
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Per-tool overrides */}
+      <div className="mt-3">
+        <h4 className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+          Tool Overrides
+        </h4>
+
+        {toolOverrides.length > 0 && (
+          <div className="mb-2 rounded-lg bg-surface-raised overflow-hidden divide-y divide-border/30">
+            {toolOverrides.map(([toolName, autoApprove]) => (
+              <div key={toolName} className="flex items-center justify-between gap-4 px-3 py-2">
+                <span className="font-mono text-[11px] text-foreground">{toolName}</span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className={`text-[10px] font-medium ${autoApprove ? 'text-accent' : 'text-muted-foreground'}`}>
+                    {autoApprove ? 'Auto' : 'Ask'}
+                  </span>
+                  <button
+                    onClick={() => store.setCustomToolRule(toolName, !autoApprove)}
+                    className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                    title="Toggle"
+                  >
+                    {autoApprove ? (
+                      <ToggleRight className="h-4 w-4 text-accent" />
+                    ) : (
+                      <ToggleLeft className="h-4 w-4 text-muted-foreground opacity-50" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => store.setCustomToolRule(toolName, undefined)}
+                    className="rounded p-0.5 text-muted-foreground hover:text-red-400"
+                    title="Remove override"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new tool override */}
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={newToolName}
+            onChange={(e) => setNewToolName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddToolRule(); }}
+            placeholder="e.g. run_terminal_command"
+            className="h-7 flex-1 rounded-md bg-muted px-2 font-mono text-[11px] text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground/50"
+          />
+          <button
+            onClick={() => setNewToolAuto((v) => !v)}
+            className={`flex h-7 items-center gap-1 rounded-md px-2.5 text-[10px] font-medium transition-colors ${
+              newToolAuto ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground'
+            }`}
+            title="Toggle auto/ask for new rule"
+          >
+            {newToolAuto ? <><Check className="h-3 w-3" /> Auto</> : 'Ask'}
+          </button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleAddToolRule}
+            disabled={!newToolName.trim()}
+            className="h-7 px-2 text-[10px]"
+          >
+            <Plus className="mr-1 h-3 w-3" />
+            Add
+          </Button>
+        </div>
+      </div>
+    </Section>
+  );
+}
 
 function ApiKeyRow({ providerId, providerName }: { providerId: string; providerName: string }) {
   const [value, setValue] = useState('');

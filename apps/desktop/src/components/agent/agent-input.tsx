@@ -1,4 +1,4 @@
-import { Send, Square, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check, ArrowRight, Plus } from 'lucide-react';
+import { Send, Square, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check, ArrowRight, Plus, Brain, Bell, ShieldCheck } from 'lucide-react';
 import { useState, useRef, useMemo, useCallback } from 'react';
 import { ContextMentionPicker } from './context-mention-picker';
 import { Textarea } from '@/components/ui/textarea';
@@ -98,6 +98,7 @@ interface ApprovalConfig {
   shortLabel: string;
   description: string;
   color: string;
+  badge?: string;
 }
 
 const APPROVAL_CONFIG: Record<ApprovalMode, ApprovalConfig> = {
@@ -107,6 +108,29 @@ const APPROVAL_CONFIG: Record<ApprovalMode, ApprovalConfig> = {
     shortLabel: 'Manual',
     description: 'Review and approve every tool call before execution.',
     color: 'text-blue-400',
+    badge: 'safest',
+  },
+  smart: {
+    icon: Brain,
+    label: 'Smart',
+    shortLabel: 'Smart',
+    description: 'Auto-approve read-only tools, ask for destructive actions.',
+    color: 'text-cyan-400',
+    badge: 'recommended',
+  },
+  'session-trust': {
+    icon: ShieldCheck,
+    label: 'Session Trust',
+    shortLabel: 'Trust',
+    description: 'Approve once per tool type, then auto-approve for the session.',
+    color: 'text-emerald-400',
+  },
+  notify: {
+    icon: Bell,
+    label: 'Notify Only',
+    shortLabel: 'Notify',
+    description: 'Auto-approve all but show a notification for each action.',
+    color: 'text-violet-400',
   },
   yolo: {
     icon: Zap,
@@ -114,6 +138,7 @@ const APPROVAL_CONFIG: Record<ApprovalMode, ApprovalConfig> = {
     shortLabel: 'Auto',
     description: 'Automatically approve all tool calls without review.',
     color: 'text-amber-400',
+    badge: 'fastest',
   },
   custom: {
     icon: SlidersHorizontal,
@@ -124,7 +149,7 @@ const APPROVAL_CONFIG: Record<ApprovalMode, ApprovalConfig> = {
   },
 };
 
-const APPROVAL_MODES: ApprovalMode[] = ['manual', 'yolo', 'custom'];
+const APPROVAL_MODES: ApprovalMode[] = ['manual', 'smart', 'session-trust', 'notify', 'yolo', 'custom'];
 
 // ─── Provider & model catalog (mirrors ai-tab.tsx) ──────────────────────────
 // (Moved to @/lib/provider-catalog — imported above)
@@ -428,7 +453,7 @@ export function AgentInput() {
                   <span className="ml-0.5">{cfg.shortLabel}</span>
                   <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-60" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" className="min-w-[180px]">
+                <DropdownMenuContent side="top" className="min-w-[220px]">
                   <div className="px-2 pb-1 pt-1.5 text-[9px] uppercase tracking-wider text-muted-foreground">
                     Approval Mode
                   </div>
@@ -449,7 +474,14 @@ export function AgentInput() {
                             <span className="text-[11px] font-medium">{c.label}</span>
                             <span className="text-[9px] text-muted-foreground leading-tight">{c.description}</span>
                           </div>
-                          {isActive && <Check className="h-3 w-3 shrink-0 text-accent" />}
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {c.badge && (
+                              <span className={cn('rounded-full px-1.5 py-0.5 text-[8px] font-medium', c.color, 'bg-current/10')}>
+                                {c.badge}
+                              </span>
+                            )}
+                            {isActive && <Check className="h-3 w-3 shrink-0 text-accent" />}
+                          </div>
                         </div>
                       </DropdownMenuItem>
                     );

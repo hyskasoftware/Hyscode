@@ -65,7 +65,13 @@ export interface ToolCallRecord {
 
 // ─── Approval System ────────────────────────────────────────────────────────
 
-export type ApprovalMode = 'manual' | 'yolo' | 'custom';
+export type ApprovalMode =
+  | 'manual'         // Review every tool call
+  | 'yolo'           // Auto-approve everything
+  | 'smart'          // Auto-approve read-only, ask for destructive
+  | 'notify'         // Auto-approve all but show notifications
+  | 'session-trust'  // Approve once per tool type, then auto-approve
+  | 'custom';        // Per-category/tool overrides
 
 export interface ApprovalConfig {
   mode: ApprovalMode;
@@ -73,13 +79,51 @@ export interface ApprovalConfig {
   categoryOverrides?: Partial<Record<ToolCategory, boolean>>;
   /** Per-tool overrides (highest priority) */
   toolOverrides?: Record<string, boolean>;
+  /** Tools already trusted in this session (used by 'session-trust' mode) */
+  sessionTrustedTools?: Set<string>;
 }
+
+/** Risk level assigned to each tool call for smart approval */
+export type ToolRiskLevel = 'safe' | 'moderate' | 'destructive';
+
+/** Map of tool categories to their default risk level */
+export const CATEGORY_RISK: Record<ToolCategory, ToolRiskLevel> = {
+  filesystem: 'moderate',
+  terminal: 'destructive',
+  git: 'destructive',
+  code: 'safe',
+  browser: 'safe',
+  mcp: 'moderate',
+  meta: 'safe',
+};
+
+/** Read-only tools that are always safe regardless of category */
+export const SAFE_TOOLS = new Set([
+  'read_file',
+  'list_directory',
+  'search_files',
+  'search_text',
+  'get_file_info',
+  'list_code_symbols',
+  'get_diagnostics',
+  'grep_search',
+]);
+
+/** Destructive tools that always need approval (even in smart mode) */
+export const DESTRUCTIVE_TOOLS = new Set([
+  'run_terminal_command',
+  'git_commit',
+  'git_push',
+  'delete_file',
+  'git_reset',
+]);
 
 export interface PendingToolCall {
   id: string;
   toolName: string;
   input: Record<string, unknown>;
   description: string;
+  riskLevel?: ToolRiskLevel;
   resolve: (approved: boolean, reason?: string) => void;
 }
 

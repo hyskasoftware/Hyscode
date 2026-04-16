@@ -11,7 +11,9 @@ import type {
   ApprovalConfig,
   PendingToolCall,
   HarnessEventHandler,
+  ToolRiskLevel,
 } from './types';
+import { SAFE_TOOLS, DESTRUCTIVE_TOOLS, CATEGORY_RISK } from './types';
 
 export class ToolRouter {
   private handlers = new Map<string, ToolHandler>();
@@ -192,8 +194,33 @@ export class ToolRouter {
 
   // ─── Approval Logic ─────────────────────────────────────────────────
 
+  /** Classify a tool's risk level for smart approval */
+  getToolRiskLevel(toolName: string, handler: ToolHandler): ToolRiskLevel {
+    if (SAFE_TOOLS.has(toolName)) return 'safe';
+    if (DESTRUCTIVE_TOOLS.has(toolName)) return 'destructive';
+    return CATEGORY_RISK[handler.category] ?? 'moderate';
+  }
+
+  /** Mark a tool as trusted for the current session (session-trust mode) */
+  trustToolForSession(toolName: string): void {
+    if (!this.approvalConfig.sessionTrustedTools) {
+      this.approvalConfig.sessionTrustedTools = new Set();
+    }
+    this.approvalConfig.sessionTrustedTools.add(toolName);
+  }
+
+  /** Clear all session-trusted tools (e.g. on new session) */
+  clearSessionTrust(): void {
+    this.approvalConfig.sessionTrustedTools?.clear();
+  }
+
+  /** Get set of tools trusted in this session */
+  getSessionTrustedTools(): Set<string> {
+    return this.approvalConfig.sessionTrustedTools ?? new Set();
+  }
+
   private needsApproval(toolName: string, handler: ToolHandler): boolean {
-    const { mode, categoryOverrides, toolOverrides } = this.approvalConfig;
+    const { mode, categoryOverrides, toolOverrides, sessionTrustedTools } = this.approvalConfig;
 
     // Tool-level override (highest priority)
     if (toolOverrides?.[toolName] !== undefined) {
@@ -201,16 +228,45 @@ export class ToolRouter {
     }
 
     // Mode-level check
-    if (mode === 'yolo') return false;
-    if (mode === 'manual') return handler.requiresApproval;
+    switch (mode) {
+      case 'yolo':
+        return false;
 
-    // Custom mode: check category overrides
-    if (mode === 'custom' && categoryOverrides) {
-      const catOverride = categoryOverrides[handler.category];
-      if (catOverride !== undefined) return catOverride;
+      case 'manual':
+        return handler.requiresApproval;
+
+      case 'smart': {
+        // Auto-approve safe tools, ask for destructive ones
+        const risk = this.getToolRiskLevel(toolName, handler);
+        if (risk === 'safe') return false;
+        if (risk === 'destructive') return true;
+        // Moderate: use handler's default requiresApproval
+        return handler.requiresApproval;
+      }
+
+      case 'notify':
+        // Never blocks — approval dialog is skipped,
+        // but the bridge will show a notification
+        return false;
+
+      case 'session-trust': {
+        // If already trusted in this session, auto-approve
+        if (sessionTrustedTools?.has(toolName)) return false;
+        // Otherwise, ask (the dialog offers "trust this tool")
+        return handler.requiresApproval;
+      }
+
+      case 'custom': {
+        if (categoryOverrides) {
+          const catOverride = categoryOverrides[handler.category];
+          if (catOverride !== undefined) return catOverride;
+        }
+        return handler.requiresApproval;
+      }
+
+      default:
+        return handler.requiresApproval;
     }
-
-    return handler.requiresApproval;
   }
 
   private async requestApproval(
@@ -222,6 +278,9 @@ export class ToolRouter {
       // No callback set — auto-approve
       return true;
     }
+
+    const handler = this.handlers.get(toolName);
+    const riskLevel = handler ? this.getToolRiskLevel(toolName, handler) : 'moderate' as ToolRiskLevel;
 
     return new Promise<boolean>((resolve) => {
       let resolved = false;
@@ -237,6 +296,7 @@ export class ToolRouter {
         toolName,
         input,
         description: this.describeToolCall(toolName, input),
+        riskLevel,
         resolve: settle,
       };
 
@@ -266,6 +326,12 @@ export class ToolRouter {
         return `git add: ${Array.isArray(input.paths) ? (input.paths as string[]).join(', ') : 'all'}`;
       case 'mcp_call':
         return `MCP: ${input.server_id}/${input.tool_name}`;
+      case 'delete_file':
+        return `delete: ${input.path}`;
+      case 'git_push':
+        return `git push${input.remote ? `: ${input.remote}` : ''}`;
+      case 'git_reset':
+        return `git reset${input.hard ? ' --hard' : ''}`;
       default:
         return `${toolName}(${Object.keys(input).join(', ')})`;
     }

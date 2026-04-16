@@ -151,7 +151,20 @@ export class HarnessBridge {
         maxOutputTokens: settings.maxTokens,
         maxInputTokens: 200_000,
         turnTimeoutMs: 300_000,
-        approval: { mode: settings.approvalMode },
+        approval: {
+          mode: settings.approvalMode,
+          ...(settings.approvalMode === 'custom' && {
+            // Settings store uses: true = auto-approve. Harness uses: true = needs approval.
+            categoryOverrides: Object.fromEntries(
+              Object.entries(settings.customApprovalRules.categoryRules)
+                .map(([k, autoApprove]) => [k, !autoApprove]),
+            ) as Record<string, boolean>,
+            toolOverrides: Object.fromEntries(
+              Object.entries(settings.customApprovalRules.toolRules)
+                .map(([k, autoApprove]) => [k, !autoApprove]),
+            ),
+          }),
+        },
       },
       onEvent: (event) => this.handleEvent(event),
       onApprovalRequest: (pending) => this.handleApprovalRequest(pending),
@@ -524,6 +537,23 @@ export class HarnessBridge {
     }
   }
 
+  /** Mark a tool as trusted for the current session (session-trust mode) */
+  trustToolForSession(toolName: string): void {
+    if (this.harness) {
+      // Access the tool router through the harness to trust the tool
+      (this.harness as any).toolRouter?.trustToolForSession?.(toolName);
+      this.debug(`🔓 Tool trusted for session: ${toolName}`);
+    }
+  }
+
+  /** Clear all session-trusted tools (called on new session) */
+  clearSessionTrust(): void {
+    if (this.harness) {
+      (this.harness as any).toolRouter?.clearSessionTrust?.();
+      this.debug('🔒 Session trust cleared');
+    }
+  }
+
   /** Accept or revert a single pending file change */
   async resolveFileChange(id: string, accepted: boolean): Promise<void> {
     const store = useAgentStore.getState();
@@ -635,6 +665,8 @@ export class HarnessBridge {
   restoreSession(conversationId: string): void {
     this.harness.setConversationId(conversationId);
     useAgentStore.getState().setConversationId(conversationId);
+    // Clear session trust when switching sessions
+    this.clearSessionTrust();
     this.debug(`Session restored: ${conversationId}`);
   }
 
@@ -924,11 +956,11 @@ export class HarnessBridge {
             (es) => es.filePath === c.filePath && es.phase === 'streaming',
           );
           if (live) {
-            if (settings.approvalMode === 'yolo') {
+            if (settings.approvalMode === 'yolo' || settings.approvalMode === 'notify') {
               // Auto-accept: go straight to accepted
               s.resolveEditSession(live.id, true);
             } else {
-              // manual / custom → pending_review
+              // manual / smart / session-trust / custom → pending_review
               useAgentStore.setState((draft) => {
                 const target = draft.agentEditSessions.find((es) => es.id === live.id);
                 if (target) target.phase = 'pending_review';
@@ -983,11 +1015,38 @@ export class HarnessBridge {
     description: string;
   }): Promise<boolean> {
     const settings = useSettingsStore.getState();
+    const mode = settings.approvalMode;
 
-    // In yolo mode, auto-approve
-    if (settings.approvalMode === 'yolo') return true;
+    // Yolo: auto-approve everything silently
+    if (mode === 'yolo') return true;
 
-    // Push to store for UI rendering
+    // Notify: auto-approve but emit a notification event for the UI
+    if (mode === 'notify') {
+      this.debug(`🔔 Notify (auto-approved): ${pending.toolName}`);
+      return true;
+    }
+
+    // Smart: auto-approve safe tools, ask for moderate/destructive
+    if (mode === 'smart') {
+      const safeTools = new Set(['read_file', 'list_directory', 'search_files', 'search_text', 'get_file_info', 'list_code_symbols', 'get_diagnostics', 'grep_search']);
+      if (safeTools.has(pending.toolName)) {
+        this.debug(`✅ Smart auto-approved (safe): ${pending.toolName}`);
+        return true;
+      }
+      // Fall through to show approval dialog for non-safe tools
+    }
+
+    // Session-trust: auto-approve if tool was previously trusted
+    if (mode === 'session-trust') {
+      const trustedTools = (this.harness as any)?.toolRouter?.getSessionTrustedTools?.() as Set<string> | undefined;
+      if (trustedTools?.has(pending.toolName)) {
+        this.debug(`✅ Session-trust auto-approved: ${pending.toolName}`);
+        return true;
+      }
+      // Fall through to show approval dialog
+    }
+
+    // Push to store for UI rendering (manual, smart-non-safe, session-trust-untrusted, custom)
     const approval: PendingApproval = {
       id: pending.id,
       toolName: pending.toolName,

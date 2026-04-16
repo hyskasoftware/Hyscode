@@ -47,7 +47,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     maxInputTokens: 128_000,
     maxOutputTokens: 8_000,
     turnTimeoutMs: 120_000, // 2 minutes
-    approvalMode: 'manual',
+    approvalMode: 'smart',
     verificationRequired: false,
     allowedToolCategories: ['filesystem', 'git', 'meta'],
     toolOverrides: {
@@ -60,7 +60,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     maxInputTokens: 200_000,
     maxOutputTokens: 16_000,
     turnTimeoutMs: 300_000, // 5 minutes
-    approvalMode: 'manual',
+    approvalMode: 'smart',
     verificationRequired: true,
     allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'browser', 'mcp', 'meta'],
   },
@@ -70,7 +70,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     maxInputTokens: 200_000,
     maxOutputTokens: 12_000,
     turnTimeoutMs: 180_000, // 3 minutes
-    approvalMode: 'manual',
+    approvalMode: 'notify',
     verificationRequired: false,
     allowedToolCategories: ['filesystem', 'git', 'code', 'meta'],
     toolOverrides: {
@@ -84,7 +84,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     maxInputTokens: 200_000,
     maxOutputTokens: 16_000,
     turnTimeoutMs: 300_000, // 5 minutes
-    approvalMode: 'manual',
+    approvalMode: 'session-trust',
     verificationRequired: true,
     allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'mcp', 'meta'],
   },
@@ -94,7 +94,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     maxInputTokens: 200_000,
     maxOutputTokens: 12_000,
     turnTimeoutMs: 300_000, // 5 minutes — plans need more analysis time
-    approvalMode: 'manual',
+    approvalMode: 'notify',
     verificationRequired: false,
     allowedToolCategories: ['filesystem', 'git', 'code', 'meta'],
     toolOverrides: {

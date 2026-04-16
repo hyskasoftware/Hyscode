@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AgentType } from '@hyscode/agent-harness';
+import type { AgentType, ToolCategory } from '@hyscode/agent-harness';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type ApprovalMode = 'manual' | 'yolo' | 'custom';
+export type ApprovalMode = 'manual' | 'yolo' | 'smart' | 'notify' | 'session-trust' | 'custom';
 export type WordWrap = 'on' | 'off' | 'wordWrapColumn';
 export type LineNumbers = 'on' | 'off' | 'relative';
 export type CursorStyle = 'line' | 'block' | 'underline';
@@ -47,6 +47,20 @@ export interface McpServerConfig {
   /** For WebSocket: url */
   wsUrl?: string;
   enabled: boolean;
+}
+
+/** Per-category / per-tool overrides for the 'custom' approval mode */
+export interface CustomApprovalRules {
+  /** Override approval requirement per tool category.
+   *  true  = auto-approve (no dialog)
+   *  false = always ask
+   */
+  categoryRules: Partial<Record<ToolCategory, boolean>>;
+  /** Override approval requirement per exact tool name (highest priority).
+   *  true  = auto-approve
+   *  false = always ask
+   */
+  toolRules: Record<string, boolean>;
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -96,6 +110,8 @@ interface SettingsState {
   agentType: AgentType;
   providers: ProviderConfig[];
   approvalMode: ApprovalMode;
+  /** Per-category and per-tool overrides used when approvalMode === 'custom' */
+  customApprovalRules: CustomApprovalRules;
   maxIterations: number;
   temperature: number;
   maxTokens: number;
@@ -129,6 +145,10 @@ interface SettingsState {
   setEnabledModels: (providerId: string, modelIds: string[]) => void;
   addCustomModel: (model: CustomModel) => void;
   removeCustomModel: (providerId: string, modelId: string) => void;
+  /** Set a per-category override for custom approval mode */
+  setCustomCategoryRule: (category: ToolCategory, autoApprove: boolean | undefined) => void;
+  /** Set a per-tool override for custom approval mode */
+  setCustomToolRule: (toolName: string, autoApprove: boolean | undefined) => void;
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -179,6 +199,10 @@ export const useSettingsStore = create<SettingsState>()(
       agentType: 'chat' as AgentType,
       providers: [],
       approvalMode: 'manual',
+      customApprovalRules: {
+        categoryRules: {},
+        toolRules: {},
+      },
       maxIterations: 25,
       temperature: 0.0,
       maxTokens: 8192,
@@ -286,6 +310,24 @@ export const useSettingsStore = create<SettingsState>()(
           const enabled = state.enabledModels[providerId];
           if (enabled) {
             state.enabledModels[providerId] = enabled.filter((m) => m !== modelId);
+          }
+        }),
+
+      setCustomCategoryRule: (category, autoApprove) =>
+        set((state) => {
+          if (autoApprove === undefined) {
+            delete state.customApprovalRules.categoryRules[category];
+          } else {
+            state.customApprovalRules.categoryRules[category] = autoApprove;
+          }
+        }),
+
+      setCustomToolRule: (toolName, autoApprove) =>
+        set((state) => {
+          if (autoApprove === undefined) {
+            delete state.customApprovalRules.toolRules[toolName];
+          } else {
+            state.customApprovalRules.toolRules[toolName] = autoApprove;
           }
         }),
     })),
