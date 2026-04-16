@@ -1,8 +1,10 @@
 pub mod ai;
+pub mod claude_agent;
 pub mod db;
 pub mod extension;
 pub mod fs;
 pub mod git;
+pub mod github_oauth;
 pub mod keychain;
 pub mod lsp;
 pub mod pty;

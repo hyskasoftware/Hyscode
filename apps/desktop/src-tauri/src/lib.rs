@@ -103,6 +103,15 @@ pub fn run() {
             // AI streaming commands
             commands::ai::ai_stream_request,
             commands::ai::ai_stream_cancel,
+            // Claude Agent sidecar commands
+            commands::claude_agent::claude_agent_run,
+            commands::claude_agent::claude_agent_cancel,
+            // GitHub OAuth / Copilot commands
+            commands::github_oauth::github_oauth_start,
+            commands::github_oauth::github_oauth_poll,
+            commands::github_oauth::github_copilot_ensure_token,
+            commands::github_oauth::github_copilot_disconnect,
+            commands::github_oauth::github_copilot_is_authenticated,
             // Database commands
             commands::db::db_ensure_project,
             commands::db::db_list_conversations,

@@ -73,6 +73,17 @@ interface TauriCommands {
   ai_stream_request: { args: { requestId: string; provider: string; url: string; headers: Record<string, string>; body: string; timeoutMs?: number }; ret: void };
   ai_stream_cancel: { args: { requestId: string }; ret: void };
 
+  // Claude Agent Sidecar
+  claude_agent_run: { args: { request: { request_id: string; model: string; system_prompt?: string; messages: Array<{ role: string; content: string }>; max_turns?: number; cwd?: string } }; ret: void };
+  claude_agent_cancel: { args: { requestId: string }; ret: void };
+
+  // GitHub OAuth / Copilot
+  github_oauth_start: { args: { clientId: string }; ret: { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number } };
+  github_oauth_poll: { args: { clientId: string; deviceCode: string }; ret: { access_token: string; token_type: string; scope: string } };
+  github_copilot_ensure_token: { args: Record<string, never>; ret: string };
+  github_copilot_disconnect: { args: Record<string, never>; ret: void };
+  github_copilot_is_authenticated: { args: Record<string, never>; ret: boolean };
+
   // Database: Projects
   db_ensure_project: { args: { id: string; path: string }; ret: void };
 

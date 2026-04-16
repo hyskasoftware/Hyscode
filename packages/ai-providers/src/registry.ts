@@ -5,6 +5,9 @@ import { OpenAIProvider } from './providers/openai';
 import { GeminiProvider } from './providers/gemini';
 import { OllamaProvider } from './providers/ollama';
 import { OpenRouterProvider } from './providers/openrouter';
+import { ClaudeAgentProvider } from './providers/claude-agent';
+import type { ClaudeAgentInvoke } from './providers/claude-agent';
+import { GitHubCopilotProvider } from './providers/github-copilot';
 import { withRetry } from './retry';
 
 // ─── Key Store Interface ────────────────────────────────────────────────────
@@ -151,7 +154,12 @@ export class ProviderRegistry {
    * Initialize all providers from a key store.
    * Called on app startup to register providers with their API keys.
    */
-  async initialize(keyStore: KeyStore, ollamaBaseUrl?: string, fetchImpl?: FetchImpl): Promise<void> {
+  async initialize(
+    keyStore: KeyStore,
+    ollamaBaseUrl?: string,
+    fetchImpl?: FetchImpl,
+    claudeAgentInvoke?: ClaudeAgentInvoke,
+  ): Promise<void> {
     // Anthropic
     const anthropicKey = await keyStore.get('anthropic_api_key');
     if (anthropicKey) {
@@ -179,6 +187,18 @@ export class ProviderRegistry {
       this.register(new OpenRouterProvider(openrouterKey, fetchImpl));
     }
 
+    // Claude Agent (uses Anthropic API key + sidecar)
+    const claudeAgentKey = await keyStore.get('anthropic_api_key');
+    if (claudeAgentKey) {
+      this.register(new ClaudeAgentProvider(claudeAgentKey, claudeAgentInvoke));
+    }
+
+    // GitHub Copilot
+    const copilotToken = await keyStore.get('github_copilot_token');
+    if (copilotToken) {
+      this.register(new GitHubCopilotProvider(copilotToken, fetchImpl));
+    }
+
     // Set default to first configured provider
     const configured = this.listConfigured();
     if (configured.length) {
@@ -195,6 +215,7 @@ export class ProviderRegistry {
     keyStore: KeyStore,
     ollamaBaseUrl?: string,
     fetchImpl?: FetchImpl,
+    claudeAgentInvoke?: ClaudeAgentInvoke,
   ): Promise<void> {
     this.unregister(providerId);
 
@@ -221,6 +242,16 @@ export class ProviderRegistry {
       case 'openrouter': {
         const key = await keyStore.get('openrouter_api_key');
         if (key) this.register(new OpenRouterProvider(key, fetchImpl));
+        break;
+      }
+      case 'claude-agent': {
+        const key = await keyStore.get('anthropic_api_key');
+        if (key) this.register(new ClaudeAgentProvider(key, claudeAgentInvoke));
+        break;
+      }
+      case 'github-copilot': {
+        const key = await keyStore.get('github_copilot_token');
+        if (key) this.register(new GitHubCopilotProvider(key, fetchImpl));
         break;
       }
     }

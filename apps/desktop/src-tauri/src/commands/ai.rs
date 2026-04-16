@@ -41,6 +41,10 @@ fn get_auth_header(provider: &str, api_key: &str) -> (String, String) {
             // Gemini uses query parameter, not header. Return empty header.
             ("x-goog-api-key".to_string(), api_key.to_string())
         }
+        "github-copilot" => {
+            // Copilot uses Bearer token with the short-lived Copilot token
+            ("Authorization".to_string(), format!("Bearer {}", api_key))
+        }
         // OpenAI, OpenRouter, and others use Bearer token
         _ => ("Authorization".to_string(), format!("Bearer {}", api_key)),
     }
@@ -61,6 +65,12 @@ pub async fn ai_stream_request(
         let key_name = provider_key_name(&request.provider);
         let store = keychain.0.lock().map_err(|e| e.to_string())?;
         let key = store.get(&key_name).cloned();
+        // For github-copilot, also try the token key directly
+        let key = if key.is_none() && request.provider == "github-copilot" {
+            store.get("hyscode:github_copilot_token").cloned()
+        } else {
+            key
+        };
         if key.is_none() {
             let _ = window.emit(
                 "ai:chunk",

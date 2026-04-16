@@ -39,6 +39,11 @@ fn persist_keychain(store: &HashMap<String, String>) {
     }
 }
 
+/// Public variant for sibling modules that hold a lock reference.
+pub fn persist_keychain_ref(store: &HashMap<String, String>) {
+    persist_keychain(store);
+}
+
 #[tauri::command]
 pub async fn keychain_set(
     state: State<'_, KeychainState>,

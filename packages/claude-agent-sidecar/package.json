@@ -1,0 +1,16 @@
+{
+  "name": "@hyscode/claude-agent-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build --compile src/index.ts --outfile ../../apps/desktop/src-tauri/binaries/claude-agent",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^2.1.110"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

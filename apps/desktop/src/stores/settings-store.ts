@@ -110,6 +110,9 @@ interface SettingsState {
   // ─ MCP Servers ─
   mcpServers: McpServerConfig[];
 
+  // ─ GitHub Copilot ─
+  githubCopilotClientId: string | null;
+
   // ─ Skills ─
   skillsPath: string;
 
@@ -190,6 +193,9 @@ export const useSettingsStore = create<SettingsState>()(
 
       // MCP Servers
       mcpServers: [],
+
+      // GitHub Copilot
+      githubCopilotClientId: null,
 
       // Skills
       skillsPath: '',

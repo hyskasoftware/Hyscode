@@ -27,6 +27,9 @@ export { OpenAIProvider } from './providers/openai';
 export { GeminiProvider } from './providers/gemini';
 export { OllamaProvider } from './providers/ollama';
 export { OpenRouterProvider } from './providers/openrouter';
+export { ClaudeAgentProvider } from './providers/claude-agent';
+export type { ClaudeAgentInvoke } from './providers/claude-agent';
+export { GitHubCopilotProvider } from './providers/github-copilot';
 
 // ─── Registry ───────────────────────────────────────────────────────────────
 export { ProviderRegistry, getProviderRegistry } from './registry';

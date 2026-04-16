@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Key, Plus, Trash2, Eye, EyeOff, ToggleLeft, ToggleRight, X } from 'lucide-react';
+import { Key, Plus, Trash2, Eye, EyeOff, ToggleLeft, ToggleRight, X, HelpCircle } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { McpServerConfig } from '@/stores/settings-store';
 import { Button } from '@/components/ui/button';
 import { tauriInvoke } from '@/lib/tauri-invoke';
 import { reinitProvider } from '@/lib/init-providers';
 import { McpServerForm } from './mcp-server-form';
+import { CopilotAuthRow } from './copilot-auth-row';
+import { ProviderSetupGuide } from './provider-setup-guide';
 import {
   PROVIDERS,
   getProviderModels,
@@ -20,6 +22,7 @@ export function AiTab() {
   const [showingMcpForm, setShowingMcpForm] = useState(false);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [customModelInput, setCustomModelInput] = useState('');
+  const [setupGuide, setSetupGuide] = useState<'claude-agent' | 'github-copilot' | null>(null);
 
   const enabledForProvider = (providerId: string): ModelInfo[] =>
     getEnabledModelsForProvider(providerId, store.enabledModels, store.customModels);
@@ -235,6 +238,38 @@ export function AiTab() {
         {PROVIDERS.filter((p) => p.needsKey).map((provider) => (
           <ApiKeyRow key={provider.id} providerId={provider.id} providerName={provider.name} />
         ))}
+
+        {/* Claude Agent note — reuses Anthropic key */}
+        <div className="rounded-lg bg-surface-raised px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <Key className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[12px] text-foreground">Claude Agent</span>
+            <span className="text-[10px] text-muted-foreground italic">uses Anthropic key</span>
+            <button
+              onClick={() => setSetupGuide('claude-agent')}
+              className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="Setup guide"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* GitHub Copilot OAuth */}
+        <div className="rounded-lg bg-surface-raised px-3 py-2.5">
+          <div className="flex items-center gap-2 mb-2">
+            <Key className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[12px] text-foreground">GitHub Copilot</span>
+            <button
+              onClick={() => setSetupGuide('github-copilot')}
+              className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="Setup guide"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <CopilotAuthRow />
+        </div>
       </Section>
 
       {/* ─── Generation Settings ───────────────────────────────────── */}
@@ -337,6 +372,13 @@ export function AiTab() {
           </Button>
         )}
       </Section>
+
+      {/* ─── Setup Guide Modal ──────────────────────────────────────── */}
+      <ProviderSetupGuide
+        guide={setupGuide ?? 'claude-agent'}
+        open={setupGuide !== null}
+        onClose={() => setSetupGuide(null)}
+      />
     </div>
   );
 }

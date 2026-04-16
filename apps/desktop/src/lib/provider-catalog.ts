@@ -79,6 +79,29 @@ export const PROVIDERS: ProviderInfo[] = [
       { id: 'deepseek-coder-v2', name: 'DeepSeek Coder V2' },
     ],
   },
+  {
+    id: 'claude-agent',
+    name: 'Claude Agent',
+    needsKey: false, // Reuses Anthropic API key
+    models: [
+      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6 (Agent)' },
+      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6 (Agent)' },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (Agent)' },
+    ],
+  },
+  {
+    id: 'github-copilot',
+    name: 'GitHub Copilot',
+    needsKey: false, // Uses OAuth, not API key
+    models: [
+      { id: 'gpt-4.1', name: 'GPT-4.1 (Copilot)' },
+      { id: 'gpt-5-mini', name: 'GPT-5 Mini (Copilot)' },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (Copilot)' },
+      { id: 'gpt-5.2', name: 'GPT-5.2 (Copilot)' },
+      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6 (Copilot)' },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Copilot)' },
+    ],
+  },
 ];
 
 /** Get all models for a provider (catalog + user custom) */
