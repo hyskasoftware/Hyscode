@@ -1,13 +1,12 @@
 // ─── GitHub Copilot OAuth Auth Row ──────────────────────────────────────────
-// Replaces the standard ApiKeyRow for GitHub Copilot. Instead of entering an
-// API key, the user authenticates via the GitHub OAuth Device Flow.
+// Authenticates via the GitHub OAuth Device Flow using the official GitHub
+// Copilot VS Code extension client ID. No custom OAuth App needed.
 
 import { useState, useEffect, useRef } from 'react';
 import { LogIn, LogOut, Loader2, Copy, Check, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { tauriInvoke } from '@/lib/tauri-invoke';
 import { reinitProvider } from '@/lib/init-providers';
-import { useSettingsStore } from '@/stores/settings-store';
 
 interface CopilotAuthRowProps {
   className?: string;
@@ -23,35 +22,56 @@ type AuthState =
 export function CopilotAuthRow({ className }: CopilotAuthRowProps) {
   const [authState, setAuthState] = useState<AuthState>({ step: 'idle' });
   const [copied, setCopied] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const clientId = useSettingsStore((s) => s.githubCopilotClientId);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollActiveRef = useRef(false);
 
-  // Check initial auth status
+  // On mount: if already authenticated, silently refresh the short-lived token
+  // so the provider is registered in the registry before the user sends a message.
   useEffect(() => {
     tauriInvoke('github_copilot_is_authenticated', {})
-      .then((authed) => {
-        if (authed) setAuthState({ step: 'authenticated' });
+      .then(async (authed) => {
+        if (!authed) return;
+        try {
+          await tauriInvoke('github_copilot_ensure_token', {});
+          await reinitProvider('github-copilot');
+          setAuthState({ step: 'authenticated' });
+        } catch {
+          // Revoked or expired — show idle so user can re-auth
+        }
       })
       .catch(() => {});
   }, []);
 
-  // Cleanup polling on unmount
   useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    return () => { stopPolling(); };
   }, []);
 
-  const startAuth = async () => {
-    if (!clientId?.trim()) {
-      setAuthState({ step: 'error', message: 'Set your GitHub OAuth App Client ID in the field above first.' });
-      return;
+  const stopPolling = () => {
+    pollActiveRef.current = false;
+    if (pollTimeoutRef.current !== null) {
+      clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
     }
+  };
 
+  const extractErrorMessage = (err: unknown): string => {
+    if (typeof err === 'string') return err;
+    if (err instanceof Error) return err.message;
+    if (err && typeof err === 'object') {
+      const obj = err as Record<string, unknown>;
+      if (typeof obj.message === 'string') return obj.message;
+      if (typeof obj.error === 'string') return obj.error;
+      try { return JSON.stringify(err); } catch { /* fallback */ }
+    }
+    return String(err);
+  };
+
+  const startAuth = async () => {
     setAuthState({ step: 'loading' });
+    stopPolling();
 
     try {
-      const resp = await tauriInvoke('github_oauth_start', { clientId: clientId.trim() });
+      const resp = await tauriInvoke('github_oauth_start', {});
 
       setAuthState({
         step: 'waiting',
@@ -61,43 +81,63 @@ export function CopilotAuthRow({ className }: CopilotAuthRowProps) {
         interval: resp.interval,
       });
 
-      // Start polling
-      const interval = Math.max(resp.interval, 5) * 1000;
-      pollRef.current = setInterval(async () => {
+      let currentIntervalMs = Math.max(resp.interval, 5) * 1000;
+      const deviceCode = resp.device_code;
+      let pollCount = 0;
+      pollActiveRef.current = true;
+
+      const schedulePoll = () => {
+        if (!pollActiveRef.current) return;
+        pollTimeoutRef.current = setTimeout(doPoll, currentIntervalMs);
+      };
+
+      const doPoll = async () => {
+        if (!pollActiveRef.current) return;
+        pollCount++;
+        console.log(`[CopilotAuth] Poll #${pollCount} — interval: ${currentIntervalMs}ms`);
+
         try {
-          await tauriInvoke('github_oauth_poll', {
-            clientId: clientId.trim(),
-            deviceCode: resp.device_code,
-          });
+          await tauriInvoke('github_oauth_poll', { deviceCode });
+          stopPolling();
+          console.log('[CopilotAuth] Poll succeeded, access_token obtained');
 
-          // Success — get the Copilot token
-          await tauriInvoke('github_copilot_ensure_token', {});
-          await reinitProvider('github-copilot');
-
-          if (pollRef.current) clearInterval(pollRef.current);
-          setAuthState({ step: 'authenticated' });
-        } catch (err) {
-          const msg = String(err);
-          if (msg.includes('authorization_pending') || msg.includes('slow_down')) {
-            return; // Keep polling
+          try {
+            await tauriInvoke('github_copilot_ensure_token', {});
+            await reinitProvider('github-copilot');
+            setAuthState({ step: 'authenticated' });
+          } catch (tokenErr) {
+            const msg = extractErrorMessage(tokenErr);
+            console.error('[CopilotAuth] Copilot token exchange failed:', msg);
+            setAuthState({ step: 'error', message: `Copilot token exchange failed: ${msg}` });
           }
-          // Actual error — stop polling
-          if (pollRef.current) clearInterval(pollRef.current);
-          setAuthState({ step: 'error', message: msg });
+        } catch (err) {
+          const msg = extractErrorMessage(err);
+          if (msg === 'slow_down') {
+            currentIntervalMs += 5000;
+            schedulePoll();
+          } else if (msg === 'authorization_pending') {
+            schedulePoll();
+          } else {
+            stopPolling();
+            setAuthState({ step: 'error', message: msg });
+          }
         }
-      }, interval);
+      };
+
+      schedulePoll();
     } catch (err) {
-      setAuthState({ step: 'error', message: String(err) });
+      setAuthState({ step: 'error', message: extractErrorMessage(err) });
     }
   };
 
   const disconnect = async () => {
     try {
+      stopPolling();
       await tauriInvoke('github_copilot_disconnect', {});
       await reinitProvider('github-copilot');
       setAuthState({ step: 'idle' });
     } catch (err) {
-      setAuthState({ step: 'error', message: String(err) });
+      setAuthState({ step: 'error', message: extractErrorMessage(err) });
     }
   };
 
@@ -109,26 +149,8 @@ export function CopilotAuthRow({ className }: CopilotAuthRowProps) {
 
   return (
     <div className={className}>
-      {/* Client ID input */}
-      <div className="flex items-center gap-2 mb-2">
-        <label className="text-[11px] text-muted-foreground min-w-[100px]">OAuth Client ID</label>
-        <input
-          type="text"
-          value={clientId ?? ''}
-          onChange={(e) => useSettingsStore.getState().set('githubCopilotClientId', e.target.value)}
-          placeholder="Iv1.xxxxxxxxxxxxxxxx"
-          className="h-7 flex-1 rounded-md bg-muted px-2 text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50 font-mono"
-        />
-      </div>
-
-      {/* Auth state display */}
       {authState.step === 'idle' && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={startAuth}
-          className="h-7 text-[11px] gap-1.5"
-        >
+        <Button variant="ghost" size="sm" onClick={startAuth} className="h-7 text-[11px] gap-1.5">
           <LogIn className="h-3.5 w-3.5" />
           Sign in with GitHub
         </Button>
@@ -189,12 +211,7 @@ export function CopilotAuthRow({ className }: CopilotAuthRowProps) {
       {authState.step === 'error' && (
         <div className="flex flex-col gap-1">
           <span className="text-[11px] text-destructive">{authState.message}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={startAuth}
-            className="h-6 text-[10px] gap-1 w-fit"
-          >
+          <Button variant="ghost" size="sm" onClick={startAuth} className="h-6 text-[10px] gap-1 w-fit">
             Try again
           </Button>
         </div>

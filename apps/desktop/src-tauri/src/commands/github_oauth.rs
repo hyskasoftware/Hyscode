@@ -54,27 +54,35 @@ struct CopilotTokenResponse {
     expires_at: i64,
 }
 
+// The GitHub Copilot VS Code extension client ID — this is the only client ID
+// that GitHub allows to call copilot_internal/v2/token. It is intentionally
+// public and used by all third-party Copilot-compatible editors.
+const COPILOT_CLIENT_ID: &str = "Iv1.b507a08c87ecfe98";
+
 /// Step 1: Start the GitHub OAuth Device Flow.
 /// Returns device_code, user_code, and verification_uri for the user.
 #[tauri::command]
-pub async fn github_oauth_start(
-    client_id: String,
-) -> Result<DeviceFlowResponse, String> {
+pub async fn github_oauth_start() -> Result<DeviceFlowResponse, String> {
+    eprintln!("[CopilotAuth] github_oauth_start called with client_id: {}...", &COPILOT_CLIENT_ID[..COPILOT_CLIENT_ID.len().min(8)]);
     let client = reqwest::Client::new();
 
     let resp = client
         .post("https://github.com/login/device/code")
         .header("Accept", "application/json")
         .form(&[
-            ("client_id", client_id.as_str()),
-            ("scope", "copilot"),
+            ("client_id", COPILOT_CLIENT_ID),
+            ("scope", "copilot read:user"),
         ])
         .send()
         .await
         .map_err(|e| format!("Failed to start device flow: {}", e))?;
 
-    if !resp.status().is_success() {
+    let status = resp.status();
+    eprintln!("[CopilotAuth] github_oauth_start HTTP status: {}", status);
+
+    if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
+        eprintln!("[CopilotAuth] github_oauth_start error body: {}", body);
         return Err(format!("GitHub device flow error: {}", body));
     }
 
@@ -82,6 +90,9 @@ pub async fn github_oauth_start(
         .json()
         .await
         .map_err(|e| format!("Failed to parse device flow response: {}", e))?;
+
+    eprintln!("[CopilotAuth] github_oauth_start OK — user_code: {}, interval: {}s, expires_in: {}s",
+        data.user_code, data.interval, data.expires_in);
 
     Ok(DeviceFlowResponse {
         device_code: data.device_code,
@@ -97,16 +108,20 @@ pub async fn github_oauth_start(
 #[tauri::command]
 pub async fn github_oauth_poll(
     keychain: State<'_, KeychainState>,
-    client_id: String,
     device_code: String,
 ) -> Result<OAuthTokenResponse, String> {
-    let client = reqwest::Client::new();
+    eprintln!("[CopilotAuth] github_oauth_poll called");
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
     let resp = client
         .post("https://github.com/login/oauth/access_token")
         .header("Accept", "application/json")
         .form(&[
-            ("client_id", client_id.as_str()),
+            ("client_id", COPILOT_CLIENT_ID),
             ("device_code", device_code.as_str()),
             ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
         ])
@@ -114,23 +129,31 @@ pub async fn github_oauth_poll(
         .await
         .map_err(|e| format!("Failed to poll OAuth: {}", e))?;
 
-    if !resp.status().is_success() {
+    let status = resp.status();
+    eprintln!("[CopilotAuth] github_oauth_poll HTTP status: {}", status);
+
+    if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
+        eprintln!("[CopilotAuth] github_oauth_poll HTTP error body: {}", body);
         return Err(format!("GitHub OAuth error: {}", body));
     }
 
-    let data: GitHubTokenResponse = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse OAuth response: {}", e))?;
+    // Capture the raw body first so we can log it on parse failure
+    let body_bytes = resp.bytes().await.map_err(|e| format!("Failed to read poll response body: {}", e))?;
+    let body_str = String::from_utf8_lossy(&body_bytes);
+    eprintln!("[CopilotAuth] github_oauth_poll raw response: {}", body_str);
 
-    if let Some(err) = data.error {
+    let data: GitHubTokenResponse = serde_json::from_slice(&body_bytes)
+        .map_err(|e| format!("Failed to parse OAuth response: {} — body: {}", e, body_str))?;
+
+    if let Some(ref err) = data.error {
+        eprintln!("[CopilotAuth] github_oauth_poll GitHub error: {} — desc: {:?}", err, data.error_description);
         return Err(match err.as_str() {
             "authorization_pending" => "authorization_pending".to_string(),
             "slow_down" => "slow_down".to_string(),
             "expired_token" => "Device code expired. Please restart the auth flow.".to_string(),
             "access_denied" => "User denied access.".to_string(),
-            _ => data.error_description.unwrap_or(err),
+            _ => data.error_description.clone().unwrap_or_else(|| err.clone()),
         });
     }
 
@@ -138,7 +161,9 @@ pub async fn github_oauth_poll(
         .access_token
         .ok_or("No access_token in response")?;
     let token_type = data.token_type.unwrap_or_else(|| "bearer".to_string());
-    let scope = data.scope.unwrap_or_default();
+    let scope = data.scope.clone().unwrap_or_default();
+
+    eprintln!("[CopilotAuth] github_oauth_poll SUCCESS — scope: {:?}, token_type: {}", scope, token_type);
 
     // Store the long-lived access token in keychain
     {
@@ -148,6 +173,7 @@ pub async fn github_oauth_poll(
             access_token.clone(),
         );
         super::keychain::persist_keychain_ref(&store);
+        eprintln!("[CopilotAuth] github_oauth_poll — access_token stored in keychain");
     }
 
     Ok(OAuthTokenResponse {
@@ -163,30 +189,65 @@ pub async fn github_oauth_poll(
 pub async fn github_copilot_ensure_token(
     keychain: State<'_, KeychainState>,
 ) -> Result<String, String> {
+    eprintln!("[CopilotAuth] github_copilot_ensure_token called");
+
     // Read the long-lived access token
     let access_token = {
         let store = keychain.0.lock().map_err(|e| e.to_string())?;
+        let has_token = store.contains_key("hyscode:github_copilot_access_token");
+        eprintln!("[CopilotAuth] github_copilot_ensure_token — keychain has access_token: {}", has_token);
         store
             .get("hyscode:github_copilot_access_token")
             .cloned()
             .ok_or_else(|| "No GitHub access token. Please authenticate first.".to_string())?
     };
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    // Verify the token is valid and check Copilot subscription status
+    let user_resp = client
+        .get("https://api.github.com/user")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("User-Agent", "GithubCopilot/1.138.0")
+        .header("Accept", "application/vnd.github+json")
+        .header("x-github-api-version", "2022-11-28")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to verify GitHub token: {}", e))?;
+    let user_status = user_resp.status();
+    let user_body = user_resp.text().await.unwrap_or_default();
+    eprintln!("[CopilotAuth] github_copilot_ensure_token — /user status: {}, body: {}", user_status, &user_body[..user_body.len().min(200)]);
+    if !user_status.is_success() {
+        return Err(format!("GitHub token is invalid ({}): {}", user_status.as_u16(), user_body));
+    }
+
+    eprintln!("[CopilotAuth] github_copilot_ensure_token — calling copilot_internal/v2/token");
+    eprintln!("[CopilotAuth] github_copilot_ensure_token — token prefix: {}...", &access_token[..access_token.len().min(6)]);
 
     let resp = client
         .get("https://api.github.com/copilot_internal/v2/token")
-        .header("Authorization", format!("token {}", access_token))
-        .header("User-Agent", "HysCode/0.1.0")
-        .header("Accept", "application/json")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("User-Agent", "GithubCopilot/1.138.0")
+        .header("Accept", "*/*")
+        .header("editor-version", "vscode/1.85.0")
+        .header("editor-plugin-version", "copilot/1.138.0")
+        .header("openai-intent", "copilot-ghost")
+        .header("x-github-api-version", "2022-11-28")
         .send()
         .await
         .map_err(|e| format!("Failed to get Copilot token: {}", e))?;
 
-    if !resp.status().is_success() {
-        let status = resp.status().as_u16();
+    let status = resp.status();
+    eprintln!("[CopilotAuth] github_copilot_ensure_token HTTP status: {}", status);
+
+    if !status.is_success() {
+        let status_u16 = status.as_u16();
         let body = resp.text().await.unwrap_or_default();
-        if status == 401 {
+        eprintln!("[CopilotAuth] github_copilot_ensure_token error ({}): {}", status_u16, body);
+        if status_u16 == 401 {
             // Access token is invalid/revoked — clear it
             let mut store = keychain.0.lock().map_err(|e| e.to_string())?;
             store.remove("hyscode:github_copilot_access_token");
@@ -194,13 +255,15 @@ pub async fn github_copilot_ensure_token(
             super::keychain::persist_keychain_ref(&store);
             return Err("GitHub access token is invalid. Please re-authenticate.".to_string());
         }
-        return Err(format!("Copilot token exchange failed ({}): {}", status, body));
+        return Err(format!("Copilot token exchange failed ({}): {}", status_u16, body));
     }
 
-    let data: CopilotTokenResponse = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse Copilot token: {}", e))?;
+    let body_bytes = resp.bytes().await.map_err(|e| format!("Failed to read Copilot token response body: {}", e))?;
+    let body_str = String::from_utf8_lossy(&body_bytes);
+    eprintln!("[CopilotAuth] github_copilot_ensure_token raw response: {}", body_str);
+
+    let data: CopilotTokenResponse = serde_json::from_slice(&body_bytes)
+        .map_err(|e| format!("Failed to parse Copilot token: {} — body: {}", e, body_str))?;
 
     // Store the short-lived Copilot API token
     {
@@ -210,8 +273,10 @@ pub async fn github_copilot_ensure_token(
             data.token.clone(),
         );
         super::keychain::persist_keychain_ref(&store);
+        eprintln!("[CopilotAuth] github_copilot_ensure_token — Copilot token stored, expires_at: {}", data.expires_at);
     }
 
+    eprintln!("[CopilotAuth] github_copilot_ensure_token SUCCESS");
     Ok(data.token)
 }
 

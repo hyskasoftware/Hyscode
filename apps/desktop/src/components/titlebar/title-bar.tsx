@@ -23,7 +23,6 @@ export function TitleBar() {
       <div className="flex items-center shrink-0 gap-2">
         <div data-tauri-drag-region className="flex items-center gap-2 px-1">
           <BrandMark className="h-4 w-4 rounded-[4px]" alt="HysCode" />
-          <span className="text-[11px] font-medium text-muted-foreground">HysCode</span>
         </div>
         <FileMenu />
         <ViewMenu />

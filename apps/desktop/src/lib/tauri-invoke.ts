@@ -78,8 +78,8 @@ interface TauriCommands {
   claude_agent_cancel: { args: { requestId: string }; ret: void };
 
   // GitHub OAuth / Copilot
-  github_oauth_start: { args: { clientId: string }; ret: { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number } };
-  github_oauth_poll: { args: { clientId: string; deviceCode: string }; ret: { access_token: string; token_type: string; scope: string } };
+  github_oauth_start: { args: Record<string, never>; ret: { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number } };
+  github_oauth_poll: { args: { deviceCode: string }; ret: { access_token: string; token_type: string; scope: string } };
   github_copilot_ensure_token: { args: Record<string, never>; ret: string };
   github_copilot_disconnect: { args: Record<string, never>; ret: void };
   github_copilot_is_authenticated: { args: Record<string, never>; ret: boolean };
