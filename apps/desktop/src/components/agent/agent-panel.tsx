@@ -1,4 +1,4 @@
-import { Trash2, History } from 'lucide-react';
+import { Trash2, History, Bot } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { AgentMessages } from './agent-messages';
 import { AgentInput } from './agent-input';
@@ -13,7 +13,6 @@ import { AgentQuestionCard } from './agent-question-card';
 import { useAgentStore } from '@/stores/agent-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { Button } from '@/components/ui/button';
-import { BrandMark } from '@/components/brand-mark';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -212,7 +211,7 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
       {/* Header */}
       <div className="flex h-8 shrink-0 items-center justify-between bg-surface-raised px-3">
         <div className="flex items-center gap-2">
-          <BrandMark className="h-3.5 w-3.5 rounded-sm" alt="HysCode" />
+          <Bot className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-[11px] font-medium">Agent</span>
         </div>
         <div className="flex items-center gap-0.5">
