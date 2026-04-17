@@ -34,7 +34,7 @@ interface TerminalState {
   closeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
   renameSession: (id: string, name: string) => void;
-  setPtyId: (sessionId: string, ptyId: string) => void;
+  setPtyId: (sessionId: string, ptyId: string | null) => void;
   /** Record a finished command on a session */
   setLastCommand: (sessionId: string, command: string, output: string, exitCode: number | null) => void;
   /** Append a command to the rolling history */
@@ -102,7 +102,7 @@ export const useTerminalStore = create<TerminalState>()(
         if (session) session.name = name;
       }),
 
-    setPtyId: (sessionId: string, ptyId: string) =>
+    setPtyId: (sessionId: string, ptyId: string | null) =>
       set((state) => {
         const session = state.sessions.find((s) => s.id === sessionId);
         if (session) session.ptyId = ptyId;

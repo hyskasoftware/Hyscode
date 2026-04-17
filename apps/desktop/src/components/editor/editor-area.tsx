@@ -163,6 +163,7 @@ export function EditorArea() {
     if (!activeTab || !isTextViewer) {
       setContent(null);
       contentRef.current = null;
+      setLoading(false);
       return;
     }
 
@@ -171,6 +172,7 @@ export function EditorArea() {
       const cached = fileCache.get(activeTab.filePath) ?? '';
       setContent(cached);
       contentRef.current = cached;
+      setLoading(false);
       return;
     }
 
@@ -178,6 +180,7 @@ export function EditorArea() {
     if (cached !== undefined) {
       setContent(cached);
       contentRef.current = cached;
+      setLoading(false);
       return;
     }
 

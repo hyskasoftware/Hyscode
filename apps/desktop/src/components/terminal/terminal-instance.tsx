@@ -182,6 +182,8 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
       unlistenFns.forEach((fn) => fn());
       if (ptyIdRef.current) {
         invoke('pty_kill', { ptyId: ptyIdRef.current }).catch(() => {});
+        // Clear from store so a StrictMode re-mount doesn't reuse a dead PTY
+        setPtyId(sessionId, null);
         ptyIdRef.current = null;
       }
       term.dispose();
