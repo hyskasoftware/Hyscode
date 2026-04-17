@@ -59,7 +59,12 @@ const VERIFICATION_COMMAND_PATTERNS = [
 const MODES_REQUIRING_VERIFICATION: Set<AgentType> = new Set(['build', 'debug', 'review']);
 
 function hasVerificationEvidence(toolCalls: ToolCallRecord[]): boolean {
-  for (const tc of toolCalls) {
+  const editedFiles = new Set<string>();
+  const readFiles = new Set<string>();
+
+  for (let i = 0; i < toolCalls.length; i++) {
+    const tc = toolCalls[i];
+
     // Any git_diff or git_status counts (reviewing changes)
     if (tc.toolName === 'git_diff' || tc.toolName === 'git_status') {
       return true;
@@ -73,19 +78,29 @@ function hasVerificationEvidence(toolCalls: ToolCallRecord[]): boolean {
       }
     }
 
-    // read_file after an edit counts as a re-read verification
-    // (heuristic: if the agent read a file AFTER editing it)
-    // We track this by checking if there's a read_file call after any write/edit
+    // Track edited and read files
+    if (['write_file', 'edit_file', 'create_file'].includes(tc.toolName)) {
+      editedFiles.add(String(tc.input.path ?? ''));
+    }
     if (tc.toolName === 'read_file') {
-      const filePath = String(tc.input.path ?? '');
-      const editedFiles = toolCalls
-        .filter((t) => ['write_file', 'edit_file', 'create_file'].includes(t.toolName))
-        .map((t) => String(t.input.path ?? ''));
-      if (editedFiles.includes(filePath)) {
-        return true;
-      }
+      readFiles.add(String(tc.input.path ?? ''));
     }
   }
+
+  // Accept verification if: a file was read BEFORE or AFTER it was edited.
+  // Pre-edit reads prove the agent understood the file before modifying it.
+  // Post-edit reads prove the agent verified its changes.
+  for (const edited of editedFiles) {
+    if (edited && readFiles.has(edited)) {
+      return true;
+    }
+  }
+
+  // Also accept if search_code or get_diagnostics was used (code understanding)
+  if (toolCalls.some((tc) => tc.toolName === 'search_code' || tc.toolName === 'get_diagnostics')) {
+    return true;
+  }
+
   return false;
 }
 

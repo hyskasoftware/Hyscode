@@ -236,6 +236,35 @@ const MODEL_PROFILES: ModelProfile[] = [
   },
 ];
 
+// ─── Per-Request-Cost Provider Detection ────────────────────────────────────
+// Providers that charge per API request (not just per token) need stricter
+// iteration caps to avoid burning budget. GitHub Copilot uses a multiplier
+// model where each request counts as 1× (or more) toward the user's quota.
+
+/** Model ID prefixes known to be served via GitHub Copilot */
+const COPILOT_MODEL_IDS = new Set([
+  'gpt-4.1', 'gpt-4o', 'gpt-5-mini', 'gpt-5.2', 'gpt-5.2-codex',
+  'gpt-5.3-codex', 'gpt-5.4', 'gpt-5.4-mini', 'raptor-mini',
+  'claude-sonnet-4', 'claude-sonnet-4.5', 'claude-sonnet-4.6',
+  'claude-haiku-4.5', 'claude-opus-4.5', 'claude-opus-4.6', 'claude-opus-4.7',
+  'gemini-2.5-pro', 'gemini-3-flash', 'gemini-3.1-pro',
+  'grok-code-fast-1',
+]);
+
+/** Check if a model ID belongs to a per-request-cost provider. */
+export function isPerRequestCostModel(modelId: string): boolean {
+  return COPILOT_MODEL_IDS.has(modelId);
+}
+
+/** Iteration caps for per-request-cost providers (per mode). */
+const PER_REQUEST_ITERATION_CAPS: Partial<Record<AgentType, number>> = {
+  chat: 3,
+  build: 8,
+  review: 5,
+  debug: 6,
+  plan: 5,
+};
+
 /**
  * Get the model profile matching the given model ID.
  * Returns null if no profile matches.
@@ -256,11 +285,26 @@ export function getModelProfile(modelId: string): ModelProfile | null {
  */
 export function adjustPolicyForModel(policy: ModePolicy, modelId: string): ModePolicy {
   const profile = getModelProfile(modelId);
-  if (!profile) return policy;
+  let adjusted = profile
+    ? {
+        ...policy,
+        maxInputTokens: Math.min(policy.maxInputTokens, profile.maxContext),
+        maxOutputTokens: Math.min(policy.maxOutputTokens, profile.recommendedMaxOutput),
+      }
+    : { ...policy };
 
-  return {
-    ...policy,
-    maxInputTokens: Math.min(policy.maxInputTokens, profile.maxContext),
-    maxOutputTokens: Math.min(policy.maxOutputTokens, profile.recommendedMaxOutput),
-  };
+  // Per-request-cost providers (GitHub Copilot): reduce iterations and
+  // disable forced verification to minimize API requests per turn.
+  if (isPerRequestCostModel(modelId)) {
+    const cap = PER_REQUEST_ITERATION_CAPS[policy.mode] ?? policy.maxIterations;
+    adjusted = {
+      ...adjusted,
+      maxIterations: Math.min(adjusted.maxIterations, cap),
+      // Let the LLM self-verify in its own text rather than forcing a
+      // round-trip verification call that costs an extra API request.
+      verificationRequired: false,
+    };
+  }
+
+  return adjusted;
 }

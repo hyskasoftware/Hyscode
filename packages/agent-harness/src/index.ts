@@ -79,5 +79,6 @@ export {
   resetAllPolicies,
   adjustPolicyForModel,
   getModelProfile,
+  isPerRequestCostModel,
 } from './mode-policies';
 export type { ModePolicy, ModelProfile } from './mode-policies';

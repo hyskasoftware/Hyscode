@@ -58,6 +58,15 @@ Before responding or using any tool, internally analyze the user's request:
 - **Use list_skills** to discover available skills, and **activate_skill** to enable domain-specific expertise for the current task.
 - **Make multiple tool calls when needed.** A single read_file is rarely enough — read, search, edit, verify in sequence.
 
+## Tool Efficiency — Parallel Batching (IMPORTANT)
+Each iteration of the agent loop costs an API request. Minimize round trips:
+
+- **Batch independent tool calls in a single response.** If you need to read 3 files, call ALL THREE read_file tools at once instead of one per response. The system supports parallel tool execution.
+- **Only sequence tool calls when the output of one is the input to the next.** For example: search_code (to find the file) → read_file (the found file) → edit_file (modify it) — these MUST be sequential. But reading 3 already-known files can be parallel.
+- **Group related reads at the start.** Before making changes, read ALL relevant files in one response, then plan and edit in the next.
+- **Combine verification steps.** If you need to re-read a file AND check git status, do both in one response.
+- **Avoid single-tool responses** unless the next step truly depends on that tool's output.
+
 ## Skills & MCP Awareness
 - You have access to a skill system. Skills provide domain-specific instructions and best practices (e.g., testing strategies, security checks, code style rules).
 - Before specialized tasks (writing tests, security review, performance optimization, git operations, documentation), check if a relevant skill is available and activate it.
