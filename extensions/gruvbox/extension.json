@@ -1,0 +1,33 @@
+{
+  "name": "gruvbox",
+  "displayName": "Gruvbox",
+  "version": "1.0.0",
+  "description": "Tema retrô com tons quentes e terrosos — paleta com baixo contraste mas alta legibilidade. Variantes Dark, Hard e Light",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Themes"],
+  "keywords": ["theme", "dark", "light", "retro", "gruvbox", "warm", "earthy"],
+  "license": "MIT",
+  "contributes": {
+    "themes": [
+      {
+        "id": "gruvbox-dark",
+        "label": "Gruvbox Dark",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/gruvbox-dark.json"
+      },
+      {
+        "id": "gruvbox-dark-hard",
+        "label": "Gruvbox Dark Hard",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/gruvbox-dark-hard.json"
+      },
+      {
+        "id": "gruvbox-light",
+        "label": "Gruvbox Light",
+        "uiTheme": "hyscode-light",
+        "path": "themes/gruvbox-light.json"
+      }
+    ]
+  }
+}

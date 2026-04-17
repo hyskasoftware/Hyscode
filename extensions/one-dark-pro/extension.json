@@ -1,0 +1,33 @@
+{
+  "name": "one-dark-pro",
+  "displayName": "One Dark Pro",
+  "version": "1.0.0",
+  "description": "Tema escuro elegante inspirado no Atom One Dark — a paleta mais popular do universo dos editores de código",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Themes"],
+  "keywords": ["theme", "dark", "atom", "one-dark", "purple", "blue"],
+  "license": "MIT",
+  "contributes": {
+    "themes": [
+      {
+        "id": "one-dark-pro",
+        "label": "One Dark Pro",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/one-dark-pro.json"
+      },
+      {
+        "id": "one-dark-pro-darker",
+        "label": "One Dark Pro Darker",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/one-dark-pro-darker.json"
+      },
+      {
+        "id": "one-dark-pro-mix",
+        "label": "One Dark Pro Mix",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/one-dark-pro-mix.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "catppuccin",
+  "displayName": "Catppuccin",
+  "version": "1.0.0",
+  "description": "Tema pastel soothing com quatro variantes — Mocha, Macchiato, Frappe e Latte. Paleta calorosa que cansa menos os olhos",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Themes"],
+  "keywords": ["theme", "dark", "light", "pastel", "catppuccin", "mocha", "macchiato", "frappe", "latte"],
+  "license": "MIT",
+  "contributes": {
+    "themes": [
+      {
+        "id": "catppuccin-mocha",
+        "label": "Catppuccin Mocha",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/catppuccin-mocha.json"
+      },
+      {
+        "id": "catppuccin-macchiato",
+        "label": "Catppuccin Macchiato",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/catppuccin-macchiato.json"
+      },
+      {
+        "id": "catppuccin-frappe",
+        "label": "Catppuccin Frappé",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/catppuccin-frappe.json"
+      },
+      {
+        "id": "catppuccin-latte",
+        "label": "Catppuccin Latte",
+        "uiTheme": "hyscode-light",
+        "path": "themes/catppuccin-latte.json"
+      }
+    ]
+  }
+}
