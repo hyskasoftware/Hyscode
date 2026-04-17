@@ -1,0 +1,130 @@
+{
+  "id": "vs2022-blue",
+  "label": "Blue (Visual Studio 2022)",
+  "type": "light",
+  "colors": {
+    "editor.background": "#ffffff",
+    "editor.foreground": "#000000",
+    "editorLineNumber.foreground": "#2b91af",
+    "editorLineNumber.activeForeground": "#1e3a5f",
+    "editor.selectionBackground": "#add8e6",
+    "editor.lineHighlightBackground": "#eef2f7",
+    "editorCursor.foreground": "#000000",
+    "editorIndentGuide.background": "#c8d8eb",
+    "editorIndentGuide.activeBackground": "#9eb5cc",
+    "editorBracketMatch.background": "#0000001a",
+    "editorBracketMatch.border": "#9eb5cc",
+    "editor.wordHighlightBackground": "#0000001a",
+    "editorWidget.background": "#e4ecf5",
+    "editorWidget.border": "#9bb0c5",
+    "input.background": "#ffffff",
+    "input.foreground": "#1e3a5f",
+    "input.border": "#9bb0c5",
+    "minimap.background": "#f0f4f9",
+    "minimap.selectionHighlight": "#add8e680",
+    "minimapGutter.addedBackground": "#587c0c",
+    "minimapGutter.modifiedBackground": "#0c7d9d",
+    "minimapGutter.deletedBackground": "#94151b",
+    "editorOverviewRuler.addedForeground": "#587c0c88",
+    "editorOverviewRuler.modifiedForeground": "#0c7d9d88",
+    "editorOverviewRuler.deletedForeground": "#94151b88",
+    "scrollbarSlider.background": "#9bb0c566",
+    "scrollbarSlider.hoverBackground": "#9bb0c5b3",
+    "scrollbarSlider.activeBackground": "#9bb0c5cc",
+
+    "sideBar.background": "#293955",
+    "sideBar.border": "#1e3048",
+    "activityBar.background": "#1e3048",
+    "panel.background": "#f0f4f9",
+    "panel.border": "#c8d8eb",
+    "focusBorder": "#007acc",
+    "button.background": "#007acc",
+    "button.foreground": "#ffffff",
+    "tab.inactiveForeground": "#000000b3",
+    "tab.activeForeground": "#000000",
+    "errorForeground": "#a1260d",
+
+    "terminal.ansiBlack": "#000000",
+    "terminal.ansiRed": "#cd3131",
+    "terminal.ansiGreen": "#00bc00",
+    "terminal.ansiYellow": "#949800",
+    "terminal.ansiBlue": "#0451a5",
+    "terminal.ansiMagenta": "#bc05bc",
+    "terminal.ansiCyan": "#0598bc",
+    "terminal.ansiWhite": "#555555",
+    "terminal.ansiBrightBlack": "#666666",
+    "terminal.ansiBrightRed": "#cd3131",
+    "terminal.ansiBrightGreen": "#14ce14",
+    "terminal.ansiBrightYellow": "#b5ba00",
+    "terminal.ansiBrightBlue": "#0451a5",
+    "terminal.ansiBrightMagenta": "#bc05bc",
+    "terminal.ansiBrightCyan": "#0598bc",
+    "terminal.ansiBrightWhite": "#a5a5a5"
+  },
+  "tokenColors": [
+    {
+      "scope": ["comment", "comment.line", "comment.block"],
+      "settings": { "foreground": "#008000" }
+    },
+    {
+      "scope": ["keyword", "keyword.control", "storage"],
+      "settings": { "foreground": "#0000ff" }
+    },
+    {
+      "scope": ["storage.type"],
+      "settings": { "foreground": "#0000ff" }
+    },
+    {
+      "scope": ["keyword.operator"],
+      "settings": { "foreground": "#000000" }
+    },
+    {
+      "scope": ["string", "string.quoted"],
+      "settings": { "foreground": "#a31515" }
+    },
+    {
+      "scope": ["string.regexp"],
+      "settings": { "foreground": "#811f3f" }
+    },
+    {
+      "scope": ["constant.numeric"],
+      "settings": { "foreground": "#098658" }
+    },
+    {
+      "scope": ["constant.language"],
+      "settings": { "foreground": "#0000ff" }
+    },
+    {
+      "scope": ["entity.name.type", "entity.name.class"],
+      "settings": { "foreground": "#2b91af" }
+    },
+    {
+      "scope": ["entity.name.function"],
+      "settings": { "foreground": "#000000" }
+    },
+    {
+      "scope": ["entity.name.tag"],
+      "settings": { "foreground": "#800000" }
+    },
+    {
+      "scope": ["entity.other.attribute-name"],
+      "settings": { "foreground": "#ff0000" }
+    },
+    {
+      "scope": ["variable", "variable.other"],
+      "settings": { "foreground": "#001080" }
+    },
+    {
+      "scope": ["support.function"],
+      "settings": { "foreground": "#795e26" }
+    },
+    {
+      "scope": ["support.type", "support.class"],
+      "settings": { "foreground": "#2b91af" }
+    },
+    {
+      "scope": ["punctuation"],
+      "settings": { "foreground": "#000000" }
+    }
+  ]
+}

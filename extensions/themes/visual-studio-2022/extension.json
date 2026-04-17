@@ -1,0 +1,39 @@
+{
+  "name": "visual-studio-2022",
+  "displayName": "Visual Studio 2022 Themes",
+  "version": "1.0.0",
+  "description": "Temas do Visual Studio 2022 — Dark, Light, Blue e Blue Extra Contrast",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Themes"],
+  "keywords": ["theme", "visual-studio", "vs2022", "dark", "light", "blue", "microsoft"],
+  "license": "MIT",
+  "contributes": {
+    "themes": [
+      {
+        "id": "vs2022-dark",
+        "label": "Dark (Visual Studio 2022)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/dark.json"
+      },
+      {
+        "id": "vs2022-light",
+        "label": "Light (Visual Studio 2022)",
+        "uiTheme": "hyscode-light",
+        "path": "themes/light.json"
+      },
+      {
+        "id": "vs2022-blue",
+        "label": "Blue (Visual Studio 2022)",
+        "uiTheme": "hyscode-light",
+        "path": "themes/blue.json"
+      },
+      {
+        "id": "vs2022-blue-contrast",
+        "label": "Blue (Extra Contrast) — Visual Studio 2022",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/blue-extra-contrast.json"
+      }
+    ]
+  }
+}

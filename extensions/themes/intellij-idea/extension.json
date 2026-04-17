@@ -1,0 +1,39 @@
+{
+  "name": "intellij-idea",
+  "displayName": "IntelliJ IDEA Themes",
+  "version": "1.0.0",
+  "description": "Temas do IntelliJ IDEA — Darcula, IntelliJ Light, High Contrast e New UI Dark",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Themes"],
+  "keywords": ["theme", "intellij", "jetbrains", "darcula", "idea", "java"],
+  "license": "MIT",
+  "contributes": {
+    "themes": [
+      {
+        "id": "intellij-darcula",
+        "label": "Darcula (IntelliJ IDEA)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/darcula.json"
+      },
+      {
+        "id": "intellij-light",
+        "label": "IntelliJ Light",
+        "uiTheme": "hyscode-light",
+        "path": "themes/light.json"
+      },
+      {
+        "id": "intellij-high-contrast",
+        "label": "High Contrast (IntelliJ IDEA)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/high-contrast.json"
+      },
+      {
+        "id": "intellij-new-ui-dark",
+        "label": "New UI Dark (IntelliJ IDEA)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/new-ui-dark.json"
+      }
+    ]
+  }
+}

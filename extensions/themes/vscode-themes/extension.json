@@ -1,0 +1,57 @@
+{
+  "name": "vscode-themes",
+  "displayName": "Visual Studio Code Themes",
+  "version": "1.0.0",
+  "description": "Temas oficiais do VS Code — Dark+, Light+, High Contrast, Solarized, Quiet Light e mais",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Themes"],
+  "keywords": ["theme", "vscode", "dark+", "light+", "solarized", "quiet-light", "high-contrast"],
+  "license": "MIT",
+  "contributes": {
+    "themes": [
+      {
+        "id": "vscode-dark-plus",
+        "label": "Dark+ (VS Code)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/dark-plus.json"
+      },
+      {
+        "id": "vscode-light-plus",
+        "label": "Light+ (VS Code)",
+        "uiTheme": "hyscode-light",
+        "path": "themes/light-plus.json"
+      },
+      {
+        "id": "vscode-high-contrast",
+        "label": "High Contrast (VS Code)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/high-contrast.json"
+      },
+      {
+        "id": "vscode-solarized-dark",
+        "label": "Solarized Dark (VS Code)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/solarized-dark.json"
+      },
+      {
+        "id": "vscode-solarized-light",
+        "label": "Solarized Light (VS Code)",
+        "uiTheme": "hyscode-light",
+        "path": "themes/solarized-light.json"
+      },
+      {
+        "id": "vscode-quiet-light",
+        "label": "Quiet Light (VS Code)",
+        "uiTheme": "hyscode-light",
+        "path": "themes/quiet-light.json"
+      },
+      {
+        "id": "vscode-monokai-dimmed",
+        "label": "Monokai Dimmed (VS Code)",
+        "uiTheme": "hyscode-dark",
+        "path": "themes/monokai-dimmed.json"
+      }
+    ]
+  }
+}
