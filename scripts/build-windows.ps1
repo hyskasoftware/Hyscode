@@ -20,6 +20,7 @@ $DESKTOP = Join-Path $ROOT "apps" "desktop"
 $TAURI_DIR = Join-Path $DESKTOP "src-tauri"
 $RELEASE_DIR = Join-Path $TAURI_DIR "target" "release"
 $BUNDLE_DIR = Join-Path $RELEASE_DIR "bundle"
+$TARGET_BUNDLE_DIR = Join-Path $TAURI_DIR "target" $Target "release" "bundle"
 $VERSION = "0.1.0"
 
 Write-Host ""
@@ -150,7 +151,7 @@ if (-not $SkipInnoSetup -and -not $NsisOnly) {
     } else {
         Write-Host "  Using ISCC: $iscc" -ForegroundColor Gray
 
-        $innoOutDir = Join-Path $BUNDLE_DIR "inno"
+        $innoOutDir = Join-Path $TARGET_BUNDLE_DIR "inno"
         if (-not (Test-Path $innoOutDir)) {
             New-Item -ItemType Directory -Path $innoOutDir -Force | Out-Null
         }
@@ -177,14 +178,19 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Build Complete!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Output directory: $BUNDLE_DIR" -ForegroundColor Cyan
+Write-Host "Output directory: $TARGET_BUNDLE_DIR" -ForegroundColor Cyan
 Write-Host ""
 
-if (Test-Path $BUNDLE_DIR) {
+$dirsToScan = @($BUNDLE_DIR, $TARGET_BUNDLE_DIR) | Sort-Object -Unique
+$allFiles = foreach ($dir in $dirsToScan) {
+    if (Test-Path $dir) {
+        Get-ChildItem $dir -Recurse -File | Where-Object { $_.Extension -in @(".exe", ".msi") }
+    }
+}
+$allFiles = $allFiles | Sort-Object FullName -Unique
+if ($allFiles) {
     Write-Host "Generated files:" -ForegroundColor Yellow
-    Get-ChildItem $BUNDLE_DIR -Recurse -File | Where-Object {
-        $_.Extension -in @(".exe", ".msi")
-    } | ForEach-Object {
+    $allFiles | ForEach-Object {
         $size = [math]::Round($_.Length / 1MB, 2)
         Write-Host "  $($_.Name) ($size MB)" -ForegroundColor White
     }
