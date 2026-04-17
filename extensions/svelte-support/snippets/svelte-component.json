@@ -1,0 +1,322 @@
+{
+  "Svelte Component (Runes TS)": {
+    "prefix": ["svelte", "sbase", "scomp"],
+    "body": [
+      "<script lang=\"ts\">",
+      "  $0",
+      "</script>",
+      "",
+      "<div>",
+      "  ",
+      "</div>",
+      "",
+      "<style>",
+      "</style>"
+    ],
+    "description": "Svelte 5 component com TypeScript"
+  },
+  "Svelte Component (Runes JS)": {
+    "prefix": ["sveltejs", "sbasejs"],
+    "body": [
+      "<script>",
+      "  $0",
+      "</script>",
+      "",
+      "<div>",
+      "  ",
+      "</div>",
+      "",
+      "<style>",
+      "</style>"
+    ],
+    "description": "Svelte 5 component com JavaScript"
+  },
+  "Svelte $state": {
+    "prefix": ["sstate", "$state"],
+    "body": [
+      "let ${1:name} = $state<${2:string}>(${3:''});"
+    ],
+    "description": "Svelte 5 $state rune"
+  },
+  "Svelte $state object": {
+    "prefix": ["sstateobj", "$stateobj"],
+    "body": [
+      "let ${1:state} = $state({",
+      "  $0",
+      "});"
+    ],
+    "description": "Svelte 5 $state com objeto"
+  },
+  "Svelte $derived": {
+    "prefix": ["sderived", "$derived"],
+    "body": [
+      "let ${1:name} = $derived(${2:expression});"
+    ],
+    "description": "Svelte 5 $derived rune"
+  },
+  "Svelte $derived.by": {
+    "prefix": ["sderivedby", "$derivedby"],
+    "body": [
+      "let ${1:name} = $derived.by(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Svelte 5 $derived.by rune"
+  },
+  "Svelte $effect": {
+    "prefix": ["seffect", "$effect"],
+    "body": [
+      "$effect(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Svelte 5 $effect rune"
+  },
+  "Svelte $effect.pre": {
+    "prefix": ["seffectpre", "$effectpre"],
+    "body": [
+      "$effect.pre(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Svelte 5 $effect.pre rune"
+  },
+  "Svelte $props": {
+    "prefix": ["sprops", "$props"],
+    "body": [
+      "let { ${1:name} }: { ${1:name}: ${2:string} } = $props();"
+    ],
+    "description": "Svelte 5 $props rune"
+  },
+  "Svelte $props interface": {
+    "prefix": ["spropsinterface", "$propsinterface"],
+    "body": [
+      "interface Props {",
+      "  ${1:name}: ${2:string};",
+      "}",
+      "",
+      "let { ${1:name} }: Props = $props();"
+    ],
+    "description": "Svelte 5 $props com interface"
+  },
+  "Svelte $props with defaults": {
+    "prefix": ["spropsdefault", "$propsdefault"],
+    "body": [
+      "interface Props {",
+      "  ${1:name}?: ${2:string};",
+      "}",
+      "",
+      "let { ${1:name} = ${3:''} }: Props = $props();"
+    ],
+    "description": "Svelte 5 $props com defaults"
+  },
+  "Svelte $props children": {
+    "prefix": ["spropschildren", "schildren"],
+    "body": [
+      "import type { Snippet } from 'svelte';",
+      "",
+      "let { children }: { children: Snippet } = $props();"
+    ],
+    "description": "Svelte 5 $props com children snippet"
+  },
+  "Svelte $bindable": {
+    "prefix": ["sbindable", "$bindable"],
+    "body": [
+      "let { ${1:value} = $bindable(${2:''}) }: { ${1:value}: ${3:string} } = $props();"
+    ],
+    "description": "Svelte 5 $bindable prop"
+  },
+  "Svelte $inspect": {
+    "prefix": ["sinspect", "$inspect"],
+    "body": [
+      "$inspect(${1:value});"
+    ],
+    "description": "Svelte 5 $inspect rune (debug)"
+  },
+  "Svelte snippet block": {
+    "prefix": ["ssnippet", "snippet"],
+    "body": [
+      "{#snippet ${1:name}(${2:params})}",
+      "  $0",
+      "{/snippet}"
+    ],
+    "description": "Svelte 5 snippet block"
+  },
+  "Svelte render snippet": {
+    "prefix": ["srender", "render"],
+    "body": [
+      "{@render ${1:snippetName}(${2:args})}"
+    ],
+    "description": "Svelte 5 render snippet"
+  },
+  "Svelte render children": {
+    "prefix": ["srenderchildren"],
+    "body": [
+      "{@render children?.()}"
+    ],
+    "description": "Svelte 5 render children"
+  },
+  "Svelte {#if} block": {
+    "prefix": ["sif", "#if"],
+    "body": [
+      "{#if ${1:condition}}",
+      "  $0",
+      "{/if}"
+    ],
+    "description": "Svelte {#if} block"
+  },
+  "Svelte {#if} {:else} block": {
+    "prefix": ["sifelse", "#ifelse"],
+    "body": [
+      "{#if ${1:condition}}",
+      "  $2",
+      "{:else}",
+      "  $0",
+      "{/if}"
+    ],
+    "description": "Svelte {#if}/{:else} block"
+  },
+  "Svelte {#each} block": {
+    "prefix": ["seach", "#each"],
+    "body": [
+      "{#each ${1:items} as ${2:item} (${2:item}.${3:id})}",
+      "  $0",
+      "{/each}"
+    ],
+    "description": "Svelte {#each} block com key"
+  },
+  "Svelte {#each} {:else} block": {
+    "prefix": ["seachelse", "#eachelse"],
+    "body": [
+      "{#each ${1:items} as ${2:item} (${2:item}.${3:id})}",
+      "  $4",
+      "{:else}",
+      "  <p>No items found.</p>",
+      "{/each}"
+    ],
+    "description": "Svelte {#each} com {:else}"
+  },
+  "Svelte {#await} block": {
+    "prefix": ["sawait", "#await"],
+    "body": [
+      "{#await ${1:promise}}",
+      "  <p>Loading...</p>",
+      "{:then ${2:data}}",
+      "  $0",
+      "{:catch ${3:error}}",
+      "  <p>{${3:error}.message}</p>",
+      "{/await}"
+    ],
+    "description": "Svelte {#await} block completo"
+  },
+  "Svelte {#key} block": {
+    "prefix": ["skey", "#key"],
+    "body": [
+      "{#key ${1:expression}}",
+      "  $0",
+      "{/key}"
+    ],
+    "description": "Svelte {#key} block"
+  },
+  "Svelte @html": {
+    "prefix": ["shtml", "@html"],
+    "body": [
+      "{@html ${1:rawHtml}}"
+    ],
+    "description": "Svelte {@html} tag"
+  },
+  "Svelte on:event": {
+    "prefix": ["son", "sonevent"],
+    "body": [
+      "on${1:click}={${2:handler}}"
+    ],
+    "description": "Svelte event handler (Svelte 5 syntax)"
+  },
+  "Svelte bind:value": {
+    "prefix": ["sbind", "sbindvalue"],
+    "body": [
+      "bind:${1:value}={${2:variable}}"
+    ],
+    "description": "Svelte bind directive"
+  },
+  "Svelte transition": {
+    "prefix": ["stransition"],
+    "body": [
+      "transition:${1:fade}={${2:{ duration: 300 \\}}}"
+    ],
+    "description": "Svelte transition directive"
+  },
+  "Svelte use: action": {
+    "prefix": ["suse", "saction"],
+    "body": [
+      "use:${1:action}={${2:params}}"
+    ],
+    "description": "Svelte use: action directive"
+  },
+  "SvelteKit +page.svelte": {
+    "prefix": ["skpage", "kitpage"],
+    "body": [
+      "<script lang=\"ts\">",
+      "  import type { PageData } from './$types';",
+      "",
+      "  let { data }: { data: PageData } = $props();",
+      "</script>",
+      "",
+      "<svelte:head>",
+      "  <title>${1:Page Title}</title>",
+      "</svelte:head>",
+      "",
+      "<main>",
+      "  $0",
+      "</main>"
+    ],
+    "description": "SvelteKit page component"
+  },
+  "SvelteKit +layout.svelte": {
+    "prefix": ["sklayout", "kitlayout"],
+    "body": [
+      "<script lang=\"ts\">",
+      "  import type { Snippet } from 'svelte';",
+      "",
+      "  let { children }: { children: Snippet } = $props();",
+      "</script>",
+      "",
+      "<div class=\"${1:layout}\">",
+      "  {@render children()}",
+      "</div>"
+    ],
+    "description": "SvelteKit layout component"
+  },
+  "SvelteKit +error.svelte": {
+    "prefix": ["skerror", "kiterror"],
+    "body": [
+      "<script lang=\"ts\">",
+      "  import { page } from '$app/stores';",
+      "</script>",
+      "",
+      "<svelte:head>",
+      "  <title>Error</title>",
+      "</svelte:head>",
+      "",
+      "<main>",
+      "  <h1>{$page.status}</h1>",
+      "  <p>{$page.error?.message}</p>",
+      "</main>"
+    ],
+    "description": "SvelteKit error page"
+  },
+  "Svelte class: directive": {
+    "prefix": ["sclass"],
+    "body": [
+      "class:${1:active}={${2:isActive}}"
+    ],
+    "description": "Svelte class: directive"
+  },
+  "Svelte style: directive": {
+    "prefix": ["sstyle"],
+    "body": [
+      "style:${1:color}={${2:value}}"
+    ],
+    "description": "Svelte style: directive"
+  }
+}

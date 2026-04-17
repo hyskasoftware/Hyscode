@@ -1,0 +1,166 @@
+{
+  "SvelteKit +page.server.ts load": {
+    "prefix": ["skload", "kitload", "pageserver"],
+    "body": [
+      "import type { PageServerLoad } from './$types';",
+      "",
+      "export const load: PageServerLoad = async ({ ${1:params, fetch} }) => {",
+      "  $0",
+      "",
+      "  return {",
+      "  };",
+      "};"
+    ],
+    "description": "SvelteKit page server load function"
+  },
+  "SvelteKit +page.ts load": {
+    "prefix": ["skloadclient", "kitloadclient"],
+    "body": [
+      "import type { PageLoad } from './$types';",
+      "",
+      "export const load: PageLoad = async ({ ${1:data, fetch} }) => {",
+      "  $0",
+      "",
+      "  return {",
+      "  };",
+      "};"
+    ],
+    "description": "SvelteKit page client load function"
+  },
+  "SvelteKit +layout.server.ts load": {
+    "prefix": ["sklayoutload", "kitlayoutload"],
+    "body": [
+      "import type { LayoutServerLoad } from './$types';",
+      "",
+      "export const load: LayoutServerLoad = async ({ ${1:locals} }) => {",
+      "  $0",
+      "",
+      "  return {",
+      "  };",
+      "};"
+    ],
+    "description": "SvelteKit layout server load function"
+  },
+  "SvelteKit +server.ts (API route)": {
+    "prefix": ["skapi", "kitapi", "serverroute"],
+    "body": [
+      "import { json } from '@sveltejs/kit';",
+      "import type { RequestHandler } from './$types';",
+      "",
+      "export const GET: RequestHandler = async ({ ${1:params, url} }) => {",
+      "  $0",
+      "",
+      "  return json({ });",
+      "};",
+      "",
+      "export const POST: RequestHandler = async ({ request }) => {",
+      "  const body = await request.json();",
+      "",
+      "  return json({ }, { status: 201 });",
+      "};"
+    ],
+    "description": "SvelteKit API route (+server.ts)"
+  },
+  "SvelteKit Form Action": {
+    "prefix": ["skaction", "kitaction", "formaction"],
+    "body": [
+      "import type { Actions } from './$types';",
+      "import { fail } from '@sveltejs/kit';",
+      "",
+      "export const actions: Actions = {",
+      "  default: async ({ request }) => {",
+      "    const formData = await request.formData();",
+      "    const ${1:field} = formData.get('${1:field}') as string;",
+      "",
+      "    if (!${1:field}) {",
+      "      return fail(400, { ${1:field}, missing: true });",
+      "    }",
+      "",
+      "    $0",
+      "  }",
+      "};"
+    ],
+    "description": "SvelteKit form action"
+  },
+  "SvelteKit hooks.server.ts": {
+    "prefix": ["skhooks", "kithooks"],
+    "body": [
+      "import type { Handle } from '@sveltejs/kit';",
+      "",
+      "export const handle: Handle = async ({ event, resolve }) => {",
+      "  $0",
+      "",
+      "  return resolve(event);",
+      "};"
+    ],
+    "description": "SvelteKit server hooks (handle)"
+  },
+  "SvelteKit error throw": {
+    "prefix": ["skerr", "kiterror"],
+    "body": [
+      "import { error } from '@sveltejs/kit';",
+      "",
+      "throw error(${1:404}, { message: '${2:Not found}' });"
+    ],
+    "description": "SvelteKit error throw"
+  },
+  "SvelteKit redirect": {
+    "prefix": ["skredirect", "kitredirect"],
+    "body": [
+      "import { redirect } from '@sveltejs/kit';",
+      "",
+      "throw redirect(${1:303}, '${2:/login}');"
+    ],
+    "description": "SvelteKit redirect"
+  },
+  "SvelteKit page store": {
+    "prefix": ["skpagestore"],
+    "body": [
+      "import { page } from '$app/stores';"
+    ],
+    "description": "SvelteKit page store import"
+  },
+  "SvelteKit goto": {
+    "prefix": ["skgoto"],
+    "body": [
+      "import { goto } from '$app/navigation';",
+      "",
+      "await goto('${1:/path}');"
+    ],
+    "description": "SvelteKit client-side navigation"
+  },
+  "SvelteKit invalidate": {
+    "prefix": ["skinvalidate"],
+    "body": [
+      "import { invalidate } from '$app/navigation';",
+      "",
+      "await invalidate('${1:url}');"
+    ],
+    "description": "SvelteKit invalidate data"
+  },
+  "Svelte Action (use:)": {
+    "prefix": ["svelteaction", "suseaction"],
+    "body": [
+      "import type { Action } from 'svelte/action';",
+      "",
+      "export const ${1:myAction}: Action<${2:HTMLElement}, ${3:string}> = (node, parameter) => {",
+      "  $0",
+      "",
+      "  return {",
+      "    update(newParameter) {},",
+      "    destroy() {}",
+      "  };",
+      "};"
+    ],
+    "description": "Svelte action (use: directive)"
+  },
+  "Svelte Store (writable)": {
+    "prefix": ["swritable", "sstore"],
+    "body": [
+      "import { writable } from 'svelte/store';",
+      "",
+      "export const ${1:name} = writable<${2:string}>(${3:''});"
+    ],
+    "description": "Svelte writable store"
+  }
+}

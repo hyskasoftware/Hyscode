@@ -1,0 +1,57 @@
+{
+  "Vue Composable (JS)": {
+    "prefix": ["vcomposable", "vusecomposable"],
+    "body": [
+      "import { ref, computed } from 'vue';",
+      "",
+      "export function use${1:${TM_FILENAME_BASE/use(.*)/\\u$1/}}() {",
+      "  $0",
+      "",
+      "  return {",
+      "  };",
+      "}"
+    ],
+    "description": "Vue composable function (JavaScript)"
+  },
+  "Pinia Store Setup (JS)": {
+    "prefix": ["vpinia", "vpiniasetup"],
+    "body": [
+      "import { ref, computed } from 'vue';",
+      "import { defineStore } from 'pinia';",
+      "",
+      "export const use${1:${TM_FILENAME_BASE}}Store = defineStore('${2:${TM_FILENAME_BASE}}', () => {",
+      "  const ${3:items} = ref([]);",
+      "",
+      "  const ${4:count} = computed(() => ${3:items}.value.length);",
+      "",
+      "  function ${5:add}(item) {",
+      "    ${3:items}.value.push(item);",
+      "  }",
+      "",
+      "  return { ${3:items}, ${4:count}, ${5:add} };",
+      "});"
+    ],
+    "description": "Pinia store setup syntax (JavaScript)"
+  },
+  "Vue Router Config (JS)": {
+    "prefix": ["vrouter"],
+    "body": [
+      "import { createRouter, createWebHistory } from 'vue-router';",
+      "",
+      "const router = createRouter({",
+      "  history: createWebHistory(import.meta.env.BASE_URL),",
+      "  routes: [",
+      "    {",
+      "      path: '/',",
+      "      name: 'home',",
+      "      component: () => import('@/views/${1:HomeView}.vue')",
+      "    },",
+      "    $0",
+      "  ]",
+      "});",
+      "",
+      "export default router;"
+    ],
+    "description": "Vue Router configuration (JavaScript)"
+  }
+}

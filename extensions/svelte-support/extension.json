@@ -1,0 +1,180 @@
+{
+  "name": "svelte-support",
+  "displayName": "Svelte Support",
+  "version": "1.0.0",
+  "description": "Suporte completo a Svelte 5 — runes, componentes, SvelteKit, snippets, comandos e configuração de linguagem",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["svelte", "svelte5", "sveltekit", "runes", "kit", "vite", "component"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:svelte", "workspaceContains:svelte.config.js", "workspaceContains:svelte.config.ts"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "svelte",
+        "aliases": ["Svelte", "Svelte Component"],
+        "extensions": [".svelte"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "svelte", "path": "snippets/svelte-component.json" },
+      { "language": "typescript", "path": "snippets/svelte-typescript.json" },
+      { "language": "javascript", "path": "snippets/svelte-javascript.json" }
+    ],
+    "commands": [
+      {
+        "id": "svelte.newComponent",
+        "title": "New Component",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.newPage",
+        "title": "New Page (+page.svelte)",
+        "category": "SvelteKit"
+      },
+      {
+        "id": "svelte.newLayout",
+        "title": "New Layout (+layout.svelte)",
+        "category": "SvelteKit"
+      },
+      {
+        "id": "svelte.newServerLoad",
+        "title": "New Server Load (+page.server.ts)",
+        "category": "SvelteKit"
+      },
+      {
+        "id": "svelte.newApiRoute",
+        "title": "New API Route (+server.ts)",
+        "category": "SvelteKit"
+      },
+      {
+        "id": "svelte.newProject",
+        "title": "New SvelteKit Project",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.dev",
+        "title": "Dev Server",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.build",
+        "title": "Build",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.preview",
+        "title": "Preview Build",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.test",
+        "title": "Run Tests (Vitest)",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.check",
+        "title": "Svelte Check",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.addPackage",
+        "title": "Add Package",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.wrapWithEach",
+        "title": "Wrap Selection with {#each}",
+        "category": "Svelte"
+      },
+      {
+        "id": "svelte.wrapWithIf",
+        "title": "Wrap Selection with {#if}",
+        "category": "Svelte"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "svelte.dev",
+        "key": "ctrl+shift+d",
+        "when": "editorTextFocus && editorLangId == svelte"
+      },
+      {
+        "command": "svelte.wrapWithIf",
+        "key": "ctrl+shift+i",
+        "when": "editorTextFocus && editorLangId == svelte && editorHasSelection"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "svelte.wrapWithIf", "group": "1_svelte", "when": "editorLangId == svelte && editorHasSelection" },
+        { "command": "svelte.wrapWithEach", "group": "1_svelte", "when": "editorLangId == svelte && editorHasSelection" }
+      ],
+      "commandPalette": [
+        { "command": "svelte.newComponent" },
+        { "command": "svelte.newPage" },
+        { "command": "svelte.newLayout" },
+        { "command": "svelte.newServerLoad" },
+        { "command": "svelte.newApiRoute" },
+        { "command": "svelte.newProject" },
+        { "command": "svelte.dev" },
+        { "command": "svelte.build" },
+        { "command": "svelte.preview" },
+        { "command": "svelte.test" },
+        { "command": "svelte.check" },
+        { "command": "svelte.addPackage" },
+        { "command": "svelte.wrapWithEach" },
+        { "command": "svelte.wrapWithIf" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "svelte-support.indicator",
+        "text": "🔥 Svelte",
+        "tooltip": "Svelte Support ativo",
+        "alignment": "right",
+        "priority": 50
+      }
+    ],
+    "configuration": {
+      "title": "Svelte Support",
+      "properties": {
+        "svelte.snippets.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets Svelte"
+        },
+        "svelte.defaultScriptLang": {
+          "type": "string",
+          "default": "ts",
+          "enum": ["ts", "js"],
+          "enumDescriptions": [
+            "TypeScript (<script lang=\"ts\">)",
+            "JavaScript (<script>)"
+          ],
+          "description": "Linguagem padrão do bloco <script>"
+        },
+        "svelte.defaultStyleLang": {
+          "type": "string",
+          "default": "css",
+          "enum": ["css", "scss", "sass", "less"],
+          "enumDescriptions": [
+            "CSS puro",
+            "SCSS",
+            "Sass (indentado)",
+            "Less"
+          ],
+          "description": "Linguagem padrão do bloco <style>"
+        },
+        "svelte.checkOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Executar svelte-check ao salvar"
+        }
+      }
+    }
+  }
+}

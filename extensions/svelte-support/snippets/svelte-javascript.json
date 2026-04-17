@@ -1,0 +1,45 @@
+{
+  "SvelteKit +page.server.js load": {
+    "prefix": ["skload", "kitload"],
+    "body": [
+      "/** @type {import('./$types').PageServerLoad} */",
+      "export async function load({ ${1:params, fetch} }) {",
+      "  $0",
+      "",
+      "  return {",
+      "  };",
+      "}"
+    ],
+    "description": "SvelteKit page server load (JavaScript)"
+  },
+  "SvelteKit +server.js (API route)": {
+    "prefix": ["skapi", "kitapi"],
+    "body": [
+      "import { json } from '@sveltejs/kit';",
+      "",
+      "/** @type {import('./$types').RequestHandler} */",
+      "export async function GET({ ${1:params, url} }) {",
+      "  $0",
+      "",
+      "  return json({ });",
+      "}",
+      "",
+      "/** @type {import('./$types').RequestHandler} */",
+      "export async function POST({ request }) {",
+      "  const body = await request.json();",
+      "",
+      "  return json({ }, { status: 201 });",
+      "}"
+    ],
+    "description": "SvelteKit API route (JavaScript)"
+  },
+  "Svelte Store writable (JS)": {
+    "prefix": ["swritable", "sstore"],
+    "body": [
+      "import { writable } from 'svelte/store';",
+      "",
+      "export const ${1:name} = writable(${2:''});"
+    ],
+    "description": "Svelte writable store (JavaScript)"
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "Vue Composable": {
+    "prefix": ["vcomposable", "vusecomposable"],
+    "body": [
+      "import { ref, computed } from 'vue';",
+      "",
+      "export function use${1:${TM_FILENAME_BASE/use(.*)/\\u$1/}}() {",
+      "  $0",
+      "",
+      "  return {",
+      "  };",
+      "}"
+    ],
+    "description": "Vue composable function"
+  },
+  "Pinia Store (Setup)": {
+    "prefix": ["vpinia", "vpiniasetup"],
+    "body": [
+      "import { ref, computed } from 'vue';",
+      "import { defineStore } from 'pinia';",
+      "",
+      "export const use${1:${TM_FILENAME_BASE/(.*)/$1/}}Store = defineStore('${2:${TM_FILENAME_BASE}}', () => {",
+      "  const ${3:items} = ref<${4:string}[]>([]);",
+      "",
+      "  const ${5:count} = computed(() => ${3:items}.value.length);",
+      "",
+      "  function ${6:add}(item: ${4:string}) {",
+      "    ${3:items}.value.push(item);",
+      "  }",
+      "",
+      "  return { ${3:items}, ${5:count}, ${6:add} };",
+      "});"
+    ],
+    "description": "Pinia store com setup syntax"
+  },
+  "Pinia Store (Options)": {
+    "prefix": ["vpiniaoptions"],
+    "body": [
+      "import { defineStore } from 'pinia';",
+      "",
+      "export const use${1:${TM_FILENAME_BASE}}Store = defineStore('${2:${TM_FILENAME_BASE}}', {",
+      "  state: () => ({",
+      "    $0",
+      "  }),",
+      "  getters: {},",
+      "  actions: {},",
+      "});"
+    ],
+    "description": "Pinia store com options syntax"
+  },
+  "Vue Router Config": {
+    "prefix": ["vrouter", "vrouterconfig"],
+    "body": [
+      "import { createRouter, createWebHistory } from 'vue-router';",
+      "",
+      "const router = createRouter({",
+      "  history: createWebHistory(import.meta.env.BASE_URL),",
+      "  routes: [",
+      "    {",
+      "      path: '/',",
+      "      name: 'home',",
+      "      component: () => import('@/views/${1:HomeView}.vue')",
+      "    },",
+      "    $0",
+      "  ]",
+      "});",
+      "",
+      "export default router;"
+    ],
+    "description": "Vue Router configuration"
+  },
+  "Vue Route Guard": {
+    "prefix": ["vrouteguard"],
+    "body": [
+      "router.beforeEach((to, from) => {",
+      "  $0",
+      "  return true;",
+      "});"
+    ],
+    "description": "Vue Router navigation guard"
+  },
+  "Vue Plugin": {
+    "prefix": ["vplugin"],
+    "body": [
+      "import type { App, Plugin } from 'vue';",
+      "",
+      "export const ${1:myPlugin}: Plugin = {",
+      "  install(app: App, options?: ${2:Record<string, unknown>}) {",
+      "    $0",
+      "  }",
+      "};"
+    ],
+    "description": "Vue plugin"
+  },
+  "Vue Custom Directive": {
+    "prefix": ["vdirective", "vcustomdirective"],
+    "body": [
+      "import type { Directive } from 'vue';",
+      "",
+      "export const v${1:MyDirective}: Directive<${2:HTMLElement}, ${3:string}> = {",
+      "  mounted(el, binding) {",
+      "    $0",
+      "  },",
+      "  updated(el, binding) {",
+      "  },",
+      "  unmounted(el) {",
+      "  }",
+      "};"
+    ],
+    "description": "Vue custom directive"
+  },
+  "Vue Fetch Composable": {
+    "prefix": ["vusefetch"],
+    "body": [
+      "import { ref, watchEffect } from 'vue';",
+      "",
+      "export function useFetch<T>(url: string) {",
+      "  const data = ref<T | null>(null);",
+      "  const error = ref<Error | null>(null);",
+      "  const loading = ref(true);",
+      "",
+      "  watchEffect(async () => {",
+      "    loading.value = true;",
+      "    error.value = null;",
+      "    try {",
+      "      const res = await fetch(url);",
+      "      data.value = await res.json();",
+      "    } catch (e) {",
+      "      error.value = e as Error;",
+      "    } finally {",
+      "      loading.value = false;",
+      "    }",
+      "  });",
+      "",
+      "  return { data, error, loading };",
+      "}"
+    ],
+    "description": "Vue useFetch composable"
+  }
+}

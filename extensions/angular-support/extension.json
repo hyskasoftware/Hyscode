@@ -1,0 +1,174 @@
+{
+  "name": "angular-support",
+  "displayName": "Angular Support",
+  "version": "1.0.0",
+  "description": "Suporte completo a Angular — templates, componentes, serviços, snippets, comandos CLI e configuração de linguagem",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["angular", "typescript", "component", "service", "directive", "pipe", "module", "signal", "standalone"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:typescript", "workspaceContains:angular.json"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "html",
+        "extensions": [".component.html"],
+        "configuration": "language-configuration-template.json"
+      },
+      {
+        "id": "angular-template",
+        "aliases": ["Angular Template", "Angular HTML"],
+        "extensions": [".component.html"],
+        "configuration": "language-configuration-template.json"
+      }
+    ],
+    "snippets": [
+      { "language": "typescript", "path": "snippets/typescript-angular.json" },
+      { "language": "html", "path": "snippets/html-angular.json" }
+    ],
+    "commands": [
+      {
+        "id": "angular.newComponent",
+        "title": "New Component",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.newService",
+        "title": "New Service",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.newDirective",
+        "title": "New Directive",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.newPipe",
+        "title": "New Pipe",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.newGuard",
+        "title": "New Guard",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.newInterceptor",
+        "title": "New Interceptor",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.newProject",
+        "title": "New Angular Project",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.serve",
+        "title": "Serve (Dev Server)",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.build",
+        "title": "Build",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.test",
+        "title": "Run Tests",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.lint",
+        "title": "Lint",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.generate",
+        "title": "Generate (ng generate)",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.addPackage",
+        "title": "Add Package (ng add)",
+        "category": "Angular"
+      },
+      {
+        "id": "angular.update",
+        "title": "Update Angular (ng update)",
+        "category": "Angular"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "angular.serve",
+        "key": "ctrl+shift+s",
+        "when": "editorTextFocus && editorLangId == typescript"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "angular.newComponent", "group": "1_angular", "when": "editorLangId == typescript" },
+        { "command": "angular.newService", "group": "1_angular", "when": "editorLangId == typescript" }
+      ],
+      "commandPalette": [
+        { "command": "angular.newComponent" },
+        { "command": "angular.newService" },
+        { "command": "angular.newDirective" },
+        { "command": "angular.newPipe" },
+        { "command": "angular.newGuard" },
+        { "command": "angular.newInterceptor" },
+        { "command": "angular.newProject" },
+        { "command": "angular.serve" },
+        { "command": "angular.build" },
+        { "command": "angular.test" },
+        { "command": "angular.lint" },
+        { "command": "angular.generate" },
+        { "command": "angular.addPackage" },
+        { "command": "angular.update" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "angular-support.indicator",
+        "text": "🅰 Angular",
+        "tooltip": "Angular Support ativo",
+        "alignment": "right",
+        "priority": 50
+      }
+    ],
+    "configuration": {
+      "title": "Angular Support",
+      "properties": {
+        "angular.snippets.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets Angular"
+        },
+        "angular.defaultComponentStyle": {
+          "type": "string",
+          "default": "scss",
+          "enum": ["css", "scss", "sass", "less"],
+          "enumDescriptions": [
+            "CSS puro",
+            "SCSS (Sass com sintaxe CSS)",
+            "Sass (sintaxe indentada)",
+            "Less"
+          ],
+          "description": "Estilo de CSS padrão para novos componentes"
+        },
+        "angular.standalone": {
+          "type": "boolean",
+          "default": true,
+          "description": "Gerar componentes standalone por padrão (Angular 19+)"
+        },
+        "angular.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Caminho para o Angular CLI (deixe vazio para usar npx/global)"
+        }
+      }
+    }
+  }
+}

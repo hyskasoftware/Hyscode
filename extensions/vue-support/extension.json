@@ -1,0 +1,174 @@
+{
+  "name": "vue-support",
+  "displayName": "Vue Support",
+  "version": "1.0.0",
+  "description": "Suporte completo a Vue 3 — SFC, Composition API, snippets, comandos CLI e configuração de linguagem",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["vue", "vue3", "composition-api", "sfc", "pinia", "vue-router", "nuxt", "vite"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:vue", "workspaceContains:vite.config.ts", "workspaceContains:nuxt.config.ts"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "vue",
+        "aliases": ["Vue", "Vue SFC", "Vue.js"],
+        "extensions": [".vue"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "vue", "path": "snippets/vue-sfc.json" },
+      { "language": "typescript", "path": "snippets/vue-typescript.json" },
+      { "language": "javascript", "path": "snippets/vue-javascript.json" }
+    ],
+    "commands": [
+      {
+        "id": "vue.newComponent",
+        "title": "New Component",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.newComposable",
+        "title": "New Composable",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.newStore",
+        "title": "New Pinia Store",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.newPage",
+        "title": "New Page",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.newProject",
+        "title": "New Vue Project",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.dev",
+        "title": "Dev Server",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.build",
+        "title": "Build",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.preview",
+        "title": "Preview Build",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.test",
+        "title": "Run Tests (Vitest)",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.lint",
+        "title": "Lint",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.addPackage",
+        "title": "Add Package",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.wrapWithTemplate",
+        "title": "Wrap Selection with <template>",
+        "category": "Vue"
+      },
+      {
+        "id": "vue.wrapWithTransition",
+        "title": "Wrap Selection with <Transition>",
+        "category": "Vue"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "vue.dev",
+        "key": "ctrl+shift+d",
+        "when": "editorTextFocus && editorLangId == vue"
+      },
+      {
+        "command": "vue.wrapWithTemplate",
+        "key": "ctrl+shift+t",
+        "when": "editorTextFocus && editorLangId == vue && editorHasSelection"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "vue.wrapWithTemplate", "group": "1_vue", "when": "editorLangId == vue && editorHasSelection" },
+        { "command": "vue.wrapWithTransition", "group": "1_vue", "when": "editorLangId == vue && editorHasSelection" }
+      ],
+      "commandPalette": [
+        { "command": "vue.newComponent" },
+        { "command": "vue.newComposable" },
+        { "command": "vue.newStore" },
+        { "command": "vue.newPage" },
+        { "command": "vue.newProject" },
+        { "command": "vue.dev" },
+        { "command": "vue.build" },
+        { "command": "vue.preview" },
+        { "command": "vue.test" },
+        { "command": "vue.lint" },
+        { "command": "vue.addPackage" },
+        { "command": "vue.wrapWithTemplate" },
+        { "command": "vue.wrapWithTransition" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "vue-support.indicator",
+        "text": "🟩 Vue",
+        "tooltip": "Vue Support ativo",
+        "alignment": "right",
+        "priority": 50
+      }
+    ],
+    "configuration": {
+      "title": "Vue Support",
+      "properties": {
+        "vue.snippets.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets Vue"
+        },
+        "vue.defaultScriptLang": {
+          "type": "string",
+          "default": "ts",
+          "enum": ["ts", "js"],
+          "enumDescriptions": [
+            "TypeScript (<script setup lang=\"ts\">)",
+            "JavaScript (<script setup>)"
+          ],
+          "description": "Linguagem padrão do bloco <script>"
+        },
+        "vue.defaultStyleLang": {
+          "type": "string",
+          "default": "scss",
+          "enum": ["css", "scss", "sass", "less"],
+          "enumDescriptions": [
+            "CSS puro",
+            "SCSS",
+            "Sass (indentado)",
+            "Less"
+          ],
+          "description": "Linguagem padrão do bloco <style>"
+        },
+        "vue.styleScoped": {
+          "type": "boolean",
+          "default": true,
+          "description": "Adicionar 'scoped' ao bloco <style> por padrão"
+        }
+      }
+    }
+  }
+}

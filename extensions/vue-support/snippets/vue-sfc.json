@@ -1,0 +1,314 @@
+{
+  "Vue SFC (TypeScript)": {
+    "prefix": ["vue", "vbase", "vsfc"],
+    "body": [
+      "<script setup lang=\"ts\">",
+      "$0",
+      "</script>",
+      "",
+      "<template>",
+      "  <div>",
+      "    ",
+      "  </div>",
+      "</template>",
+      "",
+      "<style scoped>",
+      "</style>"
+    ],
+    "description": "Vue 3 SFC com script setup TypeScript"
+  },
+  "Vue SFC (JavaScript)": {
+    "prefix": ["vuejs", "vbasejs"],
+    "body": [
+      "<script setup>",
+      "$0",
+      "</script>",
+      "",
+      "<template>",
+      "  <div>",
+      "    ",
+      "  </div>",
+      "</template>",
+      "",
+      "<style scoped>",
+      "</style>"
+    ],
+    "description": "Vue 3 SFC com script setup JavaScript"
+  },
+  "Vue SFC SCSS": {
+    "prefix": ["vuescss", "vbasescss"],
+    "body": [
+      "<script setup lang=\"ts\">",
+      "$0",
+      "</script>",
+      "",
+      "<template>",
+      "  <div class=\"${1:container}\">",
+      "    ",
+      "  </div>",
+      "</template>",
+      "",
+      "<style lang=\"scss\" scoped>",
+      ".${1:container} {",
+      "  ",
+      "}",
+      "</style>"
+    ],
+    "description": "Vue 3 SFC com SCSS scoped"
+  },
+  "Vue ref": {
+    "prefix": ["vref"],
+    "body": [
+      "const ${1:name} = ref<${2:string}>(${3:''});"
+    ],
+    "description": "Vue ref"
+  },
+  "Vue reactive": {
+    "prefix": ["vreactive"],
+    "body": [
+      "const ${1:state} = reactive({",
+      "  $0",
+      "});"
+    ],
+    "description": "Vue reactive object"
+  },
+  "Vue computed": {
+    "prefix": ["vcomputed"],
+    "body": [
+      "const ${1:name} = computed(() => {",
+      "  return $0;",
+      "});"
+    ],
+    "description": "Vue computed property"
+  },
+  "Vue watch": {
+    "prefix": ["vwatch"],
+    "body": [
+      "watch(${1:source}, (newVal, oldVal) => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Vue watch"
+  },
+  "Vue watchEffect": {
+    "prefix": ["vwatcheffect"],
+    "body": [
+      "watchEffect(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Vue watchEffect"
+  },
+  "Vue onMounted": {
+    "prefix": ["vonmounted"],
+    "body": [
+      "onMounted(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Vue onMounted lifecycle hook"
+  },
+  "Vue onUnmounted": {
+    "prefix": ["vonunmounted"],
+    "body": [
+      "onUnmounted(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Vue onUnmounted lifecycle hook"
+  },
+  "Vue onBeforeMount": {
+    "prefix": ["vonbeforemount"],
+    "body": [
+      "onBeforeMount(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Vue onBeforeMount lifecycle hook"
+  },
+  "Vue defineProps": {
+    "prefix": ["vprops", "vdefineprops"],
+    "body": [
+      "const props = defineProps<{",
+      "  ${1:name}: ${2:string}",
+      "}>();"
+    ],
+    "description": "Vue defineProps com TypeScript"
+  },
+  "Vue defineProps with defaults": {
+    "prefix": ["vpropsdefault"],
+    "body": [
+      "const props = withDefaults(defineProps<{",
+      "  ${1:name}?: ${2:string}",
+      "}>(), {",
+      "  ${1:name}: ${3:''},",
+      "});"
+    ],
+    "description": "Vue defineProps com defaults"
+  },
+  "Vue defineEmits": {
+    "prefix": ["vemits", "vdefineemits"],
+    "body": [
+      "const emit = defineEmits<{",
+      "  ${1:eventName}: [${2:payload}: ${3:string}]",
+      "}>();"
+    ],
+    "description": "Vue defineEmits com TypeScript"
+  },
+  "Vue defineModel": {
+    "prefix": ["vmodel", "vdefinemodel"],
+    "body": [
+      "const ${1:modelValue} = defineModel<${2:string}>();"
+    ],
+    "description": "Vue defineModel (v-model two-way binding)"
+  },
+  "Vue defineExpose": {
+    "prefix": ["vexpose"],
+    "body": [
+      "defineExpose({",
+      "  $0",
+      "});"
+    ],
+    "description": "Vue defineExpose"
+  },
+  "Vue defineSlots": {
+    "prefix": ["vslots", "vdefineslots"],
+    "body": [
+      "const slots = defineSlots<{",
+      "  ${1:default}(props: { ${2:item}: ${3:unknown} }): any",
+      "}>();"
+    ],
+    "description": "Vue defineSlots com TypeScript"
+  },
+  "Vue provide": {
+    "prefix": ["vprovide"],
+    "body": [
+      "provide('${1:key}', ${2:value});"
+    ],
+    "description": "Vue provide"
+  },
+  "Vue inject": {
+    "prefix": ["vinject"],
+    "body": [
+      "const ${1:value} = inject<${2:string}>('${3:key}');"
+    ],
+    "description": "Vue inject com tipo"
+  },
+  "Vue useTemplateRef": {
+    "prefix": ["vtemplateref", "vuseref"],
+    "body": [
+      "const ${1:el} = useTemplateRef<${2:HTMLDivElement}>('${3:ref}');"
+    ],
+    "description": "Vue useTemplateRef (3.5+)"
+  },
+  "Vue v-for": {
+    "prefix": ["vfor"],
+    "body": [
+      "<${1:div} v-for=\"${2:item} in ${3:items}\" :key=\"${2:item}.${4:id}\">",
+      "  $0",
+      "</${1:div}>"
+    ],
+    "description": "Vue v-for directive"
+  },
+  "Vue v-if": {
+    "prefix": ["vif"],
+    "body": [
+      "<${1:div} v-if=\"${2:condition}\">",
+      "  $0",
+      "</${1:div}>"
+    ],
+    "description": "Vue v-if directive"
+  },
+  "Vue v-if/v-else": {
+    "prefix": ["vifelse"],
+    "body": [
+      "<${1:div} v-if=\"${2:condition}\">",
+      "  $3",
+      "</${1:div}>",
+      "<${1:div} v-else>",
+      "  $0",
+      "</${1:div}>"
+    ],
+    "description": "Vue v-if/v-else"
+  },
+  "Vue v-show": {
+    "prefix": ["vshow"],
+    "body": [
+      "<${1:div} v-show=\"${2:condition}\">",
+      "  $0",
+      "</${1:div}>"
+    ],
+    "description": "Vue v-show directive"
+  },
+  "Vue v-model": {
+    "prefix": ["vmodel-input"],
+    "body": [
+      "<input v-model=\"${1:value}\" type=\"${2:text}\" />"
+    ],
+    "description": "Vue v-model on input"
+  },
+  "Vue slot": {
+    "prefix": ["vslot"],
+    "body": [
+      "<template #${1:default}>",
+      "  $0",
+      "</template>"
+    ],
+    "description": "Vue named slot template"
+  },
+  "Vue Transition": {
+    "prefix": ["vtransition"],
+    "body": [
+      "<Transition name=\"${1:fade}\">",
+      "  $0",
+      "</Transition>"
+    ],
+    "description": "Vue Transition component"
+  },
+  "Vue Suspense": {
+    "prefix": ["vsuspense"],
+    "body": [
+      "<Suspense>",
+      "  <template #default>",
+      "    $0",
+      "  </template>",
+      "  <template #fallback>",
+      "    <p>Loading...</p>",
+      "  </template>",
+      "</Suspense>"
+    ],
+    "description": "Vue Suspense component"
+  },
+  "Vue Teleport": {
+    "prefix": ["vteleport"],
+    "body": [
+      "<Teleport to=\"${1:body}\">",
+      "  $0",
+      "</Teleport>"
+    ],
+    "description": "Vue Teleport component"
+  },
+  "Vue KeepAlive": {
+    "prefix": ["vkeepalive"],
+    "body": [
+      "<KeepAlive>",
+      "  <component :is=\"${1:currentComponent}\" />",
+      "</KeepAlive>"
+    ],
+    "description": "Vue KeepAlive com componente dinâmico"
+  },
+  "Vue RouterView": {
+    "prefix": ["vrouterview"],
+    "body": [
+      "<RouterView />"
+    ],
+    "description": "Vue RouterView"
+  },
+  "Vue RouterLink": {
+    "prefix": ["vrouterlink"],
+    "body": [
+      "<RouterLink to=\"${1:/path}\">${2:Link}</RouterLink>"
+    ],
+    "description": "Vue RouterLink"
+  }
+}

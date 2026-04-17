@@ -1,0 +1,144 @@
+{
+  "Angular @if block": {
+    "prefix": ["ng-if", "atif"],
+    "body": [
+      "@if (${1:condition}) {",
+      "  $0",
+      "}"
+    ],
+    "description": "Angular @if control flow block (v19+)"
+  },
+  "Angular @if/@else block": {
+    "prefix": ["ng-if-else", "atifelse"],
+    "body": [
+      "@if (${1:condition}) {",
+      "  $2",
+      "} @else {",
+      "  $0",
+      "}"
+    ],
+    "description": "Angular @if/@else control flow block"
+  },
+  "Angular @for block": {
+    "prefix": ["ng-for", "atfor"],
+    "body": [
+      "@for (${1:item} of ${2:items}; track ${1:item}.${3:id}) {",
+      "  $0",
+      "} @empty {",
+      "  <p>No items found.</p>",
+      "}"
+    ],
+    "description": "Angular @for control flow block com @empty (v19+)"
+  },
+  "Angular @switch block": {
+    "prefix": ["ng-switch", "atswitch"],
+    "body": [
+      "@switch (${1:expression}) {",
+      "  @case (${2:value1}) {",
+      "    $3",
+      "  }",
+      "  @case (${4:value2}) {",
+      "    $5",
+      "  }",
+      "  @default {",
+      "    $0",
+      "  }",
+      "}"
+    ],
+    "description": "Angular @switch control flow block"
+  },
+  "Angular @defer block": {
+    "prefix": ["ng-defer", "atdefer"],
+    "body": [
+      "@defer (on ${1:viewport}) {",
+      "  $0",
+      "} @placeholder {",
+      "  <p>Loading...</p>",
+      "} @loading (minimum 300ms) {",
+      "  <p>Loading content...</p>",
+      "} @error {",
+      "  <p>Error loading content.</p>",
+      "}"
+    ],
+    "description": "Angular @defer block com placeholder, loading e error"
+  },
+  "Angular @let block": {
+    "prefix": ["ng-let", "atlet"],
+    "body": [
+      "@let ${1:name} = ${2:expression};"
+    ],
+    "description": "Angular @let template variable (v19+)"
+  },
+  "Angular Event Binding": {
+    "prefix": ["ng-click", "ngclick"],
+    "body": [
+      "(${1:click})=\"${2:handler}($3)\""
+    ],
+    "description": "Angular event binding"
+  },
+  "Angular Two-Way Binding": {
+    "prefix": ["ng-banana", "ngtwoway"],
+    "body": [
+      "[(${1:ngModel})]=\"${2:property}\""
+    ],
+    "description": "Angular two-way binding (banana-in-a-box)"
+  },
+  "Angular Property Binding": {
+    "prefix": ["ng-bind", "ngbind"],
+    "body": [
+      "[${1:property}]=\"${2:expression}\""
+    ],
+    "description": "Angular property binding"
+  },
+  "Angular Template Reference": {
+    "prefix": ["ng-ref", "ngref"],
+    "body": [
+      "#${1:ref}"
+    ],
+    "description": "Angular template reference variable"
+  },
+  "Angular Router Outlet": {
+    "prefix": ["ng-router-outlet", "ngrouteroutlet"],
+    "body": [
+      "<router-outlet />"
+    ],
+    "description": "Angular router outlet (self-closing)"
+  },
+  "Angular RouterLink": {
+    "prefix": ["ng-routerlink", "ngrlink"],
+    "body": [
+      "<a [routerLink]=\"['/${1:path}']\" routerLinkActive=\"${2:active}\">${3:Link}</a>"
+    ],
+    "description": "Angular routerLink"
+  },
+  "Angular Form Group (reactive)": {
+    "prefix": ["ng-form", "ngform"],
+    "body": [
+      "<form [formGroup]=\"${1:form}\" (ngSubmit)=\"${2:onSubmit}()\">",
+      "  <label>",
+      "    ${3:Field}",
+      "    <input formControlName=\"${4:field}\" />",
+      "  </label>",
+      "",
+      "  <button type=\"submit\" [disabled]=\"${1:form}.invalid\">Submit</button>",
+      "</form>"
+    ],
+    "description": "Angular reactive form template"
+  },
+  "Angular Async Pipe": {
+    "prefix": ["ng-async", "ngasync"],
+    "body": [
+      "{{ ${1:observable$} | async }}"
+    ],
+    "description": "Angular async pipe"
+  },
+  "Angular @if with async": {
+    "prefix": ["ng-if-async", "atifasync"],
+    "body": [
+      "@if (${1:data$} | async; as ${2:data}) {",
+      "  $0",
+      "}"
+    ],
+    "description": "Angular @if com async pipe (v19+)"
+  }
+}

@@ -1,0 +1,303 @@
+{
+  "Angular Standalone Component": {
+    "prefix": ["ng-component", "ngcomp"],
+    "body": [
+      "import { Component } from '@angular/core';",
+      "",
+      "@Component({",
+      "  selector: 'app-${1:${TM_FILENAME_BASE/(.*)\\..*/\\L$1/}}',",
+      "  standalone: true,",
+      "  imports: [],",
+      "  templateUrl: './${1:${TM_FILENAME_BASE/(.*)\\..*/\\L$1/}}.component.html',",
+      "  styleUrl: './${1:${TM_FILENAME_BASE/(.*)\\..*/\\L$1/}}.component.scss'",
+      "})",
+      "export class ${2:${TM_FILENAME_BASE/(.*)\\..*/\\u$1/}}Component {",
+      "  $0",
+      "}"
+    ],
+    "description": "Angular standalone component (v19+)"
+  },
+  "Angular Inline Component": {
+    "prefix": ["ng-component-inline", "ngcompi"],
+    "body": [
+      "import { Component } from '@angular/core';",
+      "",
+      "@Component({",
+      "  selector: 'app-${1:my-component}',",
+      "  standalone: true,",
+      "  imports: [],",
+      "  template: `",
+      "    <div>",
+      "      $0",
+      "    </div>",
+      "  `,",
+      "  styles: ``",
+      "})",
+      "export class ${2:MyComponent}Component {",
+      "}"
+    ],
+    "description": "Angular standalone component com template inline"
+  },
+  "Angular Service": {
+    "prefix": ["ng-service", "ngserv"],
+    "body": [
+      "import { Injectable } from '@angular/core';",
+      "",
+      "@Injectable({",
+      "  providedIn: 'root'",
+      "})",
+      "export class ${1:${TM_FILENAME_BASE/(.*)\\..*/\\u$1/}}Service {",
+      "  $0",
+      "}"
+    ],
+    "description": "Angular service com providedIn root"
+  },
+  "Angular Directive": {
+    "prefix": ["ng-directive", "ngdir"],
+    "body": [
+      "import { Directive, ElementRef, inject } from '@angular/core';",
+      "",
+      "@Directive({",
+      "  selector: '[app${1:MyDirective}]',",
+      "  standalone: true",
+      "})",
+      "export class ${1:MyDirective}Directive {",
+      "  private el = inject(ElementRef);",
+      "",
+      "  $0",
+      "}"
+    ],
+    "description": "Angular standalone directive"
+  },
+  "Angular Pipe": {
+    "prefix": ["ng-pipe", "ngpipe"],
+    "body": [
+      "import { Pipe, PipeTransform } from '@angular/core';",
+      "",
+      "@Pipe({",
+      "  name: '${1:myPipe}',",
+      "  standalone: true",
+      "})",
+      "export class ${2:MyPipe}Pipe implements PipeTransform {",
+      "  transform(value: ${3:unknown}, ...args: unknown[]): ${4:unknown} {",
+      "    $0",
+      "  }",
+      "}"
+    ],
+    "description": "Angular standalone pipe"
+  },
+  "Angular Guard (functional)": {
+    "prefix": ["ng-guard", "ngguard"],
+    "body": [
+      "import { CanActivateFn } from '@angular/router';",
+      "import { inject } from '@angular/core';",
+      "",
+      "export const ${1:auth}Guard: CanActivateFn = (route, state) => {",
+      "  $0",
+      "  return true;",
+      "};"
+    ],
+    "description": "Angular functional guard (v19+)"
+  },
+  "Angular Interceptor (functional)": {
+    "prefix": ["ng-interceptor", "ngint"],
+    "body": [
+      "import { HttpInterceptorFn } from '@angular/common/http';",
+      "",
+      "export const ${1:auth}Interceptor: HttpInterceptorFn = (req, next) => {",
+      "  const modifiedReq = req.clone({",
+      "    setHeaders: {",
+      "      $0",
+      "    }",
+      "  });",
+      "  return next(modifiedReq);",
+      "};"
+    ],
+    "description": "Angular functional HTTP interceptor (v19+)"
+  },
+  "Angular Resolver (functional)": {
+    "prefix": ["ng-resolver", "ngresolve"],
+    "body": [
+      "import { ResolveFn } from '@angular/router';",
+      "import { inject } from '@angular/core';",
+      "",
+      "export const ${1:data}Resolver: ResolveFn<${2:unknown}> = (route, state) => {",
+      "  $0",
+      "};"
+    ],
+    "description": "Angular functional resolver (v19+)"
+  },
+  "Angular Signal": {
+    "prefix": ["ng-signal", "ngsig"],
+    "body": [
+      "const ${1:name} = signal<${2:string}>(${3:''});"
+    ],
+    "description": "Angular signal"
+  },
+  "Angular Computed Signal": {
+    "prefix": ["ng-computed", "ngcomp-sig"],
+    "body": [
+      "const ${1:name} = computed(() => {",
+      "  return $0;",
+      "});"
+    ],
+    "description": "Angular computed signal"
+  },
+  "Angular Effect": {
+    "prefix": ["ng-effect", "ngeff"],
+    "body": [
+      "effect(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Angular effect"
+  },
+  "Angular Input (signal)": {
+    "prefix": ["ng-input", "ngin"],
+    "body": [
+      "${1:name} = input<${2:string}>(${3:''});"
+    ],
+    "description": "Angular signal input (v19+)"
+  },
+  "Angular Input Required (signal)": {
+    "prefix": ["ng-input-required", "nginreq"],
+    "body": [
+      "${1:name} = input.required<${2:string}>();"
+    ],
+    "description": "Angular required signal input (v19+)"
+  },
+  "Angular Output": {
+    "prefix": ["ng-output", "ngout"],
+    "body": [
+      "${1:name} = output<${2:void}>();"
+    ],
+    "description": "Angular output (v19+)"
+  },
+  "Angular Model (two-way binding)": {
+    "prefix": ["ng-model", "ngmodel-sig"],
+    "body": [
+      "${1:name} = model<${2:string}>(${3:''});"
+    ],
+    "description": "Angular model signal (two-way binding, v19+)"
+  },
+  "Angular ViewChild (signal)": {
+    "prefix": ["ng-viewchild", "ngvc"],
+    "body": [
+      "${1:name} = viewChild<${2:ElementRef}>('${3:ref}');"
+    ],
+    "description": "Angular signal viewChild (v19+)"
+  },
+  "Angular ContentChild (signal)": {
+    "prefix": ["ng-contentchild", "ngcc"],
+    "body": [
+      "${1:name} = contentChild<${2:ElementRef}>('${3:ref}');"
+    ],
+    "description": "Angular signal contentChild (v19+)"
+  },
+  "Angular inject()": {
+    "prefix": ["ng-inject", "nginject"],
+    "body": [
+      "private ${1:service} = inject(${2:MyService});"
+    ],
+    "description": "Angular inject() function"
+  },
+  "Angular Route Config": {
+    "prefix": ["ng-routes", "ngroutes"],
+    "body": [
+      "import { Routes } from '@angular/router';",
+      "",
+      "export const routes: Routes = [",
+      "  {",
+      "    path: '${1:}',",
+      "    loadComponent: () => import('./${2:home}/${2:home}.component').then(m => m.${3:Home}Component)",
+      "  },",
+      "  {",
+      "    path: '**',",
+      "    redirectTo: '${4:}'",
+      "  }",
+      "];"
+    ],
+    "description": "Angular route configuration com lazy loading"
+  },
+  "Angular App Config": {
+    "prefix": ["ng-appconfig", "ngappconf"],
+    "body": [
+      "import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';",
+      "import { provideRouter } from '@angular/router';",
+      "import { provideHttpClient, withInterceptors } from '@angular/common/http';",
+      "",
+      "import { routes } from './app.routes';",
+      "",
+      "export const appConfig: ApplicationConfig = {",
+      "  providers: [",
+      "    provideZoneChangeDetection({ eventCoalescing: true }),",
+      "    provideRouter(routes),",
+      "    provideHttpClient(withInterceptors([]))",
+      "  ]",
+      "};"
+    ],
+    "description": "Angular ApplicationConfig (v19+)"
+  },
+  "Angular HttpClient GET": {
+    "prefix": ["ng-http-get", "nghttpget"],
+    "body": [
+      "private http = inject(HttpClient);",
+      "",
+      "${1:getData}(): Observable<${2:any}> {",
+      "  return this.http.get<${2:any}>('${3:/api/endpoint}');",
+      "}"
+    ],
+    "description": "Angular HttpClient GET request"
+  },
+  "Angular HttpClient POST": {
+    "prefix": ["ng-http-post", "nghttppost"],
+    "body": [
+      "${1:createData}(body: ${2:any}): Observable<${3:any}> {",
+      "  return this.http.post<${3:any}>('${4:/api/endpoint}', body);",
+      "}"
+    ],
+    "description": "Angular HttpClient POST request"
+  },
+  "Angular OnInit": {
+    "prefix": ["ng-oninit", "ngoninit"],
+    "body": [
+      "ngOnInit(): void {",
+      "  $0",
+      "}"
+    ],
+    "description": "Angular ngOnInit lifecycle hook"
+  },
+  "Angular OnDestroy": {
+    "prefix": ["ng-ondestroy", "ngondestroy"],
+    "body": [
+      "private destroyRef = inject(DestroyRef);",
+      "",
+      "constructor() {",
+      "  this.destroyRef.onDestroy(() => {",
+      "    $0",
+      "  });",
+      "}"
+    ],
+    "description": "Angular DestroyRef pattern (v19+)"
+  },
+  "Angular Resource": {
+    "prefix": ["ng-resource", "ngresource"],
+    "body": [
+      "const ${1:data} = resource({",
+      "  request: () => ({ ${2:id}: this.${2:id}() }),",
+      "  loader: async ({ request }) => {",
+      "    const response = await fetch(`${3:/api/items}/\\${request.${2:id}}`);",
+      "    return response.json() as Promise<${4:unknown}>;",
+      "  }",
+      "});"
+    ],
+    "description": "Angular resource API (v19+)"
+  },
+  "Angular LinkedSignal": {
+    "prefix": ["ng-linkedsignal", "nglinked"],
+    "body": [
+      "const ${1:derived} = linkedSignal(() => ${2:source}());"
+    ],
+    "description": "Angular linkedSignal (v19+)"
+  }
+}
