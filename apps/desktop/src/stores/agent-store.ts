@@ -94,6 +94,14 @@ export interface AgentEditSession {
   createdAt: number;
 }
 
+export interface AttachedImage {
+  id: string;
+  name: string;
+  base64: string;
+  mediaType: string;
+  previewUrl: string;
+}
+
 export interface SessionSummary {
   id: string;
   title: string;
@@ -121,6 +129,7 @@ interface AgentState {
   isStreaming: boolean;
   streamingText: string;
   contextFiles: string[];
+  attachedImages: AttachedImage[];
 
   // Agent gathered context (working memory)
   gatheredContext: Array<{ path: string; relevance: number; tokenEstimate: number }>;
@@ -180,6 +189,9 @@ interface AgentState {
   setStreaming: (streaming: boolean) => void;
   addContextFile: (path: string) => void;
   removeContextFile: (path: string) => void;
+  addAttachedImage: (img: AttachedImage) => void;
+  removeAttachedImage: (id: string) => void;
+  clearAttachedImages: () => void;
   setGatheredContext: (entries: Array<{ path: string; relevance: number; tokenEstimate: number }>) => void;
   addGatheredContextFile: (entry: { path: string; relevance: number; tokenEstimate: number }) => void;
   removeGatheredContextFile: (path: string) => void;
@@ -245,6 +257,7 @@ export const useAgentStore = create<AgentState>()(
     pendingFileChanges: [],
     agentEditSessions: [],
     contextFiles: [],
+    attachedImages: [],
     gatheredContext: [],
     sddPhase: null,
     sddSpec: null,
@@ -359,6 +372,26 @@ export const useAgentStore = create<AgentState>()(
         state.contextFiles = state.contextFiles.filter((f) => f !== path);
       }),
 
+    addAttachedImage: (img) =>
+      set((state) => {
+        state.attachedImages.push(img);
+      }),
+
+    removeAttachedImage: (id) =>
+      set((state) => {
+        const img = state.attachedImages.find((i) => i.id === id);
+        if (img?.previewUrl) URL.revokeObjectURL(img.previewUrl);
+        state.attachedImages = state.attachedImages.filter((i) => i.id !== id);
+      }),
+
+    clearAttachedImages: () =>
+      set((state) => {
+        for (const img of state.attachedImages) {
+          if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+        }
+        state.attachedImages = [];
+      }),
+
     setGatheredContext: (entries) =>
       set((state) => {
         state.gatheredContext = entries;
@@ -388,6 +421,7 @@ export const useAgentStore = create<AgentState>()(
         state.pendingFileChanges = [];
         state.agentEditSessions = [];
         state.contextFiles = [];
+        state.attachedImages = [];
         state.gatheredContext = [];
         state.streamingText = '';
         state.sddPhase = null;

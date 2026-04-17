@@ -1,4 +1,4 @@
-import { Send, Square, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check, ArrowRight, Plus, Brain, Bell, ShieldCheck } from 'lucide-react';
+import { Send, Square, ChevronDown, Settings, MessageSquare, Hammer, Search, Bug, ClipboardList, Shield, Zap, SlidersHorizontal, Check, ArrowRight, Plus, Brain, Bell, ShieldCheck, Paperclip, X, ImageIcon, AlertTriangle } from 'lucide-react';
 import { useState, useRef, useMemo, useCallback } from 'react';
 import { ContextMentionPicker } from './context-mention-picker';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,12 +21,52 @@ import { cn } from '@/lib/utils';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
-import type { AgentMode } from '@/stores/agent-store';
+import type { AgentMode, AttachedImage } from '@/stores/agent-store';
 import type { ApprovalMode } from '@/stores/settings-store';
 import {
   getEnabledModelsForProvider,
   getAllEnabledModelsGrouped,
 } from '@/lib/provider-catalog';
+import { getProviderRegistry } from '@hyscode/ai-providers';
+import type { AIModel } from '@hyscode/ai-providers';
+
+// ─── Vision helpers ─────────────────────────────────────────────────────────
+
+const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
+
+function useActiveModel(): AIModel | null {
+  const providerId = useSettingsStore((s) => s.activeProviderId);
+  const modelId = useSettingsStore((s) => s.activeModelId);
+  if (!providerId || !modelId) return null;
+  const provider = getProviderRegistry().get(providerId);
+  return provider?.models.find((m) => m.id === modelId) ?? null;
+}
+
+function processImageFile(file: File): Promise<AttachedImage | null> {
+  return new Promise((resolve) => {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) { resolve(null); return; }
+    if (file.size > MAX_IMAGE_SIZE) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      // data:image/png;base64,XXXXX
+      const commaIdx = dataUrl.indexOf(',');
+      if (commaIdx < 0) { resolve(null); return; }
+      const base64 = dataUrl.slice(commaIdx + 1);
+      const previewUrl = URL.createObjectURL(file);
+      resolve({
+        id: crypto.randomUUID(),
+        name: file.name || 'image',
+        base64,
+        mediaType: file.type,
+        previewUrl,
+      });
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
 
 // ─── Agent capability map ───────────────────────────────────────────────────
 
@@ -157,13 +197,16 @@ const APPROVAL_MODES: ApprovalMode[] = ['manual', 'smart', 'session-trust', 'not
 export function AgentInput() {
   const [input, setInput] = useState('');
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const inputWrapperRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mode = useAgentStore((s) => s.mode);
   const setMode = useAgentStore((s) => s.setMode);
   const isStreaming = useAgentStore((s) => s.isStreaming);
   const delegationChain = useAgentStore((s) => s.delegationChain);
+  const attachedImages = useAgentStore((s) => s.attachedImages);
   const activeModelId = useSettingsStore((s) => s.activeModelId);
   const activeProviderId = useSettingsStore((s) => s.activeProviderId);
   const enabledModels = useSettingsStore((s) => s.enabledModels);
@@ -171,6 +214,9 @@ export function AgentInput() {
   const useAllProviders = useSettingsStore((s) => s.useAllProviders);
   const openSettings = useSettingsStore((s) => s.openSettings);
   const approvalMode = useSettingsStore((s) => s.approvalMode);
+
+  const activeModel = useActiveModel();
+  const showVisionWarning = attachedImages.length > 0 && activeModel != null && !activeModel.supportsVision;
 
   const currentCap = AGENT_CAPABILITIES[mode];
 
@@ -209,9 +255,10 @@ export function AgentInput() {
   };
 
   const handleSend = () => {
-    if (!input.trim() || isStreaming) return;
+    const hasImages = useAgentStore.getState().attachedImages.length > 0;
+    if ((!input.trim() && !hasImages) || isStreaming) return;
     try {
-      HarnessBridge.get().sendMessage(input.trim());
+      HarnessBridge.get().sendMessage(input.trim() || '(image attached)');
     } catch {
       // Bridge not initialized yet
     }
@@ -251,10 +298,126 @@ export function AgentInput() {
     textareaRef.current?.focus();
   }, []);
 
+  // ─── Image attachment handlers ─────────────────────────────────────
+
+  const addImagesFromFiles = useCallback(async (files: FileList | File[]) => {
+    for (const file of Array.from(files)) {
+      const img = await processImageFile(file);
+      if (img) useAgentStore.getState().addAttachedImage(img);
+    }
+  }, []);
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      addImagesFromFiles(e.target.files);
+      e.target.value = ''; // reset so same file can be re-selected
+    }
+  }, [addImagesFromFiles]);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file' && ACCEPTED_IMAGE_TYPES.includes(item.type)) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      addImagesFromFiles(imageFiles);
+    }
+  }, [addImagesFromFiles]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    const hasImages = Array.from(e.dataTransfer.types).includes('Files');
+    if (hasImages) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if actually leaving the wrapper (not entering a child)
+    if (inputWrapperRef.current && !inputWrapperRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files?.length) {
+      addImagesFromFiles(e.dataTransfer.files);
+    }
+  }, [addImagesFromFiles]);
+
   return (
     <div className="shrink-0 bg-surface-raised px-2.5 pt-1.5 pb-2.5 flex flex-col gap-1.5">
+      {/* Hidden file input for image picker */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        multiple
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
+
+      {/* Vision warning */}
+      {showVisionWarning && (
+        <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-[10px] text-amber-400">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          <span>{activeModel.name} does not support vision. Images will be ignored.</span>
+        </div>
+      )}
+
+      {/* Image preview strip */}
+      {attachedImages.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-1">
+          {attachedImages.map((img) => (
+            <div
+              key={img.id}
+              className="group/img relative h-12 w-12 shrink-0 rounded-md border border-border/40 bg-muted overflow-hidden"
+              title={img.name}
+            >
+              <img
+                src={img.previewUrl}
+                alt={img.name}
+                className="h-full w-full object-cover"
+              />
+              <button
+                onClick={() => useAgentStore.getState().removeAttachedImage(img.id)}
+                className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-raised border border-border/50 text-muted-foreground opacity-0 group-hover/img:opacity-100 transition-opacity hover:text-foreground hover:bg-red-500/20"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Textarea area */}
-      <div ref={inputWrapperRef} className="relative px-1 py-1">
+      <div
+        ref={inputWrapperRef}
+        className={cn(
+          'relative px-1 py-1 rounded-md transition-colors',
+          isDragOver && 'ring-1 ring-accent/50 bg-accent/5',
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragOver && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-md bg-accent/10 pointer-events-none">
+            <div className="flex items-center gap-1.5 text-[11px] text-accent font-medium">
+              <ImageIcon className="h-4 w-4" />
+              Drop images here
+            </div>
+          </div>
+        )}
         <ContextMentionPicker
           open={mentionPickerOpen}
           onClose={() => setMentionPickerOpen(false)}
@@ -271,6 +434,7 @@ export function AgentInput() {
               setMentionPickerOpen(true);
             }
           }}
+          onPaste={handlePaste}
           placeholder={currentCap.placeholder}
           className="max-h-32 min-h-[36px] w-full border-0 bg-transparent text-xs leading-relaxed focus-visible:ring-0 resize-none overflow-y-auto"
           onKeyDown={(e) => {
@@ -526,6 +690,25 @@ export function AgentInput() {
             <TooltipContent side="top">Add context (@)</TooltipContent>
           </Tooltip>
 
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className={cn(
+                    'text-muted-foreground hover:text-foreground',
+                    attachedImages.length > 0 && 'text-accent',
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                />
+              }
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+            </TooltipTrigger>
+            <TooltipContent side="top">Attach image</TooltipContent>
+          </Tooltip>
+
           {isStreaming ? (
             <Tooltip>
               <TooltipTrigger
@@ -547,7 +730,7 @@ export function AgentInput() {
                 render={
                   <Button
                     size="icon-xs"
-                    disabled={!input.trim()}
+                    disabled={!input.trim() && attachedImages.length === 0}
                     onClick={handleSend}
                     className="disabled:opacity-30"
                   />

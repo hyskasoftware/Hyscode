@@ -11,8 +11,9 @@ export function ContextChipsBar() {
   const contextFiles = useAgentStore((s) => s.contextFiles);
   const removeContextFile = useAgentStore((s) => s.removeContextFile);
   const gatheredContext = useAgentStore((s) => s.gatheredContext);
+  const attachedImages = useAgentStore((s) => s.attachedImages);
 
-  if (contextFiles.length === 0 && gatheredContext.length === 0) return null;
+  if (contextFiles.length === 0 && gatheredContext.length === 0 && attachedImages.length === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-1 px-3 py-1.5">
@@ -38,6 +39,31 @@ export function ContextChipsBar() {
               </span>
             );
           })}
+        </>
+      )}
+      {attachedImages.length > 0 && (
+        <>
+          <span className="text-[10px] text-muted-foreground ml-1">Images:</span>
+          {attachedImages.map((img) => (
+            <span
+              key={img.id}
+              className="flex items-center gap-1 rounded-full bg-surface-raised px-1.5 py-0.5 text-[10px] text-foreground"
+              title={img.name}
+            >
+              <img
+                src={img.previewUrl}
+                alt={img.name}
+                className="h-4 w-4 rounded-sm object-cover"
+              />
+              <span className="max-w-[80px] truncate">{img.name}</span>
+              <button
+                onClick={() => useAgentStore.getState().removeAttachedImage(img.id)}
+                className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-2 w-2" />
+              </button>
+            </span>
+          ))}
         </>
       )}
       {gatheredContext.length > 0 && (

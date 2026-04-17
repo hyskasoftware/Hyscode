@@ -316,12 +316,28 @@ export class HarnessBridge {
       }
     }
 
-    // Add user message to store
+    // Snapshot attached images and clear them from the store
+    const attachedImages = store.attachedImages.slice();
+    if (attachedImages.length > 0) {
+      useAgentStore.getState().clearAttachedImages();
+      dbg(`${attachedImages.length} imagem(ns) anexada(s)`);
+    }
+
+    // Build structured content blocks for the user message (text + images)
+    const userBlocks: MessageContent[] = [{ type: 'text', text: userMessage }];
+    const imageContent: Array<{ base64: string; mediaType: string }> = [];
+    for (const img of attachedImages) {
+      userBlocks.push({ type: 'image', base64: img.base64, mediaType: img.mediaType });
+      imageContent.push({ base64: img.base64, mediaType: img.mediaType });
+    }
+
+    // Add user message to store (with blocks for faithful history)
     const userMsgId = crypto.randomUUID();
     useAgentStore.getState().addMessage({
       id: userMsgId,
       role: 'user',
       content: userMessage,
+      blocks: userBlocks.length > 1 ? userBlocks : undefined,
       timestamp: Date.now(),
     });
 
@@ -361,7 +377,11 @@ export class HarnessBridge {
 
       dbg(`Enviando para LLM (${history.length} msgs no histórico)...`);
 
-      const { response, turnRecord } = await this.harness.run(userMessage, history);
+      const { response, turnRecord } = await this.harness.run(
+        userMessage,
+        history,
+        imageContent.length > 0 ? imageContent : undefined,
+      );
 
       dbg(`Resposta recebida (${response.length} chars, ${turnRecord.iterations} iterações, ${turnRecord.toolCalls.length} tool calls)`);
 

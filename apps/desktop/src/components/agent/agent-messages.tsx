@@ -273,6 +273,21 @@ const MessageItem = memo(function MessageItem({
             <span className="text-[11px] font-semibold text-foreground/90">You</span>
           </div>
           <div className="pl-7">
+            {/* Render attached images from blocks */}
+            {msg.blocks && msg.blocks.some((b) => b.type === 'image') && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {msg.blocks
+                  .filter((b): b is import('@hyscode/ai-providers').ImageContent => b.type === 'image')
+                  .map((img, i) => (
+                    <img
+                      key={i}
+                      src={`data:${img.mediaType};base64,${img.base64}`}
+                      alt="attached"
+                      className="max-w-[240px] max-h-[180px] rounded-md border border-border/30 object-contain"
+                    />
+                  ))}
+              </div>
+            )}
             <MarkdownContent content={msg.content} />
           </div>
         </div>

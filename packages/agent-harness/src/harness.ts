@@ -263,7 +263,11 @@ export class Harness {
    * Run a full agent turn: user sends a message, agent responds (possibly with tool calls).
    * Returns the final assistant text response.
    */
-  async run(userMessage: string, history: Message[]): Promise<{ response: string; toolCalls: ToolCallRecord[]; turnRecord: TurnRecord }> {
+  async run(
+    userMessage: string,
+    history: Message[],
+    imageContent?: Array<{ base64: string; mediaType: string }>,
+  ): Promise<{ response: string; toolCalls: ToolCallRecord[]; turnRecord: TurnRecord }> {
     this.cancelled = false;
     this.toolCallHistory = [];
     this.loopDetection.resetCounts();
@@ -302,11 +306,16 @@ export class Harness {
     // Set conversation history
     this.contextManager.setHistory(history);
 
-    // Add user message to history
-    const userMsg: Message = {
-      role: 'user',
-      content: [{ type: 'text', text: userMessage }],
-    };
+    // Add user message to history (with optional image attachments)
+    const userMsgContent: import('@hyscode/ai-providers').MessageContent[] = [
+      { type: 'text', text: userMessage },
+    ];
+    if (imageContent?.length) {
+      for (const img of imageContent) {
+        userMsgContent.push({ type: 'image', base64: img.base64, mediaType: img.mediaType });
+      }
+    }
+    const userMsg: Message = { role: 'user', content: userMsgContent };
     this.contextManager.addMessage(userMsg);
 
     // Agent loop

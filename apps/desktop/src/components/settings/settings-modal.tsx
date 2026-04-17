@@ -10,6 +10,7 @@ import {
   Braces,
   Smartphone,
   Container,
+  Info,
 } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import { EditorTab } from './tabs/editor-tab';
@@ -21,8 +22,9 @@ import { AiTab } from './tabs/ai-tab';
 import { LanguageServersTab } from './tabs/language-servers-tab';
 import { MobileTab } from './tabs/mobile-tab';
 import { DockerTab } from './tabs/docker-tab';
+import { AboutTab } from './tabs/about-tab';
 
-type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile' | 'docker';
+type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile' | 'docker' | 'about';
 
 const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'editor', icon: Code2, label: 'Editor' },
@@ -34,6 +36,7 @@ const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'mobile', icon: Smartphone, label: 'Mobile' },
   { id: 'docker', icon: Container, label: 'Docker' },
   { id: 'general', icon: Settings2, label: 'General' },
+  { id: 'about', icon: Info, label: 'About' },
 ];
 
 const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
@@ -46,6 +49,7 @@ const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
   mobile: <MobileTab />,
   docker: <DockerTab />,
   general: <GeneralTab />,
+  about: <AboutTab />,
 };
 
 export function SettingsModal() {
