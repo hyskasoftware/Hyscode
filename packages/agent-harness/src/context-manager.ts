@@ -302,7 +302,21 @@ export class ContextManager {
     }
 
     // Combine: older history → gathered context → user context → must-include
-    return [...includedOlder, ...gatheredMessages, ...contextMessages, ...mustInclude];
+    const combined = [...includedOlder, ...gatheredMessages, ...contextMessages, ...mustInclude];
+
+    // Ensure the first message has role 'user'. Anthropic (and others) reject
+    // conversations that start with an assistant message. This can happen when
+    // mustInclude is [assistant, tool] (after a tool-use iteration) and the
+    // original user message was dropped from olderHistory due to budget limits.
+    if (combined.length > 0 && combined[0].role !== 'user') {
+      // Find the original user message in olderHistory (should be first)
+      const firstUser = this.conversationHistory.find(m => m.role === 'user');
+      if (firstUser && !combined.includes(firstUser)) {
+        combined.unshift(firstUser);
+      }
+    }
+
+    return combined;
   }
 
   private truncateMessages(messages: Message[], maxTokens: number): Message[] {

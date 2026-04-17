@@ -32,6 +32,18 @@ interface GeminiFunctionDeclaration {
 function toGeminiContents(messages: Message[]): GeminiContent[] {
   const result: GeminiContent[] = [];
 
+  // Build a map from tool call ID → function name so that functionResponse
+  // can reference the correct name. Gemini API requires functionResponse.name
+  // to match a functionDeclaration.name, NOT the call ID.
+  const callIdToName = new Map<string, string>();
+  for (const msg of messages) {
+    for (const c of msg.content) {
+      if (c.type === 'tool_call') {
+        callIdToName.set(c.id, c.name);
+      }
+    }
+  }
+
   for (const msg of messages) {
     if (msg.role === 'system') continue; // handled via systemInstruction
 
@@ -51,7 +63,10 @@ function toGeminiContents(messages: Message[]): GeminiContent[] {
           break;
         case 'tool_result':
           parts.push({
-            functionResponse: { name: c.toolCallId, response: { content: c.output } },
+            functionResponse: {
+              name: callIdToName.get(c.toolCallId) ?? c.toolCallId,
+              response: { content: c.output },
+            },
           });
           break;
       }

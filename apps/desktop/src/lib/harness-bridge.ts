@@ -1239,8 +1239,14 @@ export class HarnessBridge {
     const result: Message[] = [];
     for (const msg of messages) {
       if (msg.blocks && msg.blocks.length > 0) {
+        // Determine the correct role: if all blocks are tool_result, the role
+        // must be 'tool' so that providers (OpenAI, OpenRouter, Ollama, GitHub
+        // Copilot) format them correctly. Without this, tool_result blocks
+        // stored as role='user' cause empty content in toOpenAIMessages → 400.
+        const hasToolResult = msg.blocks.some(b => b.type === 'tool_result');
+        const role = hasToolResult ? 'tool' : (msg.role as 'user' | 'assistant');
         result.push({
-          role: msg.role as 'user' | 'assistant',
+          role,
           content: msg.blocks,
         });
       } else if (msg.content) {
