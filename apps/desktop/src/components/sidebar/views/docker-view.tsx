@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Box,
   Play,
@@ -121,27 +122,141 @@ function ContainerRow({ container }: { container: ContainerInfo }) {
   );
 }
 
-function ContainerDetail({ container }: { container: ContainerInfo }) {
-  const [logs, setLogs] = useState<string | null>(null);
-  const [showLogs, setShowLogs] = useState(false);
-  const fetchLogs = useDockerStore((s) => s.fetchLogs);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+// ── Logs Modal ───────────────────────────────────────────────────────────────
 
-  const handleShowLogs = useCallback(async () => {
-    if (showLogs) {
-      setShowLogs(false);
-      return;
+function LogsModal({
+  container,
+  onClose,
+}: {
+  container: ContainerInfo;
+  onClose: () => void;
+}) {
+  const fetchLogs = useDockerStore((s) => s.fetchLogs);
+  const [logs, setLogs] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const loadLogs = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const result = await fetchLogs(container.id, 500);
+      setLogs(result);
+    } catch (err) {
+      setFetchError(String(err));
+    } finally {
+      setLoading(false);
     }
-    const result = await fetchLogs(container.id, 100);
-    setLogs(result);
-    setShowLogs(true);
-  }, [showLogs, fetchLogs, container.id]);
+  }, [container.id, fetchLogs]);
 
   useEffect(() => {
-    if (showLogs && logsEndRef.current) {
+    loadLogs();
+  }, [loadLogs]);
+
+  useEffect(() => {
+    if (!loading && logs !== null && logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [logs, showLogs]);
+  }, [loading, logs]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const lineCount = logs ? logs.split('\n').filter(Boolean).length : 0;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="flex h-[72vh] w-[82vw] max-w-5xl flex-col rounded-xl border border-border bg-background shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+          <ScrollText className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-semibold text-foreground">
+              {container.name}
+            </span>
+            <span className="block text-[10px] font-mono text-muted-foreground">
+              {container.id.slice(0, 12)}
+            </span>
+          </div>
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', stateColor(container.state))} />
+          <span className="text-[10px] text-muted-foreground">{container.state}</span>
+          <button
+            onClick={loadLogs}
+            disabled={loading}
+            title="Refresh logs"
+            className="ml-1 rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+          </button>
+          <button
+            onClick={onClose}
+            title="Close (Esc)"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Log body */}
+        <div
+          ref={scrollContainerRef}
+          className="relative min-h-0 flex-1 overflow-auto bg-[#0d1117] p-4 font-mono text-[11px] leading-relaxed"
+        >
+          {loading ? (
+            <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span>Loading logs…</span>
+            </div>
+          ) : fetchError ? (
+            <div className="flex h-full items-center justify-center gap-2 text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span className="break-all">{fetchError}</span>
+            </div>
+          ) : logs ? (
+            <pre className="whitespace-pre-wrap break-all text-green-300/90">{logs}</pre>
+          ) : (
+            <div className="flex h-full items-center justify-center italic text-muted-foreground">
+              No logs available
+            </div>
+          )}
+          <div ref={logsEndRef} />
+        </div>
+
+        {/* Footer */}
+        <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2">
+          <span className="text-[10px] text-muted-foreground">
+            {lineCount > 0 ? `${lineCount} lines` : ''}
+          </span>
+          <button
+            onClick={() => logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            className="flex items-center gap-1 rounded px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown className="h-3 w-3" />
+            Jump to bottom
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function ContainerDetail({ container }: { container: ContainerInfo }) {
+  const [showLogsModal, setShowLogsModal] = useState(false);
 
   return (
     <div className="border-t border-border/50 px-2 py-1.5 text-[9px] text-muted-foreground">
@@ -163,22 +278,15 @@ function ContainerDetail({ container }: { container: ContainerInfo }) {
       </div>
 
       <button
-        onClick={handleShowLogs}
+        onClick={(e) => { e.stopPropagation(); setShowLogsModal(true); }}
         className="mt-1.5 flex items-center gap-1 text-[9px] text-accent hover:underline"
       >
         <ScrollText className="h-2.5 w-2.5" />
-        {showLogs ? 'Hide Logs' : 'View Logs'}
+        View Logs
       </button>
 
-      {showLogs && logs !== null && (
-        <div className="mt-1 max-h-40 overflow-auto rounded bg-background p-1.5 font-mono text-[8px] leading-relaxed text-foreground/70">
-          {logs ? (
-            <pre className="whitespace-pre-wrap break-all">{logs}</pre>
-          ) : (
-            <span className="italic text-muted-foreground">No logs available</span>
-          )}
-          <div ref={logsEndRef} />
-        </div>
+      {showLogsModal && (
+        <LogsModal container={container} onClose={() => setShowLogsModal(false)} />
       )}
     </div>
   );
