@@ -698,7 +698,11 @@ function exportAsMarkdown(items, groupBy) {
 function getSetting(key, defaultValue) {
   try {
     const val = api.settings?.get?.(key);
-    return val !== undefined && val !== null ? val : defaultValue;
+    // api.settings.get is async — if it returns a Promise, fall back to defaultValue
+    if (val === undefined || val === null || (typeof val === 'object' && typeof val.then === 'function')) {
+      return defaultValue;
+    }
+    return val;
   } catch {
     return defaultValue;
   }
