@@ -366,6 +366,14 @@ export class Harness {
       // Call LLM
       const registry = getProviderRegistry();
 
+      // Emit api_request_sent so the UI can track credit usage
+      this.emit({
+        type: 'api_request_sent',
+        iteration,
+        providerId: this.config.providerId,
+        modelId: this.config.modelId,
+      });
+
       // Turn timeout enforcement
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
       const abortController = new AbortController();

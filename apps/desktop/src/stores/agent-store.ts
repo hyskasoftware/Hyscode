@@ -152,6 +152,11 @@ interface AgentState {
   // Token usage
   tokenUsage: TokenUsage | null;
 
+  // API request / credit tracking (per-turn counter, reset each conversation)
+  apiRequestCount: number;
+  /** Timestamp of last API request for UI display */
+  lastApiRequestAt: number | null;
+
   // Agent task tracking
   agentTasks: Array<{ id: number; title: string; status: string }>;
 
@@ -225,6 +230,10 @@ interface AgentState {
   // Token usage
   setTokenUsage: (usage: TokenUsage | null) => void;
 
+  // API request / credit tracking
+  incrementApiRequestCount: () => void;
+  resetApiRequestCount: () => void;
+
   // Agent task tracking
   setAgentTasks: (tasks: Array<{ id: number; title: string; status: string }>) => void;
 
@@ -264,6 +273,8 @@ export const useAgentStore = create<AgentState>()(
     sddTasks: [],
     sddProgress: 0,
     tokenUsage: null,
+    apiRequestCount: 0,
+    lastApiRequestAt: null,
     agentTasks: [],
     pendingModeSwitch: null,
     delegationChain: [],
@@ -429,6 +440,8 @@ export const useAgentStore = create<AgentState>()(
         state.sddTasks = [];
         state.sddProgress = 0;
         state.tokenUsage = null;
+        state.apiRequestCount = 0;
+        state.lastApiRequestAt = null;
         state.pendingModeSwitch = null;
         state.delegationChain = [];
         state.pendingUserQuestion = null;
@@ -577,6 +590,20 @@ export const useAgentStore = create<AgentState>()(
     setTokenUsage: (usage) =>
       set((state) => {
         state.tokenUsage = usage;
+      }),
+
+    // ─── API Request / Credit Tracking ───────────────────────────────
+
+    incrementApiRequestCount: () =>
+      set((state) => {
+        state.apiRequestCount += 1;
+        state.lastApiRequestAt = Date.now();
+      }),
+
+    resetApiRequestCount: () =>
+      set((state) => {
+        state.apiRequestCount = 0;
+        state.lastApiRequestAt = null;
       }),
 
     // ─── Agent Task Tracking ─────────────────────────────────────────

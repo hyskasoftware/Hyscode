@@ -255,6 +255,9 @@ export class HarnessBridge {
 
     dbg(`Iniciando com provider="${providerId || '(default)'}" model="${modelId || '(default)'}"`);
 
+    // Reset per-turn credit counter
+    useAgentStore.getState().resetApiRequestCount();
+
     // Map store.mode → ConversationMode for the harness
     let harnessMode: ConversationMode = 'agent';
     if (store.mode === 'chat') harnessMode = 'chat';
@@ -804,6 +807,13 @@ export class HarnessBridge {
             timestamp: Date.now(),
           });
         }
+        break;
+      }
+
+      case 'api_request_sent': {
+        store.incrementApiRequestCount();
+        const count = useAgentStore.getState().apiRequestCount;
+        this.debug(`API request #${count} → ${event.providerId}/${event.modelId}`);
         break;
       }
 

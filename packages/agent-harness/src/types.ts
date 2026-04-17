@@ -302,6 +302,7 @@ export const DEFAULT_HARNESS_CONFIG: HarnessConfig = {
 
 export type HarnessEvent =
   | { type: 'turn_start'; conversationId: string; iteration: number }
+  | { type: 'api_request_sent'; iteration: number; providerId: string; modelId: string }
   | { type: 'stream_chunk'; chunk: StreamChunk }
   | { type: 'tool_call_start'; toolCallId: string; toolName: string; input: Record<string, unknown> }
   | { type: 'tool_call_pending'; pending: PendingToolCall }
