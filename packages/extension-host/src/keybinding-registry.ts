@@ -8,8 +8,6 @@ interface RegisteredKeybinding {
   extensionName?: string;
 }
 
-type KeybindingHandler = (e: KeyboardEvent) => void;
-
 export class KeybindingRegistry {
   private bindings: RegisteredKeybinding[] = [];
   private listeners = new Set<() => void>();

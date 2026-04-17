@@ -1,5 +1,5 @@
 import type { LspConnection } from './lsp-connection';
-import type { ServerCapabilities, CompletionItem, CompletionList, Hover, Location, LspDiagnostic } from './types';
+import type { CompletionItem, CompletionList, Hover, Location, LspDiagnostic } from './types';
 
 type MonacoEditor = typeof import('monaco-editor');
 

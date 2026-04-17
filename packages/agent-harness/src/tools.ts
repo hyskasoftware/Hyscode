@@ -1185,9 +1185,9 @@ export const dockerListContainersTool = defineTool(
       const containers = await ctx.invoke<unknown[]>('docker_list_containers', {
         all: input.all !== false,
       });
-      return { output: JSON.stringify(containers, null, 2) };
+      return { success: true, output: JSON.stringify(containers, null, 2) };
     } catch (err) {
-      return { output: '', error: `Failed to list containers: ${err instanceof Error ? err.message : String(err)}` };
+      return { success: false, output: '', error: `Failed to list containers: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
 );
@@ -1202,9 +1202,9 @@ export const dockerListImagesTool = defineTool(
   async (_input, ctx) => {
     try {
       const images = await ctx.invoke<unknown[]>('docker_list_images', {});
-      return { output: JSON.stringify(images, null, 2) };
+      return { success: true, output: JSON.stringify(images, null, 2) };
     } catch (err) {
-      return { output: '', error: `Failed to list images: ${err instanceof Error ? err.message : String(err)}` };
+      return { success: false, output: '', error: `Failed to list images: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
 );
@@ -1225,9 +1225,9 @@ export const dockerContainerLogsTool = defineTool(
         id: input.id as string,
         tail: (input.tail as number) || 100,
       });
-      return { output: logs };
+      return { success: true, output: logs };
     } catch (err) {
-      return { output: '', error: `Failed to fetch logs: ${err instanceof Error ? err.message : String(err)}` };
+      return { success: false, output: '', error: `Failed to fetch logs: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
 );
@@ -1246,9 +1246,9 @@ export const dockerRunTool = defineTool(
       const result = await ctx.invoke<string>('docker_pull_image', {
         image: input.image as string,
       });
-      return { output: `Image pulled successfully.\n${result}` };
+      return { success: true, output: `Image pulled successfully.\n${result}` };
     } catch (err) {
-      return { output: '', error: `Failed to pull image: ${err instanceof Error ? err.message : String(err)}` };
+      return { success: false, output: '', error: `Failed to pull image: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
 );

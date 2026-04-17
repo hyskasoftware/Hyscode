@@ -18,6 +18,7 @@ export type {
   RetryConfig,
   StreamRequest,
   StreamEvent,
+  FetchImpl,
 } from './types';
 export { ProviderError } from './types';
 

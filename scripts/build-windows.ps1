@@ -15,7 +15,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$ROOT = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+$ROOT = Split-Path -Parent $PSScriptRoot
 $DESKTOP = Join-Path $ROOT "apps" "desktop"
 $TAURI_DIR = Join-Path $DESKTOP "src-tauri"
 $RELEASE_DIR = Join-Path $TAURI_DIR "target" "release"

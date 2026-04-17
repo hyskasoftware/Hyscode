@@ -7,15 +7,6 @@ interface GitFileStatus {
   path: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  M: 'Modified',
-  A: 'Added',
-  D: 'Deleted',
-  R: 'Renamed',
-  U: 'Unmerged',
-  '?': 'Untracked',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   M: 'text-yellow-400',
   A: 'text-green-400',
@@ -175,7 +166,7 @@ export function GitView() {
 function FileGroup({
   title,
   files,
-  rootPath,
+  rootPath: _rootPath,
 }: {
   title: string;
   files: GitFileStatus[];

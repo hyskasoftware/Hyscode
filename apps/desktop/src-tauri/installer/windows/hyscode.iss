@@ -10,8 +10,8 @@
 #define MyAppAssocName "HysCode File"
 
 ; Paths relative to the Inno Setup script location
-#define SourceDir "..\..\target\release"
-#define IconFile "..\icons\icon.ico"
+#define SourceDir "..\..\target\x86_64-pc-windows-msvc\release"
+#define IconFile "..\..\icons\icon.ico"
 
 [Setup]
 AppId={{D3B1D2A0-1C2E-4F5B-8A9D-0E1F2C3D4E5F}
@@ -26,7 +26,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 LicenseFile=
-OutputDir=..\..\target\release\bundle\inno
+OutputDir=..\..\target\x86_64-pc-windows-msvc\release\bundle\inno
 OutputBaseFilename=HysCode-Setup-{#MyAppVersion}-x64
 SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#MyAppExeName}

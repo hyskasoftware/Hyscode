@@ -75,7 +75,7 @@ function Stat({ label, value, color }: { label: string; value: string | number; 
 // ─── Comment Item ───────────────────────────────────────────────────────────
 
 function CommentItem({ comment }: { comment: ReviewComment }) {
-  const { label, icon: Icon, color, bg, border } = SEVERITY_CONFIG[comment.severity];
+  const { label, icon: Icon, color } = SEVERITY_CONFIG[comment.severity];
   const resolveComment = useReviewStore((s) => s.resolveComment);
   const unresolveComment = useReviewStore((s) => s.unresolveComment);
   const setSelectedFile = useReviewStore((s) => s.setSelectedFile);

@@ -16,7 +16,7 @@ import { getFileIcon, getFolderIcon } from '../sidebar/views/file-icons';
 type PickerView = 'categories' | 'files' | 'directories';
 
 interface CategoryItem {
-  id: PickerView;
+  id: string;
   icon: typeof File;
   label: string;
   description?: string;
@@ -244,7 +244,7 @@ export function ContextMentionPicker({
 
   const handleCategoryClick = useCallback((cat: CategoryItem) => {
     if (cat.browsable && (cat.id === 'files' || cat.id === 'directories')) {
-      setView(cat.id);
+      setView(cat.id as PickerView);
       setSearchQuery('');
       setSelectedIdx(0);
     } else if (cat.id === 'terminal') {

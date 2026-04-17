@@ -7,6 +7,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { FetchImpl } from '@hyscode/ai-providers';
+// FetchImpl is re-exported from ai-providers types
 
 // ─── Types matching the Rust AiStreamChunk struct ─────────────────────────
 
@@ -71,7 +72,6 @@ export function createTauriFetch(): FetchImpl {
           ? input.href
           : (input as Request).url;
 
-    const method = init?.method ?? 'GET';
     const body =
       typeof init?.body === 'string'
         ? init.body

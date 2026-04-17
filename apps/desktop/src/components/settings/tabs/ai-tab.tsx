@@ -566,12 +566,12 @@ function ApiKeyRow({ providerId, providerName }: { providerId: string; providerN
 
   // Load existing key on mount
   useEffect(() => {
-    tauriInvoke<string | null>('keychain_get', {
+    tauriInvoke('keychain_get', {
       service: 'hyscode',
       account: `${providerId}_api_key`,
     }).then((existing) => {
       if (existing) {
-        setValue(existing);
+        setValue(existing ?? '');
         setHasExisting(true);
       }
     });

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { invoke } from '@tauri-apps/api/core';
 import { useFileStore } from './file-store';
 import { useGitStore } from './git-store';
 import type { GitFile } from './git-store';

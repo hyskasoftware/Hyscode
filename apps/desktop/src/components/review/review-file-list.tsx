@@ -41,7 +41,6 @@ function getStatusConfig(status: string) {
 function SourceToggle() {
   const source = useReviewStore((s) => s.source);
   const setSource = useReviewStore((s) => s.setSource);
-  const currentBranch = useGitStore((s) => s.currentBranch);
 
   const handleToggle = (next: ReviewSource) => {
     setSource(next);
