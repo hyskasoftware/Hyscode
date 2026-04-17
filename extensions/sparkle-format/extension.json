@@ -39,7 +39,16 @@
         {
           "command": "sparkle-format.formatDocument",
           "group": "formatting"
+        },
+        {
+          "command": "sparkle-format.formatSelection",
+          "group": "formatting",
+          "when": "editorHasSelection"
         }
+      ],
+      "commandPalette": [
+        { "command": "sparkle-format.formatDocument" },
+        { "command": "sparkle-format.formatSelection" }
       ]
     },
     "configuration": {
@@ -76,6 +85,16 @@
           "description": "Add semicolons at end of statements (JS/TS)"
         }
       }
-    }
+    },
+    "statusBarItems": [
+      {
+        "id": "sparkle-format.indicator",
+        "text": "✨ Format",
+        "tooltip": "Sparkle Format — Shift+Alt+F to format",
+        "command": "sparkle-format.formatDocument",
+        "alignment": "right",
+        "priority": 40
+      }
+    ]
   }
 }

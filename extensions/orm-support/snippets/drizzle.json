@@ -1,0 +1,209 @@
+{
+  "Drizzle: pgTable": {
+    "prefix": "pgtable",
+    "body": [
+      "import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';",
+      "",
+      "export const ${1:tableName} = pgTable('${1:tableName}', {",
+      "  id: uuid('id').defaultRandom().primaryKey(),",
+      "  createdAt: timestamp('created_at').defaultNow().notNull(),",
+      "  updatedAt: timestamp('updated_at').defaultNow().notNull(),",
+      "  $0",
+      "});"
+    ],
+    "description": "PostgreSQL table with UUID and timestamps"
+  },
+  "Drizzle: pgTable (serial)": {
+    "prefix": "pgtableserial",
+    "body": [
+      "import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';",
+      "",
+      "export const ${1:tableName} = pgTable('${1:tableName}', {",
+      "  id: serial('id').primaryKey(),",
+      "  createdAt: timestamp('created_at').defaultNow().notNull(),",
+      "  updatedAt: timestamp('updated_at').defaultNow().notNull(),",
+      "  $0",
+      "});"
+    ],
+    "description": "PostgreSQL table with serial ID"
+  },
+  "Drizzle: mysqlTable": {
+    "prefix": "mysqltable",
+    "body": [
+      "import { mysqlTable, varchar, timestamp, int } from 'drizzle-orm/mysql-core';",
+      "",
+      "export const ${1:tableName} = mysqlTable('${1:tableName}', {",
+      "  id: int('id').autoincrement().primaryKey(),",
+      "  createdAt: timestamp('created_at').defaultNow().notNull(),",
+      "  updatedAt: timestamp('updated_at').defaultNow().notNull(),",
+      "  $0",
+      "});"
+    ],
+    "description": "MySQL table with auto-increment ID"
+  },
+  "Drizzle: sqliteTable": {
+    "prefix": "sqlitetable",
+    "body": [
+      "import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';",
+      "",
+      "export const ${1:tableName} = sqliteTable('${1:tableName}', {",
+      "  id: integer('id').primaryKey({ autoIncrement: true }),",
+      "  createdAt: text('created_at').default('CURRENT_TIMESTAMP').notNull(),",
+      "  $0",
+      "});"
+    ],
+    "description": "SQLite table with auto-increment ID"
+  },
+  "Drizzle: Relations": {
+    "prefix": "relations",
+    "body": [
+      "import { relations } from 'drizzle-orm';",
+      "import { ${1:parentTable} } from './${2:parent}';",
+      "",
+      "export const ${1:parentTable}Relations = relations(${1:parentTable}, ({ ${3|one,many|} }) => ({",
+      "  ${4:fieldName}: ${3}(${5:relatedTable}, {",
+      "    fields: [${1:parentTable}.${6:foreignKey}],",
+      "    references: [${5:relatedTable}.id],",
+      "  }),",
+      "}));"
+    ],
+    "description": "Drizzle relations definition"
+  },
+  "Drizzle: One-to-Many": {
+    "prefix": "onetomany",
+    "body": [
+      "export const ${1:parent}Relations = relations(${1:parent}, ({ many }) => ({",
+      "  ${2:children}: many(${3:childTable}),",
+      "}));",
+      "",
+      "export const ${3:childTable}Relations = relations(${3:childTable}, ({ one }) => ({",
+      "  ${4:parentField}: one(${1:parent}, {",
+      "    fields: [${3:childTable}.${5:foreignKey}],",
+      "    references: [${1:parent}.id],",
+      "  }),",
+      "}));"
+    ],
+    "description": "One-to-many bidirectional relations"
+  },
+  "Drizzle: pgEnum": {
+    "prefix": "pgenum",
+    "body": [
+      "import { pgEnum } from 'drizzle-orm/pg-core';",
+      "",
+      "export const ${1:enumName} = pgEnum('${1:enumName}', [${2:'value1', 'value2'}]);"
+    ],
+    "description": "PostgreSQL enum type"
+  },
+  "Drizzle: Index": {
+    "prefix": "drizzleindex",
+    "body": [
+      "import { index } from 'drizzle-orm/pg-core';",
+      "",
+      "// Inside table definition:",
+      "// (table) => ({",
+      "//   ${1:indexName}: index('${1:indexName}').on(table.${2:column}),",
+      "// })"
+    ],
+    "description": "Drizzle index hint"
+  },
+  "Drizzle: Select query": {
+    "prefix": "drizzleselect",
+    "body": [
+      "const result = await db.select().from(${1:table}).where(eq(${1:table}.${2:column}, ${3:value}));"
+    ],
+    "description": "Basic Drizzle select query"
+  },
+  "Drizzle: Insert": {
+    "prefix": "drizzleinsert",
+    "body": [
+      "await db.insert(${1:table}).values({",
+      "  $0",
+      "});"
+    ],
+    "description": "Drizzle insert statement"
+  },
+  "Drizzle: Update": {
+    "prefix": "drizzleupdate",
+    "body": [
+      "await db.update(${1:table}).set({",
+      "  $0",
+      "}).where(eq(${1:table}.${2:id}, ${3:value}));"
+    ],
+    "description": "Drizzle update statement"
+  },
+  "Drizzle: Delete": {
+    "prefix": "drizzledelete",
+    "body": [
+      "await db.delete(${1:table}).where(eq(${1:table}.${2:id}, ${3:value}));"
+    ],
+    "description": "Drizzle delete statement"
+  },
+  "Drizzle: Config file": {
+    "prefix": "drizzleconfig",
+    "body": [
+      "import { defineConfig } from 'drizzle-kit';",
+      "",
+      "export default defineConfig({",
+      "  dialect: '${1|postgresql,mysql,sqlite|}',",
+      "  schema: '${2:./src/db/schema}',",
+      "  out: '${3:./drizzle}',",
+      "  dbCredentials: {",
+      "    ${4:url}: process.env.DATABASE_URL!,",
+      "  },",
+      "});"
+    ],
+    "description": "drizzle.config.ts boilerplate"
+  },
+  "Drizzle: DB connection (pg)": {
+    "prefix": "drizzleconnpg",
+    "body": [
+      "import { drizzle } from 'drizzle-orm/node-postgres';",
+      "import { Pool } from 'pg';",
+      "import * as schema from './schema';",
+      "",
+      "const pool = new Pool({ connectionString: process.env.DATABASE_URL });",
+      "export const db = drizzle(pool, { schema });"
+    ],
+    "description": "PostgreSQL Drizzle connection setup"
+  },
+  "Drizzle: DB connection (mysql)": {
+    "prefix": "drizzleconnmysql",
+    "body": [
+      "import { drizzle } from 'drizzle-orm/mysql2';",
+      "import mysql from 'mysql2/promise';",
+      "import * as schema from './schema';",
+      "",
+      "const connection = await mysql.createConnection(process.env.DATABASE_URL!);",
+      "export const db = drizzle(connection, { schema });"
+    ],
+    "description": "MySQL Drizzle connection setup"
+  },
+  "Drizzle: DB connection (sqlite)": {
+    "prefix": "drizzleconnsqlite",
+    "body": [
+      "import { drizzle } from 'drizzle-orm/better-sqlite3';",
+      "import Database from 'better-sqlite3';",
+      "import * as schema from './schema';",
+      "",
+      "const sqlite = new Database('${1:sqlite.db}');",
+      "export const db = drizzle(sqlite, { schema });"
+    ],
+    "description": "SQLite Drizzle connection setup"
+  },
+  "Drizzle: Migrate": {
+    "prefix": "drizzlemigrate",
+    "body": [
+      "import { migrate } from 'drizzle-orm/${1|node-postgres,mysql2,better-sqlite3|}/migrator';",
+      "import { db } from './db';",
+      "",
+      "async function main() {",
+      "  await migrate(db, { migrationsFolder: './drizzle' });",
+      "  console.log('Migrations applied');",
+      "  process.exit(0);",
+      "}",
+      "",
+      "main().catch(console.error);"
+    ],
+    "description": "Drizzle migration runner script"
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "Prisma: Datasource block": {
+    "prefix": "datasource",
+    "body": [
+      "datasource db {",
+      "  provider = \"${1|postgresql,mysql,sqlite,sqlserver,mongodb,cockroachdb|}\"",
+      "  url      = env(\"DATABASE_URL\")",
+      "}"
+    ],
+    "description": "Datasource block for Prisma schema"
+  },
+  "Prisma: Generator block": {
+    "prefix": "generator",
+    "body": [
+      "generator client {",
+      "  provider = \"prisma-client-js\"",
+      "}"
+    ],
+    "description": "Prisma client generator"
+  },
+  "Prisma: Model": {
+    "prefix": "model",
+    "body": [
+      "model ${1:ModelName} {",
+      "  id        String   @id @default(cuid())",
+      "  createdAt DateTime @default(now())",
+      "  updatedAt DateTime @updatedAt",
+      "",
+      "  $0",
+      "}"
+    ],
+    "description": "Prisma model with ID and timestamps"
+  },
+  "Prisma: Model (UUID)": {
+    "prefix": "modeluuid",
+    "body": [
+      "model ${1:ModelName} {",
+      "  id        String   @id @default(uuid())",
+      "  createdAt DateTime @default(now())",
+      "  updatedAt DateTime @updatedAt",
+      "",
+      "  $0",
+      "}"
+    ],
+    "description": "Prisma model with UUID primary key"
+  },
+  "Prisma: Model (Auto-increment)": {
+    "prefix": "modelint",
+    "body": [
+      "model ${1:ModelName} {",
+      "  id        Int      @id @default(autoincrement())",
+      "  createdAt DateTime @default(now())",
+      "  updatedAt DateTime @updatedAt",
+      "",
+      "  $0",
+      "}"
+    ],
+    "description": "Prisma model with auto-increment int primary key"
+  },
+  "Prisma: Enum": {
+    "prefix": "enum",
+    "body": [
+      "enum ${1:EnumName} {",
+      "  ${2:VALUE_ONE}",
+      "  ${3:VALUE_TWO}",
+      "}"
+    ],
+    "description": "Prisma enum"
+  },
+  "Prisma: One-to-Many relation": {
+    "prefix": "relation1m",
+    "body": [
+      "${1:fieldName}   ${2:RelatedModel}[] // one-to-many"
+    ],
+    "description": "One-to-many relation field"
+  },
+  "Prisma: Many-to-One relation": {
+    "prefix": "relationm1",
+    "body": [
+      "${1:fieldName}   ${2:RelatedModel}  @relation(fields: [${3:fieldNameId}], references: [id])",
+      "${3:fieldNameId}  String"
+    ],
+    "description": "Many-to-one relation with foreign key"
+  },
+  "Prisma: Many-to-Many relation": {
+    "prefix": "relationmm",
+    "body": [
+      "${1:fieldName} ${2:RelatedModel}[] // many-to-many"
+    ],
+    "description": "Many-to-many implicit relation"
+  },
+  "Prisma: Unique field": {
+    "prefix": "unique",
+    "body": [
+      "${1:fieldName} String @unique"
+    ],
+    "description": "Unique string field"
+  },
+  "Prisma: Index": {
+    "prefix": "@@index",
+    "body": [
+      "@@index([${1:field1}, ${2:field2}])"
+    ],
+    "description": "Composite index"
+  },
+  "Prisma: Unique constraint": {
+    "prefix": "@@unique",
+    "body": [
+      "@@unique([${1:field1}, ${2:field2}])"
+    ],
+    "description": "Composite unique constraint"
+  },
+  "Prisma: Map table name": {
+    "prefix": "@@map",
+    "body": [
+      "@@map(\"${1:table_name}\")"
+    ],
+    "description": "Map model to different table name"
+  },
+  "Prisma: Optional field": {
+    "prefix": "fieldopt",
+    "body": [
+      "${1:fieldName} ${2:String}? $0"
+    ],
+    "description": "Optional field"
+  },
+  "Prisma: String field with default": {
+    "prefix": "fieldstr",
+    "body": [
+      "${1:fieldName} String @default(\"${2:default_value}\")"
+    ],
+    "description": "String field with default value"
+  },
+  "Prisma: Boolean field": {
+    "prefix": "fieldbool",
+    "body": [
+      "${1:fieldName} Boolean @default(${2|true,false|})"
+    ],
+    "description": "Boolean field with default"
+  },
+  "Prisma: Json field": {
+    "prefix": "fieldjson",
+    "body": [
+      "${1:fieldName} Json $0"
+    ],
+    "description": "Json field"
+  },
+  "Prisma: DateTime field": {
+    "prefix": "fielddate",
+    "body": [
+      "${1:fieldName} DateTime @default(now())"
+    ],
+    "description": "DateTime field with now() default"
+  }
+}

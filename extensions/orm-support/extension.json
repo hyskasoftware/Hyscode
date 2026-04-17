@@ -1,0 +1,276 @@
+{
+  "name": "orm-support",
+  "displayName": "ORM Support — Prisma & Drizzle",
+  "version": "1.0.0",
+  "description": "Suporte completo a ORMs: Prisma e Drizzle ORM — linguagem, snippets, comandos de migração, geração de código e integração com banco de dados",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets", "Other"],
+  "keywords": [
+    "prisma", "drizzle", "orm", "database", "migration",
+    "schema", "sql", "postgres", "mysql", "sqlite",
+    "mongodb", "typescript", "query", "model", "seed"
+  ],
+  "license": "MIT",
+  "activationEvents": ["onStartup"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "prisma",
+        "aliases": ["Prisma Schema", "Prisma"],
+        "extensions": [".prisma"],
+        "configuration": "language-configuration-prisma.json"
+      }
+    ],
+    "snippets": [
+      { "language": "prisma", "path": "snippets/prisma.json" },
+      { "language": "typescript", "path": "snippets/drizzle.json" },
+      { "language": "typescriptreact", "path": "snippets/drizzle.json" },
+      { "language": "javascript", "path": "snippets/drizzle.json" }
+    ],
+    "commands": [
+      {
+        "id": "prisma.init",
+        "title": "Initialize Prisma",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.generate",
+        "title": "Generate Client",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.migrate.dev",
+        "title": "Migrate Dev",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.migrate.deploy",
+        "title": "Migrate Deploy",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.migrate.reset",
+        "title": "Migrate Reset",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.migrate.status",
+        "title": "Migration Status",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.db.push",
+        "title": "DB Push",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.db.pull",
+        "title": "DB Pull (Introspect)",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.db.seed",
+        "title": "DB Seed",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.studio",
+        "title": "Open Prisma Studio",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.format",
+        "title": "Format Schema",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.validate",
+        "title": "Validate Schema",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.newModel",
+        "title": "New Model Scaffold",
+        "category": "Prisma"
+      },
+      {
+        "id": "prisma.newEnum",
+        "title": "New Enum Scaffold",
+        "category": "Prisma"
+      },
+      {
+        "id": "drizzle.init",
+        "title": "Initialize Drizzle",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.generate",
+        "title": "Generate Migrations",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.migrate",
+        "title": "Run Migrations",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.push",
+        "title": "Push Schema",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.pull",
+        "title": "Pull (Introspect)",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.drop",
+        "title": "Drop Migration",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.studio",
+        "title": "Open Drizzle Studio",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.check",
+        "title": "Check Schema",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.newTable",
+        "title": "New Table Scaffold",
+        "category": "Drizzle"
+      },
+      {
+        "id": "drizzle.newSchema",
+        "title": "New Schema File",
+        "category": "Drizzle"
+      },
+      {
+        "id": "orm.selectORM",
+        "title": "Select Active ORM",
+        "category": "ORM"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "prisma.generate",
+        "key": "ctrl+shift+g",
+        "when": "editorLangId == prisma"
+      },
+      {
+        "command": "prisma.migrate.dev",
+        "key": "ctrl+shift+m",
+        "when": "editorLangId == prisma"
+      },
+      {
+        "command": "prisma.format",
+        "key": "shift+alt+f",
+        "when": "editorLangId == prisma"
+      },
+      {
+        "command": "prisma.studio",
+        "key": "ctrl+alt+s",
+        "when": "editorLangId == prisma"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "prisma.generate", "group": "1_orm", "when": "editorLangId == prisma" },
+        { "command": "prisma.format", "group": "1_orm", "when": "editorLangId == prisma" },
+        { "command": "prisma.migrate.dev", "group": "1_orm", "when": "editorLangId == prisma" }
+      ],
+      "commandPalette": [
+        { "command": "prisma.init" },
+        { "command": "prisma.generate" },
+        { "command": "prisma.migrate.dev" },
+        { "command": "prisma.migrate.deploy" },
+        { "command": "prisma.migrate.reset" },
+        { "command": "prisma.migrate.status" },
+        { "command": "prisma.db.push" },
+        { "command": "prisma.db.pull" },
+        { "command": "prisma.db.seed" },
+        { "command": "prisma.studio" },
+        { "command": "prisma.format" },
+        { "command": "prisma.validate" },
+        { "command": "prisma.newModel" },
+        { "command": "prisma.newEnum" },
+        { "command": "drizzle.init" },
+        { "command": "drizzle.generate" },
+        { "command": "drizzle.migrate" },
+        { "command": "drizzle.push" },
+        { "command": "drizzle.pull" },
+        { "command": "drizzle.drop" },
+        { "command": "drizzle.studio" },
+        { "command": "drizzle.check" },
+        { "command": "drizzle.newTable" },
+        { "command": "drizzle.newSchema" },
+        { "command": "orm.selectORM" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "orm-support.prisma",
+        "text": "◆ Prisma",
+        "tooltip": "Prisma ORM Support",
+        "command": "prisma.generate",
+        "alignment": "right",
+        "priority": 42
+      },
+      {
+        "id": "orm-support.drizzle",
+        "text": "🌧 Drizzle",
+        "tooltip": "Drizzle ORM Support",
+        "command": "drizzle.generate",
+        "alignment": "right",
+        "priority": 41
+      }
+    ],
+    "configuration": {
+      "title": "ORM Support",
+      "properties": {
+        "orm.defaultORM": {
+          "type": "string",
+          "default": "prisma",
+          "enum": ["prisma", "drizzle"],
+          "enumDescriptions": [
+            "Use Prisma as the default ORM",
+            "Use Drizzle as the default ORM"
+          ],
+          "description": "Default ORM for scaffolding commands"
+        },
+        "prisma.binaryPath": {
+          "type": "string",
+          "default": "npx prisma",
+          "description": "Command to invoke Prisma CLI"
+        },
+        "prisma.defaultProvider": {
+          "type": "string",
+          "default": "postgresql",
+          "enum": ["postgresql", "mysql", "sqlite", "sqlserver", "mongodb", "cockroachdb"],
+          "description": "Default database provider for prisma init"
+        },
+        "drizzle.binaryPath": {
+          "type": "string",
+          "default": "npx drizzle-kit",
+          "description": "Command to invoke Drizzle Kit CLI"
+        },
+        "drizzle.defaultDriver": {
+          "type": "string",
+          "default": "pg",
+          "enum": ["pg", "mysql2", "better-sqlite3", "libsql", "neon-http", "planetscale"],
+          "description": "Default database driver for Drizzle setup"
+        },
+        "drizzle.schemaDir": {
+          "type": "string",
+          "default": "src/db/schema",
+          "description": "Default directory for Drizzle schema files"
+        }
+      }
+    }
+  }
+}

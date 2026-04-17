@@ -11,3 +11,5 @@ export { useSkillsStore } from './skills-store';
 export { useLayoutStore } from './layout-store';
 export { useDeviceStore } from './device-store';
 export { useDockerStore } from './docker-store';
+export { useCommandStore } from './command-store';
+export { useKeybindingStore } from './keybinding-store';

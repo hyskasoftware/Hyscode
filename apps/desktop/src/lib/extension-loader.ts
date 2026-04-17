@@ -31,6 +31,8 @@ import { useProjectStore } from '../stores/project-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useEditorStore } from '../stores/editor-store';
 import { useExtensionUiStore } from '../stores/extension-ui-store';
+import { useCommandStore } from '../stores/command-store';
+import { useKeybindingStore } from '../stores/keybinding-store';
 import type { InstalledExtension } from '../stores/extension-store';
 
 // ── Singleton sandbox ────────────────────────────────────────────────────────
@@ -64,16 +66,14 @@ const _api: HyscodeAPI = {
 
   commands: {
     registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable {
-      const _h = handler; // keep reference
-      console.debug(`[HyscodeAPI] registerCommand("${id}")`, _h);
-      return { dispose() {} };
+      const dispose = useCommandStore.getState().registerCommand(id, handler);
+      return { dispose };
     },
     async executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T> {
-      console.warn(`[HyscodeAPI] executeCommand("${id}") not fully implemented`, args);
-      return undefined as T;
+      return (await useCommandStore.getState().executeCommand(id, ...args)) as T;
     },
     getCommands(): string[] {
-      return [];
+      return useCommandStore.getState().getAllCommands().map((c) => c.id);
     },
   },
 
@@ -224,11 +224,24 @@ const _api: HyscodeAPI = {
 
 // ── Per-extension API factory ────────────────────────────────────────────────
 
-/** Creates an API clone whose `ui` calls are tagged with the extension's name */
+/** Creates an API clone whose `ui` and `commands` calls are tagged with the extension's name */
 function createExtensionApi(extensionName: string): HyscodeAPI {
   const uiStore = useExtensionUiStore.getState;
+  const cmdStore = useCommandStore.getState;
   return {
     ..._api,
+    commands: {
+      registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable {
+        const dispose = cmdStore().registerCommand(id, handler, { extensionName });
+        return { dispose };
+      },
+      async executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T> {
+        return (await cmdStore().executeCommand(id, ...args)) as T;
+      },
+      getCommands(): string[] {
+        return cmdStore().getAllCommands().map((c) => c.id);
+      },
+    },
     ui: {
       registerContextMenuItem(item: ExtensionContextMenuItem): Disposable {
         return uiStore().addContextMenuItem(extensionName, item);
@@ -262,12 +275,63 @@ function createExtensionApi(extensionName: string): HyscodeAPI {
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /**
+ * Register command metadata and keybindings from extension manifests into
+ * the command store and keybinding store. This ensures commands declared in
+ * extension.json (but whose handlers are registered at runtime by main.js)
+ * appear in the Command Palette with titles, categories and keybindings.
+ */
+export function registerExtensionContributions(ext: InstalledExtension): void {
+  if (!ext.manifest?.contributes) return;
+  const { commands: cmds, keybindings: kbs } = ext.manifest.contributes;
+  const cmdStore = useCommandStore.getState();
+  const kbStore = useKeybindingStore.getState();
+
+  // Register command metadata (title/category) if not yet registered by main.js
+  if (cmds) {
+    for (const cmd of cmds) {
+      if (!cmdStore.hasCommand(cmd.id)) {
+        cmdStore.registerCommand(cmd.id, () => {
+          console.warn(`[ExtensionLoader] Command "${cmd.id}" invoked but no handler registered yet.`);
+        }, {
+          title: cmd.title,
+          category: cmd.category,
+          extensionName: ext.name,
+        });
+      }
+    }
+  }
+
+  // Register keybindings
+  if (kbs) {
+    for (const kb of kbs) {
+      kbStore.register({
+        command: kb.command,
+        key: kb.key,
+        when: kb.when,
+        extensionName: ext.name,
+      });
+    }
+  }
+}
+
+/**
+ * Unregister all commands and keybindings from a specific extension.
+ */
+export function unregisterExtensionContributions(name: string): void {
+  useCommandStore.getState().removeExtensionCommands(name);
+  useKeybindingStore.getState().removeExtensionBindings(name);
+}
+
+/**
  * Activate a single enabled extension that has a main entry point.
  * Reads main.js from the Rust backend and executes it in the sandbox.
  */
 export async function activateExtension(ext: InstalledExtension): Promise<void> {
   if (!ext.enabled || !ext.hasMain || !ext.manifest) return;
   if (_sandbox.isActive(ext.name)) return;
+
+  // Pre-register command metadata & keybindings from manifest
+  registerExtensionContributions(ext);
 
   try {
     const mainPath = ext.manifest.main ?? 'main.js';
@@ -288,6 +352,7 @@ export async function activateExtension(ext: InstalledExtension): Promise<void> 
 export async function deactivateExtension(name: string): Promise<void> {
   await _sandbox.deactivate(name);
   useExtensionUiStore.getState().removeAllForExtension(name);
+  unregisterExtensionContributions(name);
 }
 
 /**
@@ -296,6 +361,10 @@ export async function deactivateExtension(name: string): Promise<void> {
  */
 export async function activateAllExtensions(extensions: InstalledExtension[]): Promise<void> {
   const eligible = extensions.filter((e) => e.enabled && e.hasMain && e.manifest);
+  // Also register contributions for extensions without main.js (theme-only, etc.)
+  for (const ext of extensions.filter((e) => e.enabled && !e.hasMain && e.manifest)) {
+    registerExtensionContributions(ext);
+  }
   await Promise.allSettled(eligible.map(activateExtension));
 }
 
