@@ -1,0 +1,150 @@
+{
+  "Function view": {
+    "prefix": ["djview", "django-view"],
+    "body": [
+      "from django.shortcuts import render, get_object_or_404, redirect",
+      "from django.http import HttpResponse, JsonResponse",
+      "",
+      "",
+      "def ${1:index}(request):",
+      "    ${2:context = {}}",
+      "    return render(request, '${3:template.html}', ${2:context})"
+    ],
+    "description": "Django function-based view"
+  },
+
+  "View with form": {
+    "prefix": ["djview-form", "django-view-form"],
+    "body": [
+      "def ${1:create}(request):",
+      "    if request.method == 'POST':",
+      "        form = ${2:MyForm}(request.POST)",
+      "        if form.is_valid():",
+      "            form.save()",
+      "            return redirect('${3:list}')",
+      "    else:",
+      "        form = ${2:MyForm}()",
+      "    return render(request, '${4:form.html}', {'form': form})"
+    ],
+    "description": "View com formulário POST"
+  },
+
+  "ListView": {
+    "prefix": ["djlistview", "django-listview"],
+    "body": [
+      "from django.views.generic import ListView",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "class ${1:MyModel}ListView(ListView):",
+      "    model = ${1:MyModel}",
+      "    template_name = '${2:app/list.html}'",
+      "    context_object_name = '${3:items}'",
+      "    paginate_by = ${4:25}",
+      "    ordering = ['${5:-created_at}']",
+      "    $0"
+    ],
+    "description": "Django ListView"
+  },
+
+  "DetailView": {
+    "prefix": ["djdetailview", "django-detailview"],
+    "body": [
+      "from django.views.generic import DetailView",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "class ${1:MyModel}DetailView(DetailView):",
+      "    model = ${1:MyModel}",
+      "    template_name = '${2:app/detail.html}'",
+      "    context_object_name = '${3:item}'",
+      "    $0"
+    ],
+    "description": "Django DetailView"
+  },
+
+  "CreateView": {
+    "prefix": ["djcreateview", "django-createview"],
+    "body": [
+      "from django.views.generic.edit import CreateView",
+      "from django.urls import reverse_lazy",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "class ${1:MyModel}CreateView(CreateView):",
+      "    model = ${1:MyModel}",
+      "    fields = [${2:'name'}]",
+      "    template_name = '${3:app/form.html}'",
+      "    success_url = reverse_lazy('${4:list}')",
+      "    $0"
+    ],
+    "description": "Django CreateView"
+  },
+
+  "UpdateView": {
+    "prefix": ["djupdateview", "django-updateview"],
+    "body": [
+      "from django.views.generic.edit import UpdateView",
+      "from django.urls import reverse_lazy",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "class ${1:MyModel}UpdateView(UpdateView):",
+      "    model = ${1:MyModel}",
+      "    fields = [${2:'name'}]",
+      "    template_name = '${3:app/form.html}'",
+      "    success_url = reverse_lazy('${4:list}')",
+      "    $0"
+    ],
+    "description": "Django UpdateView"
+  },
+
+  "DeleteView": {
+    "prefix": ["djdeleteview", "django-deleteview"],
+    "body": [
+      "from django.views.generic.edit import DeleteView",
+      "from django.urls import reverse_lazy",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "class ${1:MyModel}DeleteView(DeleteView):",
+      "    model = ${1:MyModel}",
+      "    template_name = '${3:app/confirm_delete.html}'",
+      "    success_url = reverse_lazy('${4:list}')"
+    ],
+    "description": "Django DeleteView"
+  },
+
+  "Login required view": {
+    "prefix": ["djview-login", "django-view-login"],
+    "body": [
+      "from django.contrib.auth.decorators import login_required",
+      "",
+      "",
+      "@login_required",
+      "def ${1:protected_view}(request):",
+      "    $0",
+      "    return render(request, '${2:template.html}')"
+    ],
+    "description": "View com login_required"
+  },
+
+  "API view (JSON)": {
+    "prefix": ["djapi-view", "django-json-view"],
+    "body": [
+      "from django.http import JsonResponse",
+      "from django.views.decorators.http import require_http_methods",
+      "import json",
+      "",
+      "",
+      "@require_http_methods([\"${1|GET,POST,PUT,DELETE|}\"])",
+      "def ${2:api_endpoint}(request):",
+      "    if request.method == 'POST':",
+      "        data = json.loads(request.body)",
+      "        $0",
+      "        return JsonResponse({'status': 'ok'})",
+      "    return JsonResponse({'error': 'Method not allowed'}, status=405)"
+    ],
+    "description": "API view retornando JSON"
+  }
+}

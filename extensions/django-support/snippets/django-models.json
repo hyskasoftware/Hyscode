@@ -1,0 +1,144 @@
+{
+  "Model": {
+    "prefix": ["djmodel", "django-model"],
+    "body": [
+      "from django.db import models",
+      "",
+      "",
+      "class ${1:MyModel}(models.Model):",
+      "    ${2:name} = models.${3|CharField,TextField,IntegerField,FloatField,BooleanField,DateField,DateTimeField,EmailField,URLField,FileField,ImageField,ForeignKey,ManyToManyField,OneToOneField,SlugField,UUIDField,JSONField|}(${4:max_length=255})",
+      "    created_at = models.DateTimeField(auto_now_add=True)",
+      "    updated_at = models.DateTimeField(auto_now=True)",
+      "",
+      "    class Meta:",
+      "        ordering = ['${5:-created_at}']",
+      "        verbose_name = '${6:$1}'",
+      "        verbose_name_plural = '${7:${1}s}'",
+      "",
+      "    def __str__(self):",
+      "        return ${8:self.name}",
+      "    $0"
+    ],
+    "description": "Django model completo"
+  },
+
+  "CharField": {
+    "prefix": ["djchar", "django-charfield"],
+    "body": ["${1:name} = models.CharField(max_length=${2:255}${3:, blank=True})"],
+    "description": "CharField"
+  },
+
+  "TextField": {
+    "prefix": ["djtext", "django-textfield"],
+    "body": ["${1:description} = models.TextField(${2:blank=True, default=''})"],
+    "description": "TextField"
+  },
+
+  "IntegerField": {
+    "prefix": ["djint", "django-intfield"],
+    "body": ["${1:count} = models.IntegerField(${2:default=0})"],
+    "description": "IntegerField"
+  },
+
+  "BooleanField": {
+    "prefix": ["djbool", "django-boolfield"],
+    "body": ["${1:is_active} = models.BooleanField(${2:default=True})"],
+    "description": "BooleanField"
+  },
+
+  "DateTimeField": {
+    "prefix": ["djdatetime", "django-datetimefield"],
+    "body": ["${1:created_at} = models.DateTimeField(${2|auto_now_add=True,auto_now=True,default=timezone.now|})"],
+    "description": "DateTimeField"
+  },
+
+  "ForeignKey": {
+    "prefix": ["djfk", "django-foreignkey"],
+    "body": ["${1:author} = models.ForeignKey('${2:User}', on_delete=models.${3|CASCADE,SET_NULL,PROTECT,SET_DEFAULT,DO_NOTHING|}${4:, null=True, blank=True}, related_name='${5:items}')"],
+    "description": "ForeignKey"
+  },
+
+  "ManyToManyField": {
+    "prefix": ["djm2m", "django-m2m"],
+    "body": ["${1:tags} = models.ManyToManyField('${2:Tag}', blank=True, related_name='${3:items}')"],
+    "description": "ManyToManyField"
+  },
+
+  "OneToOneField": {
+    "prefix": ["djo2o", "django-onetoone"],
+    "body": ["${1:profile} = models.OneToOneField('${2:User}', on_delete=models.CASCADE, related_name='${3:profile}')"],
+    "description": "OneToOneField"
+  },
+
+  "ImageField": {
+    "prefix": ["djimage", "django-imagefield"],
+    "body": ["${1:image} = models.ImageField(upload_to='${2:images/}', blank=True, null=True)"],
+    "description": "ImageField"
+  },
+
+  "FileField": {
+    "prefix": ["djfile", "django-filefield"],
+    "body": ["${1:document} = models.FileField(upload_to='${2:uploads/}', blank=True, null=True)"],
+    "description": "FileField"
+  },
+
+  "SlugField": {
+    "prefix": ["djslug", "django-slugfield"],
+    "body": ["${1:slug} = models.SlugField(max_length=${2:255}, unique=True)"],
+    "description": "SlugField"
+  },
+
+  "UUIDField (pk)": {
+    "prefix": ["djuuid", "django-uuid-pk"],
+    "body": [
+      "import uuid",
+      "id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)"
+    ],
+    "description": "UUIDField como primary key"
+  },
+
+  "JSONField": {
+    "prefix": ["djjson", "django-jsonfield"],
+    "body": ["${1:data} = models.JSONField(default=dict, blank=True)"],
+    "description": "JSONField"
+  },
+
+  "Model Manager": {
+    "prefix": ["djmanager", "django-manager"],
+    "body": [
+      "class ${1:Active}Manager(models.Manager):",
+      "    def get_queryset(self):",
+      "        return super().get_queryset().filter(${2:is_active=True})",
+      "",
+      "",
+      "class ${3:MyModel}(models.Model):",
+      "    objects = models.Manager()",
+      "    ${4:active} = ${1:Active}Manager()",
+      "    $0"
+    ],
+    "description": "Custom Manager"
+  },
+
+  "Abstract base model": {
+    "prefix": ["djabstract", "django-abstract-model"],
+    "body": [
+      "class ${1:TimestampedModel}(models.Model):",
+      "    created_at = models.DateTimeField(auto_now_add=True)",
+      "    updated_at = models.DateTimeField(auto_now=True)",
+      "",
+      "    class Meta:",
+      "        abstract = True"
+    ],
+    "description": "Abstract base model"
+  },
+
+  "Model property": {
+    "prefix": ["djproperty", "django-property"],
+    "body": [
+      "@property",
+      "def ${1:full_name}(self):",
+      "    return ${2:f'{self.first_name} {self.last_name}'}"
+    ],
+    "description": "Model @property"
+  }
+}

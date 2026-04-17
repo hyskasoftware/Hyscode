@@ -1,0 +1,886 @@
+{
+  "main() entrypoint": {
+    "prefix": ["main", "gomain"],
+    "body": [
+      "package main",
+      "",
+      "import \"fmt\"",
+      "",
+      "func main() {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Arquivo main com função main"
+  },
+
+  "Package declaration": {
+    "prefix": ["pkg", "package"],
+    "body": [
+      "package ${1:main}"
+    ],
+    "description": "Declaração de package"
+  },
+
+  "import single": {
+    "prefix": ["imp", "import"],
+    "body": [
+      "import \"${1:fmt}\""
+    ],
+    "description": "Import simples"
+  },
+
+  "import block": {
+    "prefix": ["imps", "imports"],
+    "body": [
+      "import (",
+      "\t\"${1:fmt}\"",
+      "\t$0",
+      ")"
+    ],
+    "description": "Bloco de imports"
+  },
+
+  "func": {
+    "prefix": ["func", "fn"],
+    "body": [
+      "func ${1:name}(${2:params}) ${3:return} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Declaração de função"
+  },
+
+  "func with error return": {
+    "prefix": ["funce", "fnerr"],
+    "body": [
+      "func ${1:name}(${2:params}) (${3:result}, error) {",
+      "\t$0",
+      "\treturn ${4:result}, nil",
+      "}"
+    ],
+    "description": "Função que retorna valor e error"
+  },
+
+  "func void": {
+    "prefix": ["funcv", "fnvoid"],
+    "body": [
+      "func ${1:name}(${2:params}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função sem retorno"
+  },
+
+  "method": {
+    "prefix": ["method", "meth"],
+    "body": [
+      "func (${1:r} ${2:*Receiver}) ${3:Name}(${4:params}) ${5:return} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Método em um tipo"
+  },
+
+  "method with error": {
+    "prefix": ["methe", "metherr"],
+    "body": [
+      "func (${1:r} ${2:*Receiver}) ${3:Name}(${4:params}) (${5:result}, error) {",
+      "\t$0",
+      "\treturn ${6:result}, nil",
+      "}"
+    ],
+    "description": "Método que retorna valor e error"
+  },
+
+  "struct": {
+    "prefix": ["struct", "type-struct"],
+    "body": [
+      "type ${1:Name} struct {",
+      "\t${2:Field} ${3:string}",
+      "\t$0",
+      "}"
+    ],
+    "description": "Definição de struct"
+  },
+
+  "struct constructor": {
+    "prefix": ["new-struct", "constructor"],
+    "body": [
+      "func New${1:Name}(${2:params}) *${1:Name} {",
+      "\treturn &${1:Name}{",
+      "\t\t$0",
+      "\t}",
+      "}"
+    ],
+    "description": "Construtor para struct"
+  },
+
+  "interface": {
+    "prefix": ["iface", "interface"],
+    "body": [
+      "type ${1:Name} interface {",
+      "\t${2:Method}(${3:params}) ${4:return}",
+      "\t$0",
+      "}"
+    ],
+    "description": "Definição de interface"
+  },
+
+  "type alias": {
+    "prefix": ["type", "typealias"],
+    "body": [
+      "type ${1:Name} ${2:string}"
+    ],
+    "description": "Definição de tipo"
+  },
+
+  "iota enum": {
+    "prefix": ["iota", "enum"],
+    "body": [
+      "type ${1:Status} ${2:int}",
+      "",
+      "const (",
+      "\t${3:Unknown} ${1:Status} = iota",
+      "\t${4:Active}",
+      "\t${5:Inactive}",
+      "\t$0",
+      ")"
+    ],
+    "description": "Enum com iota"
+  },
+
+  "const block": {
+    "prefix": ["const", "consts"],
+    "body": [
+      "const (",
+      "\t${1:Name} = ${2:value}",
+      "\t$0",
+      ")"
+    ],
+    "description": "Bloco de constantes"
+  },
+
+  "var block": {
+    "prefix": ["var", "vars"],
+    "body": [
+      "var (",
+      "\t${1:name} ${2:string}",
+      "\t$0",
+      ")"
+    ],
+    "description": "Bloco de variáveis"
+  },
+
+  "if err != nil": {
+    "prefix": ["iferr", "err"],
+    "body": [
+      "if err != nil {",
+      "\treturn ${1:nil, }err",
+      "}"
+    ],
+    "description": "Verificação padrão de erro Go"
+  },
+
+  "if err != nil (wrap)": {
+    "prefix": ["iferrw", "errwrap"],
+    "body": [
+      "if err != nil {",
+      "\treturn ${1:nil, }fmt.Errorf(\"${2:operation}: %w\", err)",
+      "}"
+    ],
+    "description": "Verificação de erro com fmt.Errorf wrap"
+  },
+
+  "errors.New": {
+    "prefix": ["errors-new", "errnew"],
+    "body": [
+      "errors.New(\"${1:error message}\")"
+    ],
+    "description": "Criar novo erro estático"
+  },
+
+  "fmt.Errorf": {
+    "prefix": ["errorf", "ferr"],
+    "body": [
+      "fmt.Errorf(\"${1:message}: %w\", ${2:err})"
+    ],
+    "description": "Erro formatado com wrapping"
+  },
+
+  "custom error type": {
+    "prefix": ["custom-error", "errtype"],
+    "body": [
+      "type ${1:Name}Error struct {",
+      "\t${2:Field} ${3:string}",
+      "}",
+      "",
+      "func (e *${1:Name}Error) Error() string {",
+      "\treturn fmt.Sprintf(\"${4:%s}\", e.${2:Field})",
+      "}"
+    ],
+    "description": "Tipo de erro customizado"
+  },
+
+  "for range slice": {
+    "prefix": ["forr", "range"],
+    "body": [
+      "for ${1:i}, ${2:v} := range ${3:slice} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "for range em slice/array"
+  },
+
+  "for range index only": {
+    "prefix": ["fori", "rangeindex"],
+    "body": [
+      "for ${1:i} := range ${2:slice} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "for range somente índice"
+  },
+
+  "for range map": {
+    "prefix": ["form", "rangemap"],
+    "body": [
+      "for ${1:k}, ${2:v} := range ${3:m} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "for range em map"
+  },
+
+  "for loop": {
+    "prefix": ["for", "forloop"],
+    "body": [
+      "for ${1:i} := 0; ${1:i} < ${2:n}; ${1:i}++ {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Loop for clássico"
+  },
+
+  "for ever (infinite loop)": {
+    "prefix": ["forever", "loop"],
+    "body": [
+      "for {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Loop infinito"
+  },
+
+  "switch": {
+    "prefix": ["switch"],
+    "body": [
+      "switch ${1:variable} {",
+      "case ${2:value1}:",
+      "\t$3",
+      "case ${4:value2}:",
+      "\t$5",
+      "default:",
+      "\t$0",
+      "}"
+    ],
+    "description": "Switch statement"
+  },
+
+  "type switch": {
+    "prefix": ["typeswitch", "tswitch"],
+    "body": [
+      "switch v := ${1:i}.(type) {",
+      "case ${2:int}:",
+      "\t$3",
+      "case ${4:string}:",
+      "\t$5",
+      "default:",
+      "\t_ = v",
+      "\t$0",
+      "}"
+    ],
+    "description": "Type switch"
+  },
+
+  "defer": {
+    "prefix": ["defer"],
+    "body": [
+      "defer ${1:func}(${2:args})"
+    ],
+    "description": "defer statement"
+  },
+
+  "defer func": {
+    "prefix": ["deferfunc", "deferr"],
+    "body": [
+      "defer func() {",
+      "\t$0",
+      "}()"
+    ],
+    "description": "defer func() literal"
+  },
+
+  "goroutine": {
+    "prefix": ["goroutine", "go"],
+    "body": [
+      "go func() {",
+      "\t$0",
+      "}()"
+    ],
+    "description": "Goroutine anônima"
+  },
+
+  "goroutine named": {
+    "prefix": ["gonamed", "goroutine-fn"],
+    "body": [
+      "go ${1:funcName}(${2:args})"
+    ],
+    "description": "Goroutine com função nomeada"
+  },
+
+  "channel make": {
+    "prefix": ["chan", "channel"],
+    "body": [
+      "${1:ch} := make(chan ${2:int}, ${3:0})"
+    ],
+    "description": "Criar canal"
+  },
+
+  "select": {
+    "prefix": ["select"],
+    "body": [
+      "select {",
+      "case ${1:v} := <-${2:ch}:",
+      "\t$3",
+      "case ${4:ch} <- ${5:val}:",
+      "\t$6",
+      "default:",
+      "\t$0",
+      "}"
+    ],
+    "description": "Select statement para canais"
+  },
+
+  "WaitGroup": {
+    "prefix": ["wg", "waitgroup"],
+    "body": [
+      "var wg sync.WaitGroup",
+      "",
+      "for _, ${1:item} := range ${2:items} {",
+      "\twg.Add(1)",
+      "\tgo func(${1:item} ${3:type}) {",
+      "\t\tdefer wg.Done()",
+      "\t\t$0",
+      "\t}(${1:item})",
+      "}",
+      "",
+      "wg.Wait()"
+    ],
+    "description": "Padrão com sync.WaitGroup"
+  },
+
+  "Mutex": {
+    "prefix": ["mutex"],
+    "body": [
+      "var mu sync.Mutex",
+      "",
+      "mu.Lock()",
+      "defer mu.Unlock()",
+      "$0"
+    ],
+    "description": "sync.Mutex com Lock/Unlock"
+  },
+
+  "sync.Once": {
+    "prefix": ["once", "synonce"],
+    "body": [
+      "var once sync.Once",
+      "",
+      "once.Do(func() {",
+      "\t$0",
+      "})"
+    ],
+    "description": "sync.Once"
+  },
+
+  "context.WithCancel": {
+    "prefix": ["ctx-cancel", "withcancel"],
+    "body": [
+      "ctx, cancel := context.WithCancel(${1:context.Background()})",
+      "defer cancel()",
+      "$0"
+    ],
+    "description": "context com cancel"
+  },
+
+  "context.WithTimeout": {
+    "prefix": ["ctx-timeout", "withtimeout"],
+    "body": [
+      "ctx, cancel := context.WithTimeout(${1:context.Background()}, ${2:5}*time.Second)",
+      "defer cancel()",
+      "$0"
+    ],
+    "description": "context com timeout"
+  },
+
+  "context.WithDeadline": {
+    "prefix": ["ctx-deadline"],
+    "body": [
+      "deadline := time.Now().Add(${1:5} * time.Second)",
+      "ctx, cancel := context.WithDeadline(${2:context.Background()}, deadline)",
+      "defer cancel()",
+      "$0"
+    ],
+    "description": "context com deadline"
+  },
+
+  "context.WithValue": {
+    "prefix": ["ctx-value", "withvalue"],
+    "body": [
+      "ctx := context.WithValue(${1:ctx}, ${2:key}(\"${3:keyName}\"), ${4:value})"
+    ],
+    "description": "context com valor"
+  },
+
+  "HTTP handler func": {
+    "prefix": ["http-handler", "handler"],
+    "body": [
+      "func ${1:handlerName}(w http.ResponseWriter, r *http.Request) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "HTTP handler function"
+  },
+
+  "HTTP server": {
+    "prefix": ["http-server", "server"],
+    "body": [
+      "mux := http.NewServeMux()",
+      "",
+      "mux.HandleFunc(\"${1:GET /api/path}\", func(w http.ResponseWriter, r *http.Request) {",
+      "\t$0",
+      "})",
+      "",
+      "server := &http.Server{",
+      "\tAddr:    \":${2:8080}\",",
+      "\tHandler: mux,",
+      "}",
+      "",
+      "log.Printf(\"server listening on :%s\\n\", \"${2:8080}\")",
+      "if err := server.ListenAndServe(); err != nil {",
+      "\tlog.Fatal(err)",
+      "}"
+    ],
+    "description": "HTTP server com http.NewServeMux (Go 1.22+)"
+  },
+
+  "json.Marshal": {
+    "prefix": ["json-marshal", "jsonm"],
+    "body": [
+      "data, err := json.Marshal(${1:v})",
+      "if err != nil {",
+      "\treturn ${2:nil, }fmt.Errorf(\"json marshal: %w\", err)",
+      "}"
+    ],
+    "description": "json.Marshal com tratamento de erro"
+  },
+
+  "json.Unmarshal": {
+    "prefix": ["json-unmarshal", "jsonu"],
+    "body": [
+      "if err := json.Unmarshal(${1:data}, &${2:v}); err != nil {",
+      "\treturn ${3:nil, }fmt.Errorf(\"json unmarshal: %w\", err)",
+      "}"
+    ],
+    "description": "json.Unmarshal com tratamento de erro"
+  },
+
+  "json.NewDecoder": {
+    "prefix": ["json-decode", "jsond"],
+    "body": [
+      "var ${1:v} ${2:T}",
+      "if err := json.NewDecoder(${3:r.Body}).Decode(&${1:v}); err != nil {",
+      "\thttp.Error(w, err.Error(), http.StatusBadRequest)",
+      "\treturn",
+      "}"
+    ],
+    "description": "Decodificar JSON do body HTTP"
+  },
+
+  "json.NewEncoder (response)": {
+    "prefix": ["json-encode", "jsone"],
+    "body": [
+      "w.Header().Set(\"Content-Type\", \"application/json\")",
+      "if err := json.NewEncoder(w).Encode(${1:v}); err != nil {",
+      "\thttp.Error(w, err.Error(), http.StatusInternalServerError)",
+      "}"
+    ],
+    "description": "Encodificar JSON para response HTTP"
+  },
+
+  "struct with json tags": {
+    "prefix": ["struct-json", "jstruct"],
+    "body": [
+      "type ${1:Name} struct {",
+      "\t${2:Field} ${3:string} `json:\"${4:field}\"`",
+      "\t$0",
+      "}"
+    ],
+    "description": "Struct com tags JSON"
+  },
+
+  "slog.Info": {
+    "prefix": ["slog", "sloginfo"],
+    "body": [
+      "slog.Info(\"${1:message}\", \"${2:key}\", ${3:value})"
+    ],
+    "description": "slog.Info (Go 1.21+)"
+  },
+
+  "slog.Error": {
+    "prefix": ["slogerr"],
+    "body": [
+      "slog.Error(\"${1:message}\", \"error\", err)"
+    ],
+    "description": "slog.Error (Go 1.21+)"
+  },
+
+  "slog with attributes": {
+    "prefix": ["slogattr"],
+    "body": [
+      "slog.Info(\"${1:message}\",",
+      "\tslog.String(\"${2:key}\", ${3:value}),",
+      "\tslog.Int(\"${4:count}\", ${5:n}),",
+      ")"
+    ],
+    "description": "slog com atributos tipados (Go 1.21+)"
+  },
+
+  "slog setup": {
+    "prefix": ["slog-setup", "sloginit"],
+    "body": [
+      "logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{",
+      "\tLevel: slog.LevelInfo,",
+      "}))",
+      "slog.SetDefault(logger)"
+    ],
+    "description": "Configurar slog com JSON handler (Go 1.21+)"
+  },
+
+  "Test function": {
+    "prefix": ["test", "testfunc"],
+    "body": [
+      "func Test${1:Name}(t *testing.T) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função de teste"
+  },
+
+  "Table-driven test": {
+    "prefix": ["testtt", "table-test"],
+    "body": [
+      "func Test${1:Name}(t *testing.T) {",
+      "\ttests := []struct {",
+      "\t\tname  string",
+      "\t\tinput ${2:string}",
+      "\t\twant  ${3:string}",
+      "\t}{",
+      "\t\t{name: \"${4:case1}\", input: ${5:\"\"}, want: ${6:\"\"}},",
+      "\t\t$0",
+      "\t}",
+      "",
+      "\tfor _, tc := range tests {",
+      "\t\tt.Run(tc.name, func(t *testing.T) {",
+      "\t\t\tgot := ${7:funcUnderTest}(tc.input)",
+      "\t\t\tif got != tc.want {",
+      "\t\t\t\tt.Errorf(\"got %v, want %v\", got, tc.want)",
+      "\t\t\t}",
+      "\t\t})",
+      "\t}",
+      "}"
+    ],
+    "description": "Table-driven test"
+  },
+
+  "Benchmark function": {
+    "prefix": ["bench", "benchmark"],
+    "body": [
+      "func Benchmark${1:Name}(b *testing.B) {",
+      "\tfor b.Loop() {",
+      "\t\t$0",
+      "\t}",
+      "}"
+    ],
+    "description": "Função de benchmark (Go 1.24+ b.Loop())"
+  },
+
+  "TestMain": {
+    "prefix": ["testmain"],
+    "body": [
+      "func TestMain(m *testing.M) {",
+      "\t// setup",
+      "\t$0",
+      "",
+      "\tos.Exit(m.Run())",
+      "}"
+    ],
+    "description": "TestMain para setup/teardown de testes"
+  },
+
+  "t.Helper": {
+    "prefix": ["thelper", "helper"],
+    "body": [
+      "func ${1:helperName}(t *testing.T${2:, args}) {",
+      "\tt.Helper()",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função helper de teste com t.Helper()"
+  },
+
+  "Generics function": {
+    "prefix": ["generic", "genf"],
+    "body": [
+      "func ${1:Name}[T ${2:any}](${3:arg} T) T {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Função genérica (Go 1.18+)"
+  },
+
+  "Type constraint": {
+    "prefix": ["constraint", "typeconstraint"],
+    "body": [
+      "type ${1:Number} interface {",
+      "\t${2:~int | ~int64 | ~float64}",
+      "}"
+    ],
+    "description": "Type constraint para generics (Go 1.18+)"
+  },
+
+  "Slice contains (generic)": {
+    "prefix": ["contains", "slicecontains"],
+    "body": [
+      "func Contains[T comparable](s []T, v T) bool {",
+      "\tfor _, item := range s {",
+      "\t\tif item == v {",
+      "\t\t\treturn true",
+      "\t\t}",
+      "\t}",
+      "\treturn false",
+      "}"
+    ],
+    "description": "Função genérica Contains para slices"
+  },
+
+  "Map (generic transform)": {
+    "prefix": ["mapfunc", "slicemap"],
+    "body": [
+      "func Map[T, U any](s []T, f func(T) U) []U {",
+      "\tresult := make([]U, len(s))",
+      "\tfor i, v := range s {",
+      "\t\tresult[i] = f(v)",
+      "\t}",
+      "\treturn result",
+      "}"
+    ],
+    "description": "Função genérica Map para slices"
+  },
+
+  "Filter (generic)": {
+    "prefix": ["filterfunc", "slicefilter"],
+    "body": [
+      "func Filter[T any](s []T, f func(T) bool) []T {",
+      "\tresult := make([]T, 0)",
+      "\tfor _, v := range s {",
+      "\t\tif f(v) {",
+      "\t\t\tresult = append(result, v)",
+      "\t\t}",
+      "\t}",
+      "\treturn result",
+      "}"
+    ],
+    "description": "Função genérica Filter para slices"
+  },
+
+  "iter.Seq (range over func)": {
+    "prefix": ["iterseq", "seq"],
+    "body": [
+      "func ${1:Values}(${2:s} []${3:int}) iter.Seq[${3:int}] {",
+      "\treturn func(yield func(${3:int}) bool) {",
+      "\t\tfor _, v := range ${2:s} {",
+      "\t\t\tif !yield(v) {",
+      "\t\t\t\treturn",
+      "\t\t\t}",
+      "\t\t}",
+      "\t}",
+      "}"
+    ],
+    "description": "iter.Seq para range over function (Go 1.23+)"
+  },
+
+  "iter.Seq2 (key-value)": {
+    "prefix": ["iterseq2", "seq2"],
+    "body": [
+      "func ${1:Entries}(${2:m} map[${3:string}]${4:int}) iter.Seq2[${3:string}, ${4:int}] {",
+      "\treturn func(yield func(${3:string}, ${4:int}) bool) {",
+      "\t\tfor k, v := range ${2:m} {",
+      "\t\t\tif !yield(k, v) {",
+      "\t\t\t\treturn",
+      "\t\t\t}",
+      "\t\t}",
+      "\t}",
+      "}"
+    ],
+    "description": "iter.Seq2 para range over function (Go 1.23+)"
+  },
+
+  "Functional options": {
+    "prefix": ["funcopts", "options"],
+    "body": [
+      "type ${1:Server}Option func(*${1:Server})",
+      "",
+      "func With${2:Port}(${3:port} ${4:int}) ${1:Server}Option {",
+      "\treturn func(s *${1:Server}) {",
+      "\t\ts.${3:port} = ${3:port}",
+      "\t}",
+      "}",
+      "",
+      "func New${1:Server}(opts ...${1:Server}Option) *${1:Server} {",
+      "\ts := &${1:Server}{",
+      "\t\t// defaults",
+      "\t}",
+      "\tfor _, opt := range opts {",
+      "\t\topt(s)",
+      "\t}",
+      "\treturn s",
+      "}"
+    ],
+    "description": "Padrão functional options"
+  },
+
+  "fmt.Println": {
+    "prefix": ["println", "fmtpl"],
+    "body": [
+      "fmt.Println(${1:value})"
+    ],
+    "description": "fmt.Println"
+  },
+
+  "fmt.Printf": {
+    "prefix": ["printf", "fmtpf"],
+    "body": [
+      "fmt.Printf(\"${1:%v}\\n\", ${2:value})"
+    ],
+    "description": "fmt.Printf"
+  },
+
+  "fmt.Sprintf": {
+    "prefix": ["sprintf", "fmtsf"],
+    "body": [
+      "${1:s} := fmt.Sprintf(\"${2:%v}\", ${3:value})"
+    ],
+    "description": "fmt.Sprintf"
+  },
+
+  "log.Fatal": {
+    "prefix": ["logfatal"],
+    "body": [
+      "log.Fatal(err)"
+    ],
+    "description": "log.Fatal(err)"
+  },
+
+  "os.ReadFile": {
+    "prefix": ["readfile", "osread"],
+    "body": [
+      "data, err := os.ReadFile(${1:path})",
+      "if err != nil {",
+      "\treturn ${2:nil, }fmt.Errorf(\"read file: %w\", err)",
+      "}"
+    ],
+    "description": "os.ReadFile com tratamento de erro"
+  },
+
+  "os.WriteFile": {
+    "prefix": ["writefile", "oswrite"],
+    "body": [
+      "if err := os.WriteFile(${1:path}, ${2:data}, ${3:0644}); err != nil {",
+      "\treturn fmt.Errorf(\"write file: %w\", err)",
+      "}"
+    ],
+    "description": "os.WriteFile com tratamento de erro"
+  },
+
+  "strings.Builder": {
+    "prefix": ["strbuilder", "builder"],
+    "body": [
+      "var sb strings.Builder",
+      "sb.WriteString(\"${1:text}\")",
+      "${2:result} := sb.String()"
+    ],
+    "description": "strings.Builder"
+  },
+
+  "make slice": {
+    "prefix": ["makeslice", "mslice"],
+    "body": [
+      "${1:s} := make([]${2:int}, ${3:0}, ${4:10})"
+    ],
+    "description": "make de slice com cap"
+  },
+
+  "make map": {
+    "prefix": ["makemap", "mmap"],
+    "body": [
+      "${1:m} := make(map[${2:string}]${3:int})"
+    ],
+    "description": "make de map"
+  },
+
+  "append": {
+    "prefix": ["append"],
+    "body": [
+      "${1:s} = append(${1:s}, ${2:value})"
+    ],
+    "description": "append a slice"
+  },
+
+  "copy": {
+    "prefix": ["copy"],
+    "body": [
+      "dst := make([]${1:int}, len(${2:src}))",
+      "copy(dst, ${2:src})"
+    ],
+    "description": "copy de slice"
+  },
+
+  "panic recover": {
+    "prefix": ["recover", "panicrecover"],
+    "body": [
+      "defer func() {",
+      "\tif r := recover(); r != nil {",
+      "\t\t${1:err} = fmt.Errorf(\"recovered: %v\", r)",
+      "\t}",
+      "}()"
+    ],
+    "description": "recover de panic com defer"
+  },
+
+  "go:generate directive": {
+    "prefix": ["gogenerate", "generate"],
+    "body": [
+      "//go:generate ${1:go run github.com/example/gen}"
+    ],
+    "description": "Diretiva go:generate"
+  },
+
+  "build tag": {
+    "prefix": ["buildtag", "build"],
+    "body": [
+      "//go:build ${1:linux}"
+    ],
+    "description": "Build tag (Go 1.17+)"
+  }
+}

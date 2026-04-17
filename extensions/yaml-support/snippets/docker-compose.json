@@ -1,0 +1,160 @@
+{
+  "Docker Compose file": {
+    "prefix": ["compose", "docker-compose"],
+    "body": [
+      "services:",
+      "  ${1:app}:",
+      "    image: ${2:node:22-alpine}",
+      "    container_name: ${1:app}",
+      "    ports:",
+      "      - \"${3:3000}:${3:3000}\"",
+      "    environment:",
+      "      - ${4:NODE_ENV}=${5:production}",
+      "    volumes:",
+      "      - .:/app",
+      "    depends_on:",
+      "      - ${6:db}",
+      "    restart: unless-stopped",
+      "",
+      "  ${6:db}:",
+      "    image: ${7:postgres:16-alpine}",
+      "    container_name: ${6:db}",
+      "    environment:",
+      "      - POSTGRES_USER=${8:user}",
+      "      - POSTGRES_PASSWORD=${9:password}",
+      "      - POSTGRES_DB=${10:mydb}",
+      "    volumes:",
+      "      - ${6:db}_data:/var/lib/postgresql/data",
+      "    ports:",
+      "      - \"${11:5432}:5432\"",
+      "    restart: unless-stopped",
+      "",
+      "volumes:",
+      "  ${6:db}_data:"
+    ],
+    "description": "Docker Compose com app + banco"
+  },
+
+  "Compose service": {
+    "prefix": ["compose-service", "dc-service"],
+    "body": [
+      "${1:service-name}:",
+      "  image: ${2:image:tag}",
+      "  container_name: ${1:service-name}",
+      "  ports:",
+      "    - \"${3:8080}:${4:8080}\"",
+      "  environment:",
+      "    - ${5:KEY}=${6:value}",
+      "  volumes:",
+      "    - ${7:.:/app}",
+      "  restart: ${8|unless-stopped,always,no,on-failure|}"
+    ],
+    "description": "Serviço Docker Compose"
+  },
+
+  "Compose build service": {
+    "prefix": ["compose-build", "dc-build"],
+    "body": [
+      "${1:app}:",
+      "  build:",
+      "    context: ${2:.}",
+      "    dockerfile: ${3:Dockerfile}",
+      "    args:",
+      "      - ${4:BUILD_ARG}=${5:value}",
+      "  container_name: ${1:app}",
+      "  ports:",
+      "    - \"${6:3000}:${6:3000}\"",
+      "  volumes:",
+      "    - .:/app",
+      "    - /app/node_modules",
+      "  restart: unless-stopped"
+    ],
+    "description": "Serviço com build local"
+  },
+
+  "Compose network": {
+    "prefix": ["compose-network", "dc-network"],
+    "body": [
+      "networks:",
+      "  ${1:app-network}:",
+      "    driver: ${2|bridge,host,overlay,none|}"
+    ],
+    "description": "Rede Docker Compose"
+  },
+
+  "Compose volume": {
+    "prefix": ["compose-volume", "dc-volume"],
+    "body": [
+      "volumes:",
+      "  ${1:data_volume}:",
+      "    driver: ${2:local}"
+    ],
+    "description": "Volume Docker Compose"
+  },
+
+  "Compose healthcheck": {
+    "prefix": ["compose-health", "dc-healthcheck"],
+    "body": [
+      "healthcheck:",
+      "  test: [\"CMD\", \"${1:curl}\", \"-f\", \"${2:http://localhost:${3:8080}/health}\"]",
+      "  interval: ${4:30s}",
+      "  timeout: ${5:10s}",
+      "  retries: ${6:3}",
+      "  start_period: ${7:10s}"
+    ],
+    "description": "Healthcheck para serviço"
+  },
+
+  "Compose Redis": {
+    "prefix": ["compose-redis", "dc-redis"],
+    "body": [
+      "redis:",
+      "  image: redis:7-alpine",
+      "  container_name: redis",
+      "  ports:",
+      "    - \"6379:6379\"",
+      "  volumes:",
+      "    - redis_data:/data",
+      "  restart: unless-stopped",
+      "  command: redis-server --appendonly yes"
+    ],
+    "description": "Serviço Redis"
+  },
+
+  "Compose Postgres": {
+    "prefix": ["compose-postgres", "dc-pg"],
+    "body": [
+      "postgres:",
+      "  image: postgres:${1:16}-alpine",
+      "  container_name: postgres",
+      "  environment:",
+      "    - POSTGRES_USER=${2:user}",
+      "    - POSTGRES_PASSWORD=${3:password}",
+      "    - POSTGRES_DB=${4:mydb}",
+      "  volumes:",
+      "    - pg_data:/var/lib/postgresql/data",
+      "  ports:",
+      "    - \"5432:5432\"",
+      "  restart: unless-stopped"
+    ],
+    "description": "Serviço PostgreSQL"
+  },
+
+  "Compose Nginx reverse proxy": {
+    "prefix": ["compose-nginx", "dc-nginx"],
+    "body": [
+      "nginx:",
+      "  image: nginx:alpine",
+      "  container_name: nginx",
+      "  ports:",
+      "    - \"${1:80}:80\"",
+      "    - \"${2:443}:443\"",
+      "  volumes:",
+      "    - ./nginx.conf:/etc/nginx/nginx.conf:ro",
+      "  depends_on:",
+      "    - ${3:app}",
+      "  restart: unless-stopped"
+    ],
+    "description": "Nginx como reverse proxy"
+  }
+}

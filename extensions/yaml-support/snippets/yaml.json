@@ -1,0 +1,133 @@
+{
+  "Key-value pair": {
+    "prefix": ["kv", "key"],
+    "body": [
+      "${1:key}: ${2:value}"
+    ],
+    "description": "Par chave-valor"
+  },
+
+  "Nested key": {
+    "prefix": ["nested", "nest"],
+    "body": [
+      "${1:parent}:",
+      "  ${2:child}: ${3:value}"
+    ],
+    "description": "Chave aninhada"
+  },
+
+  "List": {
+    "prefix": ["list", "arr"],
+    "body": [
+      "${1:key}:",
+      "  - ${2:item1}",
+      "  - ${3:item2}",
+      "  - $0"
+    ],
+    "description": "Lista YAML"
+  },
+
+  "Inline list": {
+    "prefix": ["ilist", "iarr"],
+    "body": [
+      "${1:key}: [${2:item1}, ${3:item2}]"
+    ],
+    "description": "Lista inline"
+  },
+
+  "Map of maps": {
+    "prefix": ["mapmap", "nested-map"],
+    "body": [
+      "${1:parent}:",
+      "  ${2:child1}:",
+      "    ${3:key}: ${4:value}",
+      "  ${5:child2}:",
+      "    ${6:key}: ${7:value}"
+    ],
+    "description": "Mapa de mapas"
+  },
+
+  "Multiline string (literal)": {
+    "prefix": ["literal", "ml-literal"],
+    "body": [
+      "${1:key}: |",
+      "  ${2:line1}",
+      "  ${3:line2}"
+    ],
+    "description": "String multilinha literal (preserva newlines)"
+  },
+
+  "Multiline string (folded)": {
+    "prefix": ["folded", "ml-folded"],
+    "body": [
+      "${1:key}: >",
+      "  ${2:line1}",
+      "  ${3:line2}"
+    ],
+    "description": "String multilinha folded (junta linhas)"
+  },
+
+  "Anchor and alias": {
+    "prefix": ["anchor", "anch"],
+    "body": [
+      "${1:base}: &${2:anchor_name}",
+      "  ${3:key}: ${4:value}",
+      "",
+      "${5:derived}:",
+      "  <<: *${2:anchor_name}",
+      "  ${6:override_key}: ${7:override_value}"
+    ],
+    "description": "Anchor (&) e alias (*) com merge (<<)"
+  },
+
+  "Null value": {
+    "prefix": ["null"],
+    "body": [
+      "${1:key}: null"
+    ],
+    "description": "Valor nulo"
+  },
+
+  "Boolean": {
+    "prefix": ["bool"],
+    "body": [
+      "${1:key}: ${2|true,false|}"
+    ],
+    "description": "Valor booleano"
+  },
+
+  "Comment block": {
+    "prefix": ["comment", "cmt"],
+    "body": [
+      "# ─────────────────────────────────────────────",
+      "# ${1:Section}",
+      "# ─────────────────────────────────────────────"
+    ],
+    "description": "Bloco de comentário de seção"
+  },
+
+  "Environment variable": {
+    "prefix": ["env", "envvar"],
+    "body": [
+      "${1:key}: \\${${2:ENV_VAR}:-${3:default}}"
+    ],
+    "description": "Variável de ambiente com default"
+  },
+
+  "YAML document separator": {
+    "prefix": ["doc", "separator"],
+    "body": [
+      "---",
+      "$0"
+    ],
+    "description": "Separador de documento YAML (---)"
+  },
+
+  "Schema modeline": {
+    "prefix": ["schema", "modeline"],
+    "body": [
+      "# yaml-language-server: \\$schema=${1:https://json.schemastore.org/${2:schema}.json}"
+    ],
+    "description": "Modeline para associar schema ao arquivo"
+  }
+}

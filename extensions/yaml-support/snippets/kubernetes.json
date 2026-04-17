@@ -1,0 +1,242 @@
+{
+  "Deployment": {
+    "prefix": ["k8s-deployment", "deployment"],
+    "body": [
+      "apiVersion: apps/v1",
+      "kind: Deployment",
+      "metadata:",
+      "  name: ${1:my-app}",
+      "  namespace: ${2:default}",
+      "  labels:",
+      "    app: ${1:my-app}",
+      "spec:",
+      "  replicas: ${3:3}",
+      "  selector:",
+      "    matchLabels:",
+      "      app: ${1:my-app}",
+      "  template:",
+      "    metadata:",
+      "      labels:",
+      "        app: ${1:my-app}",
+      "    spec:",
+      "      containers:",
+      "        - name: ${1:my-app}",
+      "          image: ${4:nginx:latest}",
+      "          ports:",
+      "            - containerPort: ${5:80}",
+      "          resources:",
+      "            requests:",
+      "              cpu: ${6:100m}",
+      "              memory: ${7:128Mi}",
+      "            limits:",
+      "              cpu: ${8:500m}",
+      "              memory: ${9:256Mi}",
+      "          $0"
+    ],
+    "description": "Kubernetes Deployment"
+  },
+
+  "Service": {
+    "prefix": ["k8s-service", "service"],
+    "body": [
+      "apiVersion: v1",
+      "kind: Service",
+      "metadata:",
+      "  name: ${1:my-app}-svc",
+      "  namespace: ${2:default}",
+      "spec:",
+      "  selector:",
+      "    app: ${1:my-app}",
+      "  ports:",
+      "    - protocol: TCP",
+      "      port: ${3:80}",
+      "      targetPort: ${4:80}",
+      "  type: ${5|ClusterIP,NodePort,LoadBalancer|}"
+    ],
+    "description": "Kubernetes Service"
+  },
+
+  "Ingress": {
+    "prefix": ["k8s-ingress", "ingress"],
+    "body": [
+      "apiVersion: networking.k8s.io/v1",
+      "kind: Ingress",
+      "metadata:",
+      "  name: ${1:my-app}-ingress",
+      "  namespace: ${2:default}",
+      "  annotations:",
+      "    nginx.ingress.kubernetes.io/rewrite-target: /",
+      "spec:",
+      "  ingressClassName: ${3:nginx}",
+      "  rules:",
+      "    - host: ${4:myapp.example.com}",
+      "      http:",
+      "        paths:",
+      "          - path: ${5:/}",
+      "            pathType: Prefix",
+      "            backend:",
+      "              service:",
+      "                name: ${1:my-app}-svc",
+      "                port:",
+      "                  number: ${6:80}"
+    ],
+    "description": "Kubernetes Ingress"
+  },
+
+  "ConfigMap": {
+    "prefix": ["k8s-configmap", "configmap"],
+    "body": [
+      "apiVersion: v1",
+      "kind: ConfigMap",
+      "metadata:",
+      "  name: ${1:my-config}",
+      "  namespace: ${2:default}",
+      "data:",
+      "  ${3:KEY}: ${4:value}",
+      "  $0"
+    ],
+    "description": "Kubernetes ConfigMap"
+  },
+
+  "Secret": {
+    "prefix": ["k8s-secret", "secret"],
+    "body": [
+      "apiVersion: v1",
+      "kind: Secret",
+      "metadata:",
+      "  name: ${1:my-secret}",
+      "  namespace: ${2:default}",
+      "type: Opaque",
+      "stringData:",
+      "  ${3:KEY}: ${4:value}",
+      "  $0"
+    ],
+    "description": "Kubernetes Secret (stringData)"
+  },
+
+  "PersistentVolumeClaim": {
+    "prefix": ["k8s-pvc", "pvc"],
+    "body": [
+      "apiVersion: v1",
+      "kind: PersistentVolumeClaim",
+      "metadata:",
+      "  name: ${1:my-pvc}",
+      "  namespace: ${2:default}",
+      "spec:",
+      "  accessModes:",
+      "    - ${3|ReadWriteOnce,ReadOnlyMany,ReadWriteMany|}",
+      "  storageClassName: ${4:standard}",
+      "  resources:",
+      "    requests:",
+      "      storage: ${5:1Gi}"
+    ],
+    "description": "Kubernetes PVC"
+  },
+
+  "CronJob": {
+    "prefix": ["k8s-cronjob", "cronjob"],
+    "body": [
+      "apiVersion: batch/v1",
+      "kind: CronJob",
+      "metadata:",
+      "  name: ${1:my-cronjob}",
+      "  namespace: ${2:default}",
+      "spec:",
+      "  schedule: \"${3:*/5 * * * *}\"",
+      "  jobTemplate:",
+      "    spec:",
+      "      template:",
+      "        spec:",
+      "          containers:",
+      "            - name: ${1:my-cronjob}",
+      "              image: ${4:busybox}",
+      "              command: [${5:\"/bin/sh\", \"-c\", \"echo hello\"}]",
+      "          restartPolicy: OnFailure"
+    ],
+    "description": "Kubernetes CronJob"
+  },
+
+  "HorizontalPodAutoscaler": {
+    "prefix": ["k8s-hpa", "hpa"],
+    "body": [
+      "apiVersion: autoscaling/v2",
+      "kind: HorizontalPodAutoscaler",
+      "metadata:",
+      "  name: ${1:my-app}-hpa",
+      "  namespace: ${2:default}",
+      "spec:",
+      "  scaleTargetRef:",
+      "    apiVersion: apps/v1",
+      "    kind: Deployment",
+      "    name: ${1:my-app}",
+      "  minReplicas: ${3:2}",
+      "  maxReplicas: ${4:10}",
+      "  metrics:",
+      "    - type: Resource",
+      "      resource:",
+      "        name: cpu",
+      "        target:",
+      "          type: Utilization",
+      "          averageUtilization: ${5:80}"
+    ],
+    "description": "Kubernetes HPA v2"
+  },
+
+  "Namespace": {
+    "prefix": ["k8s-namespace", "namespace"],
+    "body": [
+      "apiVersion: v1",
+      "kind: Namespace",
+      "metadata:",
+      "  name: ${1:my-namespace}",
+      "  labels:",
+      "    name: ${1:my-namespace}"
+    ],
+    "description": "Kubernetes Namespace"
+  },
+
+  "ServiceAccount": {
+    "prefix": ["k8s-sa", "serviceaccount"],
+    "body": [
+      "apiVersion: v1",
+      "kind: ServiceAccount",
+      "metadata:",
+      "  name: ${1:my-sa}",
+      "  namespace: ${2:default}"
+    ],
+    "description": "Kubernetes ServiceAccount"
+  },
+
+  "Container with probes": {
+    "prefix": ["k8s-container", "container-probes"],
+    "body": [
+      "- name: ${1:my-container}",
+      "  image: ${2:my-image:latest}",
+      "  ports:",
+      "    - containerPort: ${3:8080}",
+      "  env:",
+      "    - name: ${4:ENV_KEY}",
+      "      value: ${5:env_value}",
+      "  livenessProbe:",
+      "    httpGet:",
+      "      path: ${6:/healthz}",
+      "      port: ${3:8080}",
+      "    initialDelaySeconds: 15",
+      "    periodSeconds: 10",
+      "  readinessProbe:",
+      "    httpGet:",
+      "      path: ${7:/ready}",
+      "      port: ${3:8080}",
+      "    initialDelaySeconds: 5",
+      "    periodSeconds: 5",
+      "  resources:",
+      "    requests:",
+      "      cpu: 100m",
+      "      memory: 128Mi",
+      "    limits:",
+      "      cpu: 500m",
+      "      memory: 256Mi"
+    ],
+    "description": "Container spec com liveness/readiness probes"
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "name": "django-support",
+  "displayName": "Django Support",
+  "description": "Suporte completo a Django — templates, snippets, comandos manage.py e Django REST Framework",
+  "version": "0.1.0",
+  "publisher": "hyscode",
+  "engines": {
+    "hyscode": ">=0.1.0"
+  },
+  "categories": ["Programming Languages", "Snippets", "Formatters"],
+  "keywords": ["django", "python", "templates", "drf", "jinja"],
+
+  "activationEvents": [
+    "onLanguage:django-html",
+    "onLanguage:django-txt",
+    "onLanguage:python",
+    "workspaceContains:manage.py",
+    "workspaceContains:**/settings.py"
+  ],
+
+  "main": "main.js",
+
+  "contributes": {
+    "languages": [
+      {
+        "id": "django-html",
+        "aliases": ["Django HTML", "django-html"],
+        "extensions": [".html", ".djhtml", ".htm"],
+        "configuration": "language-configuration-html.json",
+        "firstLine": "^\\{[%#]"
+      },
+      {
+        "id": "django-txt",
+        "aliases": ["Django TXT", "django-txt"],
+        "extensions": [".txt"],
+        "configuration": "language-configuration-txt.json"
+      }
+    ],
+
+    "snippets": [
+      { "language": "django-html", "path": "snippets/django-templates.json" },
+      { "language": "python", "path": "snippets/django-python.json" },
+      { "language": "python", "path": "snippets/django-views.json" },
+      { "language": "python", "path": "snippets/django-models.json" },
+      { "language": "python", "path": "snippets/django-drf.json" }
+    ],
+
+    "commands": [
+      { "command": "django.runServer",      "title": "Django: Run Server" },
+      { "command": "django.makeMigrations", "title": "Django: Make Migrations" },
+      { "command": "django.migrate",        "title": "Django: Migrate" },
+      { "command": "django.createSuperUser","title": "Django: Create Superuser" },
+      { "command": "django.startApp",       "title": "Django: Start App" },
+      { "command": "django.startProject",   "title": "Django: Start Project" },
+      { "command": "django.collectStatic",  "title": "Django: Collect Static" },
+      { "command": "django.shell",          "title": "Django: Shell" },
+      { "command": "django.test",           "title": "Django: Run Tests" },
+      { "command": "django.check",          "title": "Django: System Check" },
+      { "command": "django.dumpData",       "title": "Django: Dump Data" },
+      { "command": "django.loadData",       "title": "Django: Load Data" },
+      { "command": "django.showUrls",       "title": "Django: Show URLs" },
+      { "command": "django.createsuperuser","title": "Django: Create Superuser (Interactive)" },
+      { "command": "django.newTemplate",    "title": "Django: New Template File" },
+      { "command": "django.newApp",         "title": "Django: Scaffold New App" }
+    ],
+
+    "configuration": {
+      "title": "Django Support",
+      "properties": {
+        "django.managePyPath": {
+          "type": "string",
+          "default": "manage.py",
+          "description": "Caminho para manage.py"
+        },
+        "django.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Comando Python (python, python3, py)"
+        },
+        "django.defaultPort": {
+          "type": "number",
+          "default": 8000,
+          "description": "Porta padrão do runserver"
+        },
+        "django.testFramework": {
+          "type": "string",
+          "enum": ["unittest", "pytest"],
+          "default": "unittest",
+          "description": "Framework de testes"
+        },
+        "django.autoActivateVenv": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ativar virtualenv automaticamente se detectado"
+        }
+      }
+    },
+
+    "keybindings": [
+      {
+        "command": "django.runServer",
+        "key": "ctrl+shift+r",
+        "when": "resourceLangId == python || resourceLangId == django-html"
+      }
+    ]
+  }
+}

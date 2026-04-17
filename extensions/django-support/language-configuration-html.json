@@ -1,0 +1,46 @@
+{
+  "comments": {
+    "blockComment": ["{#", "#}"]
+  },
+  "brackets": [
+    ["{%", "%}"],
+    ["{{", "}}"],
+    ["{#", "#}"],
+    ["<", ">"],
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{%", "close": " %}" },
+    { "open": "{{", "close": " }}" },
+    { "open": "{#", "close": " #}" },
+    { "open": "<", "close": ">" },
+    { "open": "\"", "close": "\"" },
+    { "open": "'", "close": "'" },
+    { "open": "(", "close": ")" },
+    { "open": "[", "close": "]" },
+    { "open": "{", "close": "}" }
+  ],
+  "surroundingPairs": [
+    { "open": "\"", "close": "\"" },
+    { "open": "'", "close": "'" },
+    { "open": "<", "close": ">" },
+    { "open": "(", "close": ")" },
+    { "open": "[", "close": "]" },
+    { "open": "{", "close": "}" },
+    { "open": "{%", "close": "%}" },
+    { "open": "{{", "close": "}}" },
+    { "open": "{#", "close": "#}" }
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*\\{%\\s*(block|if|for|with|filter|spaceless|verbatim|autoescape|comment)\\b",
+      "end": "^\\s*\\{%\\s*end(block|if|for|with|filter|spaceless|verbatim|autoescape|comment)\\b"
+    }
+  },
+  "indentationRules": {
+    "increaseIndentPattern": "(<(?!\\?|(?:area|base|br|col|frame|hr|html|img|input|link|meta|param)\\b)[a-zA-Z][^/>]*>|\\{%\\s*(?:block|if|elif|else|for|empty|with|filter|spaceless|verbatim|autoescape|comment)\\b[^%]*%\\})\\s*$",
+    "decreaseIndentPattern": "^\\s*(</[a-zA-Z][^>]*>|\\{%\\s*(?:endblock|endif|endfor|endwith|endfilter|endspaceless|endverbatim|endautoescape|endcomment|else|elif|empty)\\b)"
+  }
+}

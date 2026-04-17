@@ -1,0 +1,339 @@
+{
+  "name": "go-support",
+  "displayName": "Go",
+  "version": "1.0.0",
+  "description": "Suporte completo à linguagem Go — IntelliSense via gopls, snippets, formatação, diagnósticos, comandos go build/run/test/mod e gerenciamento de módulos",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["go", "golang", "gopls", "modules", "goroutine", "channel", "generics"],
+  "license": "MIT",
+  "activationEvents": [
+    "onLanguage:go",
+    "workspaceContains:go.mod",
+    "workspaceContains:go.work"
+  ],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "go",
+        "aliases": ["Go", "Golang"],
+        "extensions": [".go"],
+        "filenames": [],
+        "mimetypes": ["text/x-go"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "go-mod",
+        "aliases": ["Go Module", "go.mod"],
+        "filenames": ["go.mod"],
+        "configuration": "language-configuration-gomod.json"
+      },
+      {
+        "id": "go-work",
+        "aliases": ["Go Workspace", "go.work"],
+        "filenames": ["go.work"],
+        "configuration": "language-configuration-gomod.json"
+      },
+      {
+        "id": "go-sum",
+        "aliases": ["Go Checksum", "go.sum"],
+        "filenames": ["go.sum"]
+      },
+      {
+        "id": "go-template",
+        "aliases": ["Go Template"],
+        "extensions": [".tmpl", ".gohtml", ".gotmpl"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "languageServers": [
+      {
+        "id": "gopls",
+        "languageIds": ["go", "go-mod", "go-work", "go-template"],
+        "command": "gopls",
+        "args": ["serve"],
+        "rootPatterns": ["go.mod", "go.work"],
+        "initializationOptions": {
+          "analyses": {
+            "shadow": true,
+            "unusedparams": true,
+            "unusedwrite": true,
+            "useany": true,
+            "nilness": true,
+            "fieldalignment": false
+          },
+          "staticcheck": true,
+          "gofumpt": false,
+          "hints": {
+            "assignVariableTypes": true,
+            "compositeLiteralFields": true,
+            "compositeLiteralTypes": true,
+            "constantValues": true,
+            "functionTypeParameters": true,
+            "parameterNames": true,
+            "rangeVariableTypes": true
+          },
+          "codelenses": {
+            "generate": true,
+            "test": true,
+            "tidy": true,
+            "upgrade_dependency": true,
+            "run_govulncheck": true
+          }
+        }
+      }
+    ],
+    "snippets": [
+      { "language": "go", "path": "snippets/go.json" }
+    ],
+    "commands": [
+      {
+        "id": "go.run",
+        "title": "Run",
+        "category": "Go"
+      },
+      {
+        "id": "go.build",
+        "title": "Build",
+        "category": "Go"
+      },
+      {
+        "id": "go.test",
+        "title": "Run Tests",
+        "category": "Go"
+      },
+      {
+        "id": "go.testFile",
+        "title": "Run Tests (current file)",
+        "category": "Go"
+      },
+      {
+        "id": "go.testVerbose",
+        "title": "Run Tests (verbose)",
+        "category": "Go"
+      },
+      {
+        "id": "go.bench",
+        "title": "Run Benchmarks",
+        "category": "Go"
+      },
+      {
+        "id": "go.fmt",
+        "title": "Format (gofmt)",
+        "category": "Go"
+      },
+      {
+        "id": "go.vet",
+        "title": "Vet",
+        "category": "Go"
+      },
+      {
+        "id": "go.lint",
+        "title": "Lint (staticcheck)",
+        "category": "Go"
+      },
+      {
+        "id": "go.install",
+        "title": "Install Binary",
+        "category": "Go"
+      },
+      {
+        "id": "go.generate",
+        "title": "Generate (go generate)",
+        "category": "Go"
+      },
+      {
+        "id": "go.installGopls",
+        "title": "Install gopls",
+        "category": "Go"
+      },
+      {
+        "id": "go.newProject",
+        "title": "New Go Module",
+        "category": "Go"
+      },
+      {
+        "id": "go.newFile",
+        "title": "New Go File",
+        "category": "Go"
+      },
+      {
+        "id": "gomod.init",
+        "title": "mod init",
+        "category": "Go Mod"
+      },
+      {
+        "id": "gomod.tidy",
+        "title": "mod tidy",
+        "category": "Go Mod"
+      },
+      {
+        "id": "gomod.download",
+        "title": "mod download",
+        "category": "Go Mod"
+      },
+      {
+        "id": "gomod.vendor",
+        "title": "mod vendor",
+        "category": "Go Mod"
+      },
+      {
+        "id": "gomod.get",
+        "title": "mod get (Add Dependency)",
+        "category": "Go Mod"
+      },
+      {
+        "id": "gomod.upgrade",
+        "title": "mod upgrade all",
+        "category": "Go Mod"
+      },
+      {
+        "id": "gowork.init",
+        "title": "work init",
+        "category": "Go Work"
+      },
+      {
+        "id": "gowork.use",
+        "title": "work use",
+        "category": "Go Work"
+      },
+      {
+        "id": "gowork.sync",
+        "title": "work sync",
+        "category": "Go Work"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "go.run",
+        "key": "ctrl+shift+r",
+        "when": "editorTextFocus && editorLangId == go"
+      },
+      {
+        "command": "go.test",
+        "key": "ctrl+shift+t",
+        "when": "editorTextFocus && editorLangId == go"
+      },
+      {
+        "command": "go.fmt",
+        "key": "ctrl+shift+f",
+        "when": "editorTextFocus && editorLangId == go"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "go.run", "group": "1_go", "when": "editorLangId == go" },
+        { "command": "go.fmt", "group": "1_go", "when": "editorLangId == go" },
+        { "command": "go.test", "group": "1_go", "when": "editorLangId == go" }
+      ],
+      "commandPalette": [
+        { "command": "go.run" },
+        { "command": "go.build" },
+        { "command": "go.test" },
+        { "command": "go.testFile" },
+        { "command": "go.testVerbose" },
+        { "command": "go.bench" },
+        { "command": "go.fmt" },
+        { "command": "go.vet" },
+        { "command": "go.lint" },
+        { "command": "go.install" },
+        { "command": "go.generate" },
+        { "command": "go.installGopls" },
+        { "command": "go.newProject" },
+        { "command": "go.newFile" },
+        { "command": "gomod.init" },
+        { "command": "gomod.tidy" },
+        { "command": "gomod.download" },
+        { "command": "gomod.vendor" },
+        { "command": "gomod.get" },
+        { "command": "gomod.upgrade" },
+        { "command": "gowork.init" },
+        { "command": "gowork.use" },
+        { "command": "gowork.sync" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "go-support.indicator",
+        "text": "Go",
+        "tooltip": "Go Support ativo — gopls",
+        "command": "go.build",
+        "alignment": "right",
+        "priority": 50
+      }
+    ],
+    "configuration": {
+      "title": "Go",
+      "properties": {
+        "go.gopath": {
+          "type": "string",
+          "default": "",
+          "description": "GOPATH personalizado (deixe vazio para usar o padrão do sistema)"
+        },
+        "go.goroot": {
+          "type": "string",
+          "default": "",
+          "description": "GOROOT personalizado (deixe vazio para usar o padrão do sistema)"
+        },
+        "go.toolsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Diretório onde ficam as ferramentas Go (gopls, staticcheck etc.). Padrão: $GOPATH/bin"
+        },
+        "go.formatOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Executar gofmt automaticamente ao salvar"
+        },
+        "go.lintOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Executar staticcheck ao salvar"
+        },
+        "go.buildOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Executar go build ao salvar (detecta erros de compilação)"
+        },
+        "go.vetOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Executar go vet ao salvar"
+        },
+        "go.testTimeout": {
+          "type": "string",
+          "default": "30s",
+          "description": "Timeout padrão para go test (ex: 30s, 2m)"
+        },
+        "go.testFlags": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" },
+          "description": "Flags adicionais para go test"
+        },
+        "go.goplsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar gopls como language server"
+        },
+        "go.goplsPath": {
+          "type": "string",
+          "default": "gopls",
+          "description": "Caminho para o binário gopls"
+        },
+        "go.staticcheckEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar análise staticcheck via gopls"
+        },
+        "go.coverageEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Habilitar highlight de cobertura de testes no editor"
+        }
+      }
+    }
+  }
+}

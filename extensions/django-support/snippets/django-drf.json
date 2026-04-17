@@ -1,0 +1,197 @@
+{
+  "DRF Serializer": {
+    "prefix": ["drfserializer", "drf-serializer"],
+    "body": [
+      "from rest_framework import serializers",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "class ${1:MyModel}Serializer(serializers.ModelSerializer):",
+      "    class Meta:",
+      "        model = ${1:MyModel}",
+      "        fields = ${2:'__all__'}",
+      "        read_only_fields = [${3:'id', 'created_at'}]",
+      "    $0"
+    ],
+    "description": "DRF ModelSerializer"
+  },
+
+  "DRF ViewSet": {
+    "prefix": ["drfviewset", "drf-viewset"],
+    "body": [
+      "from rest_framework import viewsets, permissions",
+      "from .models import ${1:MyModel}",
+      "from .serializers import ${1:MyModel}Serializer",
+      "",
+      "",
+      "class ${1:MyModel}ViewSet(viewsets.ModelViewSet):",
+      "    queryset = ${1:MyModel}.objects.all()",
+      "    serializer_class = ${1:MyModel}Serializer",
+      "    permission_classes = [permissions.${2|IsAuthenticated,AllowAny,IsAdminUser|}]",
+      "    $0"
+    ],
+    "description": "DRF ModelViewSet"
+  },
+
+  "DRF APIView": {
+    "prefix": ["drfapiview", "drf-apiview"],
+    "body": [
+      "from rest_framework.views import APIView",
+      "from rest_framework.response import Response",
+      "from rest_framework import status",
+      "",
+      "",
+      "class ${1:MyEndpoint}(APIView):",
+      "    def get(self, request):",
+      "        $0",
+      "        return Response({'message': 'ok'})",
+      "",
+      "    def post(self, request):",
+      "        serializer = ${2:MySerializer}(data=request.data)",
+      "        serializer.is_valid(raise_exception=True)",
+      "        serializer.save()",
+      "        return Response(serializer.data, status=status.HTTP_201_CREATED)"
+    ],
+    "description": "DRF APIView"
+  },
+
+  "DRF Router": {
+    "prefix": ["drfrouter", "drf-router"],
+    "body": [
+      "from rest_framework.routers import DefaultRouter",
+      "from .views import ${1:MyModelViewSet}",
+      "",
+      "router = DefaultRouter()",
+      "router.register(r'${2:items}', ${1:MyModelViewSet})",
+      "",
+      "urlpatterns = router.urls"
+    ],
+    "description": "DRF Router setup"
+  },
+
+  "DRF Generic views": {
+    "prefix": ["drfgeneric", "drf-generic"],
+    "body": [
+      "from rest_framework import generics",
+      "from .models import ${1:MyModel}",
+      "from .serializers import ${1:MyModel}Serializer",
+      "",
+      "",
+      "class ${1:MyModel}ListCreateView(generics.ListCreateAPIView):",
+      "    queryset = ${1:MyModel}.objects.all()",
+      "    serializer_class = ${1:MyModel}Serializer",
+      "",
+      "",
+      "class ${1:MyModel}RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):",
+      "    queryset = ${1:MyModel}.objects.all()",
+      "    serializer_class = ${1:MyModel}Serializer"
+    ],
+    "description": "DRF generic ListCreate + RetrieveUpdateDestroy views"
+  },
+
+  "DRF Permission class": {
+    "prefix": ["drfpermission", "drf-permission"],
+    "body": [
+      "from rest_framework.permissions import BasePermission",
+      "",
+      "",
+      "class ${1:IsOwner}(BasePermission):",
+      "    def has_object_permission(self, request, view, obj):",
+      "        return obj.${2:owner} == request.user"
+    ],
+    "description": "DRF custom permission"
+  },
+
+  "DRF Filter + Pagination": {
+    "prefix": ["drffilter", "drf-filter-pagination"],
+    "body": [
+      "from rest_framework.pagination import PageNumberPagination",
+      "from django_filters.rest_framework import DjangoFilterBackend",
+      "from rest_framework import filters",
+      "",
+      "",
+      "class ${1:Standard}Pagination(PageNumberPagination):",
+      "    page_size = ${2:25}",
+      "    page_size_query_param = 'page_size'",
+      "    max_page_size = ${3:100}",
+      "",
+      "",
+      "class ${4:MyModel}ViewSet(viewsets.ModelViewSet):",
+      "    pagination_class = ${1:Standard}Pagination",
+      "    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]",
+      "    filterset_fields = [${5:'status', 'category'}]",
+      "    search_fields = [${6:'name', 'description'}]",
+      "    ordering_fields = [${7:'created_at', 'name'}]",
+      "    ordering = ['${8:-created_at}']"
+    ],
+    "description": "DRF filtering & pagination"
+  },
+
+  "DRF Token auth": {
+    "prefix": ["drftoken", "drf-token-auth"],
+    "body": [
+      "from rest_framework.authtoken.views import obtain_auth_token",
+      "",
+      "urlpatterns = [",
+      "    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),",
+      "]",
+      "",
+      "# settings.py:",
+      "# REST_FRAMEWORK = {",
+      "#     'DEFAULT_AUTHENTICATION_CLASSES': [",
+      "#         'rest_framework.authentication.TokenAuthentication',",
+      "#     ],",
+      "# }"
+    ],
+    "description": "DRF token authentication setup"
+  },
+
+  "DRF Serializer nested": {
+    "prefix": ["drfnested", "drf-nested-serializer"],
+    "body": [
+      "class ${1:Child}Serializer(serializers.ModelSerializer):",
+      "    class Meta:",
+      "        model = ${1:Child}",
+      "        fields = '__all__'",
+      "",
+      "",
+      "class ${2:Parent}Serializer(serializers.ModelSerializer):",
+      "    ${3:children} = ${1:Child}Serializer(many=True, read_only=True)",
+      "",
+      "    class Meta:",
+      "        model = ${2:Parent}",
+      "        fields = '__all__'"
+    ],
+    "description": "DRF nested serializer"
+  },
+
+  "DRF action decorator": {
+    "prefix": ["drfaction", "drf-action"],
+    "body": [
+      "from rest_framework.decorators import action",
+      "from rest_framework.response import Response",
+      "",
+      "@action(detail=${1|True,False|}, methods=['${2|get,post,put,patch,delete|}'])",
+      "def ${3:custom_action}(self, request${4:, pk=None}):",
+      "    $0",
+      "    return Response({'status': 'ok'})"
+    ],
+    "description": "DRF @action custom endpoint"
+  },
+
+  "DRF api_view": {
+    "prefix": ["drfapiviewfunc", "drf-api-view-func"],
+    "body": [
+      "from rest_framework.decorators import api_view",
+      "from rest_framework.response import Response",
+      "from rest_framework import status",
+      "",
+      "",
+      "@api_view(['${1|GET,POST,PUT,DELETE|}'])",
+      "def ${2:my_endpoint}(request):",
+      "    $0",
+      "    return Response({'message': 'ok'}, status=status.HTTP_200_OK)"
+    ],
+    "description": "DRF @api_view function"
+  }
+}

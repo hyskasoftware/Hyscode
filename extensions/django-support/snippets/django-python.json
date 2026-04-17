@@ -1,0 +1,245 @@
+{
+  "Django settings module": {
+    "prefix": ["djsettings", "django-settings"],
+    "body": [
+      "import os",
+      "from pathlib import Path",
+      "",
+      "BASE_DIR = Path(__file__).resolve().parent.parent",
+      "",
+      "SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '${1:change-me}')",
+      "DEBUG = os.environ.get('DJANGO_DEBUG', '${2:True}') == 'True'",
+      "ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '${3:*}').split(',')",
+      "",
+      "INSTALLED_APPS = [",
+      "    'django.contrib.admin',",
+      "    'django.contrib.auth',",
+      "    'django.contrib.contenttypes',",
+      "    'django.contrib.sessions',",
+      "    'django.contrib.messages',",
+      "    'django.contrib.staticfiles',",
+      "    '${4:myapp}',",
+      "]",
+      "",
+      "MIDDLEWARE = [",
+      "    'django.middleware.security.SecurityMiddleware',",
+      "    'django.contrib.sessions.middleware.SessionMiddleware',",
+      "    'django.middleware.common.CommonMiddleware',",
+      "    'django.middleware.csrf.CsrfViewMiddleware',",
+      "    'django.contrib.auth.middleware.AuthenticationMiddleware',",
+      "    'django.contrib.messages.middleware.MessageMiddleware',",
+      "    'django.middleware.clickjacking.XFrameOptionsMiddleware',",
+      "]",
+      "",
+      "ROOT_URLCONF = '${5:project}.urls'",
+      "",
+      "TEMPLATES = [",
+      "    {",
+      "        'BACKEND': 'django.template.backends.django.DjangoTemplates',",
+      "        'DIRS': [BASE_DIR / 'templates'],",
+      "        'APP_DIRS': True,",
+      "        'OPTIONS': {",
+      "            'context_processors': [",
+      "                'django.template.context_processors.debug',",
+      "                'django.template.context_processors.request',",
+      "                'django.contrib.auth.context_processors.auth',",
+      "                'django.contrib.messages.context_processors.messages',",
+      "            ],",
+      "        },",
+      "    },",
+      "]",
+      "",
+      "DATABASES = {",
+      "    'default': {",
+      "        'ENGINE': 'django.db.backends.${6|sqlite3,postgresql,mysql|}',",
+      "        'NAME': BASE_DIR / '${7:db.sqlite3}',",
+      "    }",
+      "}",
+      "",
+      "STATIC_URL = '/static/'",
+      "STATIC_ROOT = BASE_DIR / 'staticfiles'",
+      "STATICFILES_DIRS = [BASE_DIR / 'static']",
+      "",
+      "DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'",
+      "$0"
+    ],
+    "description": "Django settings.py completo"
+  },
+
+  "URL patterns": {
+    "prefix": ["djurls", "django-urls"],
+    "body": [
+      "from django.urls import path",
+      "from . import views",
+      "",
+      "app_name = '${1:app}'",
+      "",
+      "urlpatterns = [",
+      "    path('', views.${2:index}, name='${3:index}'),",
+      "    $0",
+      "]"
+    ],
+    "description": "Django urls.py"
+  },
+
+  "URL path": {
+    "prefix": ["djpath", "django-path"],
+    "body": ["path('${1:route}/', views.${2:view_name}, name='${3:name}'),"],
+    "description": "URL path entry"
+  },
+
+  "URL include": {
+    "prefix": ["djinclude-url", "django-include-url"],
+    "body": ["path('${1:prefix}/', include('${2:app}.urls')),"],
+    "description": "URL include"
+  },
+
+  "Admin register": {
+    "prefix": ["djadmin", "django-admin"],
+    "body": [
+      "from django.contrib import admin",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "@admin.register(${1:MyModel})",
+      "class ${1:MyModel}Admin(admin.ModelAdmin):",
+      "    list_display = [${2:'id', '__str__'}]",
+      "    list_filter = [${3}]",
+      "    search_fields = [${4}]",
+      "    ordering = [${5:'-id'}]",
+      "    $0"
+    ],
+    "description": "Django admin.register"
+  },
+
+  "Admin inline": {
+    "prefix": ["djadmin-inline", "django-inline"],
+    "body": [
+      "class ${1:Related}Inline(admin.${2|TabularInline,StackedInline|}):",
+      "    model = ${1:Related}",
+      "    extra = ${3:1}"
+    ],
+    "description": "Django admin inline"
+  },
+
+  "Management command": {
+    "prefix": ["djmanagement", "django-command"],
+    "body": [
+      "from django.core.management.base import BaseCommand",
+      "",
+      "",
+      "class Command(BaseCommand):",
+      "    help = '${1:Description of the command}'",
+      "",
+      "    def add_arguments(self, parser):",
+      "        parser.add_argument('${2:arg}', type=${3:str})",
+      "",
+      "    def handle(self, *args, **options):",
+      "        $0",
+      "        self.stdout.write(self.style.SUCCESS('Done!'))"
+    ],
+    "description": "Django management command"
+  },
+
+  "Signal handler": {
+    "prefix": ["djsignal", "django-signal"],
+    "body": [
+      "from django.db.models.signals import ${1|post_save,pre_save,post_delete,pre_delete,m2m_changed|}",
+      "from django.dispatch import receiver",
+      "from .models import ${2:MyModel}",
+      "",
+      "",
+      "@receiver(${1:post_save}, sender=${2:MyModel})",
+      "def ${3:handle_signal}(sender, instance, ${4:created}, **kwargs):",
+      "    ${5:if created:}",
+      "        $0"
+    ],
+    "description": "Django signal handler"
+  },
+
+  "Middleware": {
+    "prefix": ["djmiddleware", "django-middleware"],
+    "body": [
+      "class ${1:MyMiddleware}:",
+      "    def __init__(self, get_response):",
+      "        self.get_response = get_response",
+      "",
+      "    def __call__(self, request):",
+      "        # Before view",
+      "        $0",
+      "        response = self.get_response(request)",
+      "        # After view",
+      "        return response"
+    ],
+    "description": "Django middleware class"
+  },
+
+  "Form": {
+    "prefix": ["djform-py", "django-form-py"],
+    "body": [
+      "from django import forms",
+      "from .models import ${1:MyModel}",
+      "",
+      "",
+      "class ${1:MyModel}Form(forms.ModelForm):",
+      "    class Meta:",
+      "        model = ${1:MyModel}",
+      "        fields = [${2:'__all__'}]",
+      "        widgets = {",
+      "            $0",
+      "        }"
+    ],
+    "description": "Django ModelForm"
+  },
+
+  "Form plain": {
+    "prefix": ["djform-plain", "django-form-plain"],
+    "body": [
+      "from django import forms",
+      "",
+      "",
+      "class ${1:MyForm}(forms.Form):",
+      "    ${2:name} = forms.${3|CharField,EmailField,IntegerField,BooleanField,DateField,FileField|}(",
+      "        max_length=${4:100},",
+      "        required=${5:True},",
+      "        widget=forms.${6|TextInput,EmailInput,NumberInput,CheckboxInput,DateInput,FileInput|}(attrs={",
+      "            'class': '${7:form-control}',",
+      "            'placeholder': '${8:Enter value}',",
+      "        }),",
+      "    )",
+      "    $0"
+    ],
+    "description": "Django plain Form"
+  },
+
+  "Context processor": {
+    "prefix": ["djcontext", "django-context-processor"],
+    "body": [
+      "def ${1:my_context}(request):",
+      "    return {",
+      "        '${2:key}': ${3:value},",
+      "    }"
+    ],
+    "description": "Django context processor"
+  },
+
+  "Test case": {
+    "prefix": ["djtest", "django-test"],
+    "body": [
+      "from django.test import TestCase, Client",
+      "from django.urls import reverse",
+      "",
+      "",
+      "class ${1:MyModel}Tests(TestCase):",
+      "    def setUp(self):",
+      "        self.client = Client()",
+      "        $2",
+      "",
+      "    def test_${3:something}(self):",
+      "        response = self.client.get(reverse('${4:url_name}'))",
+      "        self.assertEqual(response.status_code, ${5:200})",
+      "        $0"
+    ],
+    "description": "Django TestCase"
+  }
+}

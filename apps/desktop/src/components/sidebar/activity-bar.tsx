@@ -1,12 +1,18 @@
-import { Files, Search, GitBranch, Settings, Bot, Puzzle, Blocks, Smartphone, Container } from 'lucide-react';
+import { Files, Search, GitBranch, Settings, Bot, Puzzle, Blocks, Smartphone, Container, CheckSquare, FolderKanban, LayoutList, type LucideIcon } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import { useGitStore } from '../../stores/git-store';
 import { useDockerStore } from '../../stores/docker-store';
 import { useAgentStore } from '../../stores/agent-store';
 import { useExtensionStore } from '../../stores/extension-store';
-import type { SidebarView } from './sidebar';
+import type { SidebarView, BuiltinSidebarView } from './sidebar';
 
-const items = [
+const ICON_MAP: Record<string, LucideIcon> = {
+  '$(checklist)': CheckSquare,
+  '$(folder-library)': FolderKanban,
+  '$(list-tree)': LayoutList,
+};
+
+const builtinItems: { id: BuiltinSidebarView; icon: LucideIcon; label: string }[] = [
   { id: 'files', icon: Files, label: 'Explorer' },
   { id: 'search', icon: Search, label: 'Search' },
   { id: 'git', icon: GitBranch, label: 'Source Control' },
@@ -15,7 +21,7 @@ const items = [
   { id: 'agent', icon: Bot, label: 'Agent' },
   { id: 'devices', icon: Smartphone, label: 'Devices' },
   { id: 'docker', icon: Container, label: 'Docker' },
-] as const;
+];
 
 interface ActivityBarProps {
   active: SidebarView;
@@ -35,6 +41,7 @@ function ActivityBadge({ count }: { count: number }) {
 
 export function ActivityBar({ active, onSelect }: ActivityBarProps) {
   const openSettings = useSettingsStore((s) => s.openSettings);
+  const extensionViews = useExtensionStore((s) => s.contributions.views);
 
   const gitCount = useGitStore(
     (s) => s.staged.length + s.unstaged.length + s.untracked.length + s.conflicts.length,
@@ -51,19 +58,26 @@ export function ActivityBar({ active, onSelect }: ActivityBarProps) {
     (s) => s.extensions.filter((e) => !e.enabled).length,
   );
 
-  const badges: Partial<Record<SidebarView, number>> = {
+  const badges: Partial<Record<string, number>> = {
     git:        gitCount,
     docker:     runningContainers,
     agent:      pendingAgentSessions,
     extensions: disabledExtensions,
   };
 
+  // Build dynamic items from extension-contributed views
+  const dynamicItems: { id: string; icon: LucideIcon; label: string }[] = extensionViews.map((v) => ({
+    id: v.id,
+    icon: (v.icon && ICON_MAP[v.icon]) || LayoutList,
+    label: v.name,
+  }));
+
   return (
     <div className="flex w-11 flex-col items-center gap-1 bg-sidebar py-2">
-      {items.map((item) => {
+      {builtinItems.map((item) => {
         const Icon = item.icon;
         const isActive = active === item.id;
-        const badge = badges[item.id as SidebarView];
+        const badge = badges[item.id];
         return (
           <button
             key={item.id}
@@ -77,6 +91,29 @@ export function ActivityBar({ active, onSelect }: ActivityBarProps) {
           >
             <Icon className="h-[18px] w-[18px]" />
             {badge !== undefined && <ActivityBadge count={badge} />}
+          </button>
+        );
+      })}
+
+      {/* Extension-contributed views */}
+      {dynamicItems.length > 0 && (
+        <div className="mx-auto my-1 h-px w-5 bg-border" />
+      )}
+      {dynamicItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = active === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onSelect(item.id)}
+            className={`relative flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
+              isActive
+                ? 'bg-surface-raised text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-raised/50'
+            }`}
+            title={item.label}
+          >
+            <Icon className="h-[18px] w-[18px]" />
           </button>
         );
       })}

@@ -1,0 +1,105 @@
+{
+  "name": "project-manager",
+  "displayName": "Project Manager",
+  "description": "Salve, organize e alterne entre projetos facilmente com tags e auto-detecção de repositórios",
+  "version": "0.1.0",
+  "publisher": "hyscode",
+  "engines": {
+    "hyscode": ">=0.1.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["projects", "manager", "switch", "workspace", "git", "bookmark"],
+
+  "activationEvents": ["onStartup"],
+
+  "main": "main.js",
+
+  "contributes": {
+    "commands": [
+      { "command": "projectManager.saveProject",       "title": "Project Manager: Save Project" },
+      { "command": "projectManager.editProjects",      "title": "Project Manager: Edit Projects" },
+      { "command": "projectManager.listProjects",      "title": "Project Manager: Open Project" },
+      { "command": "projectManager.listProjectsNewWindow", "title": "Project Manager: Open Project in New Window" },
+      { "command": "projectManager.removeProject",     "title": "Project Manager: Remove Project" },
+      { "command": "projectManager.filterByTag",       "title": "Project Manager: Filter by Tag" },
+      { "command": "projectManager.addTag",            "title": "Project Manager: Add Tag to Project" },
+      { "command": "projectManager.refreshDetected",   "title": "Project Manager: Refresh Auto-Detected" },
+      { "command": "projectManager.openProjectsFile",  "title": "Project Manager: Open projects.json" }
+    ],
+
+    "views": [
+      {
+        "id": "projectManager.panel",
+        "name": "Projects",
+        "icon": "$(folder-library)"
+      }
+    ],
+
+    "configuration": {
+      "title": "Project Manager",
+      "properties": {
+        "projectManager.sortList": {
+          "type": "string",
+          "enum": ["name", "recent", "saved"],
+          "default": "name",
+          "description": "Ordenação da lista de projetos"
+        },
+        "projectManager.groupList": {
+          "type": "boolean",
+          "default": false,
+          "description": "Agrupar por tag"
+        },
+        "projectManager.removeCurrentFromList": {
+          "type": "boolean",
+          "default": false,
+          "description": "Remover projeto atual da lista de seleção"
+        },
+        "projectManager.showProjectInStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exibir nome do projeto na status bar"
+        },
+        "projectManager.baseFolders": {
+          "type": "array",
+          "default": [],
+          "description": "Pastas base para auto-detecção de repositórios Git/SVN/Mercurial"
+        },
+        "projectManager.ignoredFolders": {
+          "type": "array",
+          "default": ["node_modules", ".git", "dist", "build", "__pycache__", ".cache"],
+          "description": "Pastas ignoradas na auto-detecção"
+        },
+        "projectManager.maxDepthRecursion": {
+          "type": "number",
+          "default": 3,
+          "description": "Profundidade máxima de recursão na auto-detecção"
+        },
+        "projectManager.projectsLocation": {
+          "type": "string",
+          "default": "",
+          "description": "Caminho personalizado para projects.json (vazio = diretório padrão)"
+        },
+        "projectManager.detectGit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-detectar repositórios Git"
+        },
+        "projectManager.detectSvn": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-detectar repositórios SVN"
+        },
+        "projectManager.detectMercurial": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-detectar repositórios Mercurial"
+        }
+      }
+    },
+
+    "keybindings": [
+      { "command": "projectManager.listProjects", "key": "alt+shift+p", "when": "" },
+      { "command": "projectManager.saveProject",  "key": "ctrl+alt+s",  "when": "" }
+    ]
+  }
+}

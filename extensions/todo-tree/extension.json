@@ -1,0 +1,131 @@
+{
+  "name": "todo-tree",
+  "displayName": "Todo Tree",
+  "description": "Exibe TODO, FIXME, BUG, HACK e outros marcadores como árvore navegável com destaque no editor",
+  "version": "0.1.0",
+  "publisher": "hyscode",
+  "engines": {
+    "hyscode": ">=0.1.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["todo", "fixme", "bug", "hack", "tasks", "annotations"],
+
+  "activationEvents": ["onStartup"],
+
+  "main": "main.js",
+
+  "contributes": {
+    "commands": [
+      { "command": "todoTree.refresh",       "title": "Todo Tree: Refresh" },
+      { "command": "todoTree.addTag",        "title": "Todo Tree: Add Tag" },
+      { "command": "todoTree.removeTag",     "title": "Todo Tree: Remove Tag" },
+      { "command": "todoTree.goToNext",      "title": "Todo Tree: Go To Next" },
+      { "command": "todoTree.goToPrevious",  "title": "Todo Tree: Go To Previous" },
+      { "command": "todoTree.exportTree",    "title": "Todo Tree: Export as Markdown" },
+      { "command": "todoTree.switchScope",   "title": "Todo Tree: Switch Scope" },
+      { "command": "todoTree.clearFilter",   "title": "Todo Tree: Clear Filter" },
+      { "command": "todoTree.filterByTag",   "title": "Todo Tree: Filter by Tag" },
+      { "command": "todoTree.toggleHighlights", "title": "Todo Tree: Toggle Highlights" },
+      { "command": "todoTree.showCounts",    "title": "Todo Tree: Show Tag Counts" }
+    ],
+
+    "views": [
+      {
+        "id": "todoTree.panel",
+        "name": "TODO Tree",
+        "icon": "$(checklist)"
+      }
+    ],
+
+    "configuration": {
+      "title": "Todo Tree",
+      "properties": {
+        "todoTree.tags": {
+          "type": "array",
+          "default": ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "WARN", "PERF"],
+          "description": "Tags para procurar nos arquivos"
+        },
+        "todoTree.regex": {
+          "type": "string",
+          "default": "(?:TODO|FIXME|BUG|HACK|XXX|NOTE|WARN|PERF)[:\\s]",
+          "description": "Regex personalizado para busca de tags"
+        },
+        "todoTree.scanMode": {
+          "type": "string",
+          "enum": ["workspace", "openFiles", "currentFile"],
+          "default": "workspace",
+          "description": "Escopo da varredura"
+        },
+        "todoTree.includeGlobs": {
+          "type": "array",
+          "default": ["**/*.{js,ts,tsx,jsx,py,rs,go,java,c,cpp,cs,rb,php,html,css,scss,yaml,yml,md,sh,ps1,sql}"],
+          "description": "Globs para incluir na busca"
+        },
+        "todoTree.excludeGlobs": {
+          "type": "array",
+          "default": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**", "**/target/**", "**/__pycache__/**", "**/vendor/**"],
+          "description": "Globs para excluir da busca"
+        },
+        "todoTree.highlightEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ativar destaque de tags no editor"
+        },
+        "todoTree.defaultHighlight": {
+          "type": "object",
+          "default": {
+            "foreground": "#FFFFFF",
+            "background": "#FF8C00",
+            "opacity": 90,
+            "fontWeight": "bold",
+            "borderRadius": "3px"
+          },
+          "description": "Estilo padrão de destaque"
+        },
+        "todoTree.customHighlight": {
+          "type": "object",
+          "default": {
+            "TODO": { "background": "#FF8C00", "foreground": "#FFFFFF", "icon": "$(circle-large-outline)" },
+            "FIXME": { "background": "#DC3545", "foreground": "#FFFFFF", "icon": "$(tools)" },
+            "BUG": { "background": "#DC3545", "foreground": "#FFFFFF", "icon": "$(bug)" },
+            "HACK": { "background": "#8B5CF6", "foreground": "#FFFFFF", "icon": "$(warning)" },
+            "XXX": { "background": "#F59E0B", "foreground": "#000000", "icon": "$(alert)" },
+            "NOTE": { "background": "#3B82F6", "foreground": "#FFFFFF", "icon": "$(info)" },
+            "WARN": { "background": "#F97316", "foreground": "#FFFFFF", "icon": "$(warning)" },
+            "PERF": { "background": "#10B981", "foreground": "#FFFFFF", "icon": "$(dashboard)" }
+          },
+          "description": "Estilo personalizado por tag"
+        },
+        "todoTree.groupBy": {
+          "type": "string",
+          "enum": ["tag", "file", "none"],
+          "default": "tag",
+          "description": "Agrupar resultados por tag, arquivo ou sem agrupamento"
+        },
+        "todoTree.sortOrder": {
+          "type": "string",
+          "enum": ["tag", "file", "line"],
+          "default": "file",
+          "description": "Ordenação dos resultados"
+        },
+        "todoTree.statusBar": {
+          "type": "string",
+          "enum": ["total", "perTag", "topThree", "currentFile", "none"],
+          "default": "total",
+          "description": "Modo de exibição na status bar"
+        },
+        "todoTree.maxResults": {
+          "type": "number",
+          "default": 5000,
+          "description": "Máximo de resultados na varredura"
+        }
+      }
+    },
+
+    "keybindings": [
+      { "command": "todoTree.goToNext",     "key": "alt+]",     "when": "" },
+      { "command": "todoTree.goToPrevious", "key": "alt+[",     "when": "" },
+      { "command": "todoTree.refresh",      "key": "ctrl+shift+t", "when": "" }
+    ]
+  }
+}

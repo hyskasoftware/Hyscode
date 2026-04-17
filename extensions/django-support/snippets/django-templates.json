@@ -1,0 +1,180 @@
+{
+  "block": {
+    "prefix": ["block", "djblock"],
+    "body": ["{% block ${1:name} %}",  "  $0", "{% endblock ${1:name} %}"],
+    "description": "{% block name %}"
+  },
+  "extends": {
+    "prefix": ["extends", "djextends"],
+    "body": ["{% extends \"${1:base.html}\" %}"],
+    "description": "{% extends \"base.html\" %}"
+  },
+  "include": {
+    "prefix": ["include", "djinclude"],
+    "body": ["{% include \"${1:partial.html}\" %}"],
+    "description": "{% include \"template\" %}"
+  },
+  "load": {
+    "prefix": ["load", "djload"],
+    "body": ["{% load ${1:static} %}"],
+    "description": "{% load tag_library %}"
+  },
+  "if": {
+    "prefix": ["if", "djif"],
+    "body": ["{% if ${1:condition} %}", "  $0", "{% endif %}"],
+    "description": "{% if %} ... {% endif %}"
+  },
+  "if-else": {
+    "prefix": ["ifelse", "djifelse"],
+    "body": ["{% if ${1:condition} %}", "  $2", "{% else %}", "  $0", "{% endif %}"],
+    "description": "{% if %} ... {% else %} ... {% endif %}"
+  },
+  "for": {
+    "prefix": ["for", "djfor"],
+    "body": ["{% for ${1:item} in ${2:list} %}", "  $0", "{% endfor %}"],
+    "description": "{% for item in list %}"
+  },
+  "for-empty": {
+    "prefix": ["forempty", "djforempty"],
+    "body": ["{% for ${1:item} in ${2:list} %}", "  $3", "{% empty %}", "  $0", "{% endfor %}"],
+    "description": "{% for %} ... {% empty %} ... {% endfor %}"
+  },
+  "with": {
+    "prefix": ["with", "djwith"],
+    "body": ["{% with ${1:var}=${2:value} %}", "  $0", "{% endwith %}"],
+    "description": "{% with var=value %}"
+  },
+  "url": {
+    "prefix": ["url", "djurl"],
+    "body": ["{% url '${1:name}' ${2} %}"],
+    "description": "{% url 'name' %}"
+  },
+  "static": {
+    "prefix": ["static", "djstatic"],
+    "body": ["{% static '${1:path/to/file}' %}"],
+    "description": "{% static 'path' %}"
+  },
+  "csrf_token": {
+    "prefix": ["csrf", "djcsrf"],
+    "body": ["{% csrf_token %}"],
+    "description": "{% csrf_token %}"
+  },
+  "comment": {
+    "prefix": ["comment", "djcomment"],
+    "body": ["{# ${1:comment} #}"],
+    "description": "Django template comment"
+  },
+  "comment-block": {
+    "prefix": ["commentblock", "djcommentblock"],
+    "body": ["{% comment \"${1:Optional note}\" %}", "  $0", "{% endcomment %}"],
+    "description": "{% comment %} block"
+  },
+  "variable": {
+    "prefix": ["var", "djvar"],
+    "body": ["{{ ${1:variable} }}"],
+    "description": "{{ variable }}"
+  },
+  "variable-filter": {
+    "prefix": ["filter", "djfilter"],
+    "body": ["{{ ${1:variable}|${2:filter} }}"],
+    "description": "{{ variable|filter }}"
+  },
+  "trans": {
+    "prefix": ["trans", "djtrans"],
+    "body": ["{% trans \"${1:text}\" %}"],
+    "description": "{% trans \"text\" %} (i18n)"
+  },
+  "blocktrans": {
+    "prefix": ["blocktrans", "djblocktrans"],
+    "body": ["{% blocktrans %}", "  $0", "{% endblocktrans %}"],
+    "description": "{% blocktrans %}"
+  },
+  "spaceless": {
+    "prefix": ["spaceless", "djspaceless"],
+    "body": ["{% spaceless %}", "  $0", "{% endspaceless %}"],
+    "description": "{% spaceless %}"
+  },
+  "autoescape": {
+    "prefix": ["autoescape", "djautoescape"],
+    "body": ["{% autoescape ${1|on,off|} %}", "  $0", "{% endautoescape %}"],
+    "description": "{% autoescape on/off %}"
+  },
+  "verbatim": {
+    "prefix": ["verbatim", "djverbatim"],
+    "body": ["{% verbatim %}", "  $0", "{% endverbatim %}"],
+    "description": "{% verbatim %}"
+  },
+  "now": {
+    "prefix": ["now", "djnow"],
+    "body": ["{% now \"${1:Y-m-d H:i}\" %}"],
+    "description": "{% now \"format\" %}"
+  },
+  "cycle": {
+    "prefix": ["cycle", "djcycle"],
+    "body": ["{% cycle '${1:odd}' '${2:even}' %}"],
+    "description": "{% cycle %}"
+  },
+  "firstof": {
+    "prefix": ["firstof", "djfirstof"],
+    "body": ["{% firstof ${1:var1} ${2:var2} \"${3:fallback}\" %}"],
+    "description": "{% firstof var1 var2 \"fallback\" %}"
+  },
+  "lorem": {
+    "prefix": ["lorem", "djlorem"],
+    "body": ["{% lorem ${1:3} ${2|w,p,b|} %}"],
+    "description": "{% lorem count method %}"
+  },
+
+  "Base HTML template": {
+    "prefix": ["djbase", "django-base"],
+    "body": [
+      "{% load static %}",
+      "<!DOCTYPE html>",
+      "<html lang=\"${1:en}\">",
+      "<head>",
+      "  <meta charset=\"UTF-8\">",
+      "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
+      "  <title>{% block title %}${2:My Site}{% endblock %}</title>",
+      "  <link rel=\"stylesheet\" href=\"{% static '${3:css/style.css}' %}\">",
+      "  {% block extra_css %}{% endblock %}",
+      "</head>",
+      "<body>",
+      "  {% block content %}",
+      "  $0",
+      "  {% endblock %}",
+      "",
+      "  <script src=\"{% static '${4:js/main.js}' %}\"></script>",
+      "  {% block extra_js %}{% endblock %}",
+      "</body>",
+      "</html>"
+    ],
+    "description": "Django base HTML template"
+  },
+
+  "Child template": {
+    "prefix": ["djchild", "django-child"],
+    "body": [
+      "{% extends \"${1:base.html}\" %}",
+      "{% load static %}",
+      "",
+      "{% block title %}${2:Page Title}{% endblock %}",
+      "",
+      "{% block content %}",
+      "$0",
+      "{% endblock %}"
+    ],
+    "description": "Django child template extending base"
+  },
+
+  "Form rendering": {
+    "prefix": ["djform", "django-form"],
+    "body": [
+      "<form method=\"${1|post,get|}\" action=\"{% url '${2:form_action}' %}\"${3: enctype=\"multipart/form-data\"}>",
+      "  {% csrf_token %}",
+      "  {{ form.as_p }}",
+      "  <button type=\"submit\">${4:Submit}</button>",
+      "</form>"
+    ],
+    "description": "Django form with CSRF"
+  }
+}

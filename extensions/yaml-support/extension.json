@@ -1,0 +1,215 @@
+{
+  "name": "yaml-support",
+  "displayName": "YAML",
+  "version": "1.0.0",
+  "description": "Suporte completo a YAML — validação, auto-complete, hover, formatação e schemas via yaml-language-server. Suporte nativo a Kubernetes, Docker Compose, GitHub Actions, CI/CD e mais",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["yaml", "yml", "kubernetes", "k8s", "docker-compose", "github-actions", "ci", "schema", "ansible", "helm"],
+  "license": "MIT",
+  "activationEvents": [
+    "onLanguage:yaml",
+    "workspaceContains:**/*.yaml",
+    "workspaceContains:**/*.yml"
+  ],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "yaml",
+        "aliases": ["YAML", "yml"],
+        "extensions": [".yaml", ".yml", ".eyaml", ".eyml", ".cff", ".yaml.tmpl", ".yml.tmpl"],
+        "filenames": [
+          ".clang-format",
+          ".clang-tidy",
+          ".gemrc",
+          ".yamllint"
+        ],
+        "mimetypes": ["text/x-yaml", "text/yaml", "application/x-yaml"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "languageServers": [
+      {
+        "id": "yaml-language-server",
+        "languageIds": ["yaml"],
+        "command": "yaml-language-server",
+        "args": ["--stdio"],
+        "rootPatterns": [".git", "package.json"],
+        "initializationOptions": {
+          "yaml": {
+            "validate": true,
+            "hover": true,
+            "completion": true,
+            "format": {
+              "enable": true,
+              "singleQuote": false,
+              "bracketSpacing": true,
+              "proseWrap": "preserve",
+              "printWidth": 120
+            },
+            "schemaStore": {
+              "enable": true,
+              "url": "https://www.schemastore.org/api/json/catalog.json"
+            },
+            "schemas": {
+              "kubernetes": "/*.k8s.yaml"
+            },
+            "customTags": [],
+            "maxItemsComputed": 5000,
+            "disableDefaultProperties": false
+          }
+        }
+      }
+    ],
+    "snippets": [
+      { "language": "yaml", "path": "snippets/yaml.json" },
+      { "language": "yaml", "path": "snippets/kubernetes.json" },
+      { "language": "yaml", "path": "snippets/docker-compose.json" },
+      { "language": "yaml", "path": "snippets/github-actions.json" }
+    ],
+    "commands": [
+      {
+        "id": "yaml.format",
+        "title": "Format YAML",
+        "category": "YAML"
+      },
+      {
+        "id": "yaml.validate",
+        "title": "Validate YAML",
+        "category": "YAML"
+      },
+      {
+        "id": "yaml.assignSchema",
+        "title": "Assign Schema",
+        "category": "YAML"
+      },
+      {
+        "id": "yaml.newFile",
+        "title": "New YAML File",
+        "category": "YAML"
+      },
+      {
+        "id": "yaml.installServer",
+        "title": "Install yaml-language-server",
+        "category": "YAML"
+      },
+      {
+        "id": "yaml.convertJsonToYaml",
+        "title": "Convert JSON to YAML",
+        "category": "YAML"
+      },
+      {
+        "id": "yaml.sortKeys",
+        "title": "Sort Keys Alphabetically",
+        "category": "YAML"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "yaml.format",
+        "key": "ctrl+shift+f",
+        "when": "editorTextFocus && editorLangId == yaml"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "yaml.format", "group": "1_yaml", "when": "editorLangId == yaml" },
+        { "command": "yaml.validate", "group": "1_yaml", "when": "editorLangId == yaml" },
+        { "command": "yaml.sortKeys", "group": "1_yaml", "when": "editorLangId == yaml" }
+      ],
+      "commandPalette": [
+        { "command": "yaml.format" },
+        { "command": "yaml.validate" },
+        { "command": "yaml.assignSchema" },
+        { "command": "yaml.newFile" },
+        { "command": "yaml.installServer" },
+        { "command": "yaml.convertJsonToYaml" },
+        { "command": "yaml.sortKeys" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "yaml-support.indicator",
+        "text": "YAML",
+        "tooltip": "YAML Support — yaml-language-server",
+        "command": "yaml.validate",
+        "alignment": "right",
+        "priority": 45
+      }
+    ],
+    "configuration": {
+      "title": "YAML",
+      "properties": {
+        "yaml.validate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar validação YAML"
+        },
+        "yaml.hover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar informações ao passar o mouse (hover)"
+        },
+        "yaml.completion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar auto-complete"
+        },
+        "yaml.format.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar formatador YAML"
+        },
+        "yaml.format.singleQuote": {
+          "type": "boolean",
+          "default": false,
+          "description": "Usar aspas simples em vez de duplas"
+        },
+        "yaml.format.bracketSpacing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Espaços dentro de chaves em objetos flow"
+        },
+        "yaml.format.printWidth": {
+          "type": "number",
+          "default": 120,
+          "description": "Largura máxima antes de quebrar a linha"
+        },
+        "yaml.schemaStore.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Baixar schemas automaticamente do JSON Schema Store"
+        },
+        "yaml.schemas": {
+          "type": "object",
+          "default": {},
+          "description": "Associação de schemas a padrões glob. Ex: { \"kubernetes\": \"/*.k8s.yaml\" }"
+        },
+        "yaml.customTags": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" },
+          "description": "Tags YAML customizadas (ex: \"!Ref scalar\", \"!Sub sequence\")"
+        },
+        "yaml.yamlVersion": {
+          "type": "string",
+          "default": "1.2",
+          "enum": ["1.1", "1.2"],
+          "description": "Versão da spec YAML (1.1 ou 1.2)"
+        },
+        "yaml.maxItemsComputed": {
+          "type": "number",
+          "default": 5000,
+          "description": "Número máximo de itens computados para outline e folding"
+        },
+        "yaml.keyOrdering": {
+          "type": "boolean",
+          "default": false,
+          "description": "Forçar ordenação alfabética de chaves"
+        }
+      }
+    }
+  }
+}

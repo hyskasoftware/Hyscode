@@ -11,6 +11,7 @@ import {
   Smartphone,
   Container,
   Info,
+  Blocks,
 } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import { EditorTab } from './tabs/editor-tab';
@@ -23,8 +24,9 @@ import { LanguageServersTab } from './tabs/language-servers-tab';
 import { MobileTab } from './tabs/mobile-tab';
 import { DockerTab } from './tabs/docker-tab';
 import { AboutTab } from './tabs/about-tab';
+import { ExtensionSettingsTab } from './tabs/extension-settings-tab';
 
-type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile' | 'docker' | 'about';
+type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile' | 'docker' | 'about' | 'extensions';
 
 const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'editor', icon: Code2, label: 'Editor' },
@@ -35,6 +37,7 @@ const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'ai', icon: BrainCircuit, label: 'AI & Providers' },
   { id: 'mobile', icon: Smartphone, label: 'Mobile' },
   { id: 'docker', icon: Container, label: 'Docker' },
+  { id: 'extensions', icon: Blocks, label: 'Extensions' },
   { id: 'general', icon: Settings2, label: 'General' },
   { id: 'about', icon: Info, label: 'About' },
 ];
@@ -48,6 +51,7 @@ const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
   ai: <AiTab />,
   mobile: <MobileTab />,
   docker: <DockerTab />,
+  extensions: <ExtensionSettingsTab />,
   general: <GeneralTab />,
   about: <AboutTab />,
 };

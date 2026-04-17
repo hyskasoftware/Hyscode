@@ -1,4 +1,5 @@
 import type { SidebarView } from './sidebar';
+import { isBuiltinView } from './sidebar';
 import {
   FileExplorerView,
   SearchView,
@@ -9,12 +10,17 @@ import {
   DevicesView,
   DockerView,
 } from './views';
+import { ExtensionViewPanel } from './views/extension-view-panel';
 
 interface SidebarContentProps {
   view: SidebarView;
 }
 
 export function SidebarContent({ view }: SidebarContentProps) {
+  if (!isBuiltinView(view)) {
+    return <ExtensionViewPanel viewId={view} />;
+  }
+
   switch (view) {
     case 'files':
       return <FileExplorerView />;
