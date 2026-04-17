@@ -32,7 +32,9 @@ export class ExtensionSandbox {
 
       let mod: ExtensionModule;
       try {
+        console.log(`[ExtensionSandbox] Importing blob for "${manifest.name}"...`);
         mod = await import(/* @vite-ignore */ blobUrl);
+        console.log(`[ExtensionSandbox] Blob imported — exports:`, Object.keys(mod));
       } finally {
         URL.revokeObjectURL(blobUrl);
       }
@@ -43,7 +45,9 @@ export class ExtensionSandbox {
 
       const context = createExtensionContext(manifest.name, extensionPath, api);
 
+      console.log(`[ExtensionSandbox] Calling activate() for "${manifest.name}"...`);
       await mod.activate(context, api);
+      console.log(`[ExtensionSandbox] activate() returned for "${manifest.name}"`);
 
       this.active.set(manifest.name, { manifest, module: mod, context });
       console.log(`[ExtensionSandbox] Activated "${manifest.displayName}" v${manifest.version}`);

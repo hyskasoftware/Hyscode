@@ -5,7 +5,7 @@
 
 'use strict';
 
-/** @type {import('../extension-api/src').HysCodeAPI | null} */
+/** @type {import('../extension-api/src').HyscodeAPI | null} */
 let api = null;
 
 /** @type {Array<() => void>} */
@@ -23,9 +23,36 @@ let activeFilter = null;
 /** @type {boolean} */
 let highlightsEnabled = true;
 
+/** @type {string} */
+let searchQuery = '';
+
 /**
  * @typedef {{ tag: string, text: string, file: string, line: number, col: number }} TodoItem
  */
+
+// ── Tag colours ──────────────────────────────────────────────────────────────
+
+const TAG_COLORS = {
+  TODO:  '#3b82f6', // blue
+  FIXME: '#f59e0b', // amber
+  BUG:   '#ef4444', // red
+  HACK:  '#a855f7', // purple
+  XXX:   '#ec4899', // pink
+  NOTE:  '#22c55e', // green
+  WARN:  '#f97316', // orange
+  PERF:  '#06b6d4', // cyan
+};
+
+const TAG_ICONS = {
+  TODO:  '$(check)',
+  FIXME: '$(warning)',
+  BUG:   '$(bug)',
+  HACK:  '$(lightbulb)',
+  XXX:   '$(warning)',
+  NOTE:  '$(bookmark)',
+  WARN:  '$(warning)',
+  PERF:  '$(lightbulb)',
+};
 
 function register(id, handler) {
   const d = api.commands.register(id, handler);
@@ -37,19 +64,22 @@ function register(id, handler) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function activate(context) {
+  console.log('[TodoTree] activate() called, context._api=', !!context._api, 'globalThis.hyscode=', !!globalThis.hyscode);
   api = context._api || globalThis.hyscode;
+  console.log('[TodoTree] api=', !!api, 'api.views=', !!(api && api.views), 'api.views.updateView=', !!(api && api.views && api.views.updateView));
 
   highlightsEnabled = getSetting('todoTree.highlightEnabled', true);
 
   // ── Refresh / scan ────────────────────────────────────────────────────────
 
   register('todoTree.refresh', async () => {
+    showScanningView();
     const progress = api.notifications?.progress?.('Scanning TODOs...');
     try {
       allResults = await scanWorkspace();
       currentIndex = -1;
       updateStatusBar();
-      updateTreeView();
+      renderView();
       api.notifications?.info?.(`Found ${allResults.length} TODO items`);
     } finally {
       progress?.done?.();
@@ -110,6 +140,14 @@ export function activate(context) {
     goToItem(items[currentIndex]);
   });
 
+  // ── Navigate to specific item ─────────────────────────────────────────────
+
+  register('todoTree.goToItem', (file, line) => {
+    if (!file) return;
+    api.editor?.openFile?.(file);
+    if (line) api.editor?.goToLine?.(line);
+  });
+
   // ── Export ────────────────────────────────────────────────────────────────
 
   register('todoTree.exportTree', async () => {
@@ -152,13 +190,13 @@ export function activate(context) {
     if (!choice) return;
 
     activeFilter = choice.label === 'All' ? null : choice.label;
-    updateTreeView();
+    renderView();
     api.notifications?.info?.(activeFilter ? `Filtro: ${activeFilter}` : 'Filtro removido');
   });
 
   register('todoTree.clearFilter', () => {
     activeFilter = null;
-    updateTreeView();
+    renderView();
     api.notifications?.info?.('Filtro limpo');
   });
 
@@ -206,6 +244,23 @@ export function activate(context) {
     // ignore
   }
 
+  // ── Search listener ───────────────────────────────────────────────────────
+
+  try {
+    const d = api.views.onDidChangeSearch('todoTree.panel', (query) => {
+      searchQuery = query;
+      renderView();
+    });
+    disposables.push(d);
+  } catch {
+    // views API may not be available yet
+  }
+
+  // Show initial welcome state
+  console.log('[TodoTree] About to call showWelcomeView()');
+  showWelcomeView();
+  console.log('[TodoTree] showWelcomeView() returned');
+
   // Auto-scan on activation
   setTimeout(() => {
     api.commands?.execute?.('todoTree.refresh');
@@ -225,7 +280,212 @@ export function deactivate() {
   allResults = [];
   currentIndex = -1;
   activeFilter = null;
+  searchQuery = '';
   api = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// View Rendering
+// ─────────────────────────────────────────────────────────────────────────────
+
+function showWelcomeView() {
+  console.log('[TodoTree] showWelcomeView() — api=', !!api, 'api.views=', !!(api && api.views));
+  try {
+    console.log('[TodoTree] calling api.views.updateView(todoTree.panel)...');
+    api.views.updateView('todoTree.panel', {
+      type: 'welcome',
+      welcome: {
+        icon: '$(check)',
+        title: 'Todo Tree',
+        description: 'Scan your workspace to find TODO, FIXME, BUG, HACK and other tags in your codebase.',
+        actions: [
+          { id: 'scan', label: 'Scan Workspace', icon: '$(refresh)', command: 'todoTree.refresh' },
+        ],
+      },
+    });
+    console.log('[TodoTree] api.views.updateView(todoTree.panel) SUCCESS');
+  } catch (e) {
+    console.error('[TodoTree] api.views.updateView FAILED:', e);
+  }
+}
+
+function showScanningView() {
+  try {
+    api.views.updateView('todoTree.panel', {
+      type: 'sections',
+      sections: [
+        {
+          id: 'scanning',
+          title: 'Scanning',
+          collapsible: false,
+          type: 'progress',
+          progress: { label: 'Scanning workspace for TODO tags...' },
+        },
+      ],
+    });
+  } catch {
+    // views API not ready
+  }
+}
+
+function renderView() {
+  try {
+    const items = getVisibleItems();
+    const groupBy = getSetting('todoTree.groupBy', 'tag');
+
+    // ── Compute tag counts ──────────────────────────────────────────────────
+    const tagCounts = {};
+    for (const item of allResults) {
+      tagCounts[item.tag] = (tagCounts[item.tag] || 0) + 1;
+    }
+
+    // ── Stats section ───────────────────────────────────────────────────────
+    const stats = [
+      { label: 'Total', value: allResults.length, icon: '$(check)', color: '#8b5cf6' },
+    ];
+    const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    for (const [tag, count] of topTags) {
+      stats.push({
+        label: tag,
+        value: count,
+        icon: TAG_ICONS[tag] || '$(check)',
+        color: TAG_COLORS[tag] || '#8b5cf6',
+      });
+    }
+
+    // ── Build grouped tree sections ─────────────────────────────────────────
+    const treeSections = [];
+
+    if (items.length === 0 && allResults.length > 0) {
+      // Search / filter returned nothing
+      treeSections.push({
+        id: 'no-results',
+        title: 'No Matches',
+        collapsible: false,
+        type: 'actions',
+        actions: [
+          { id: 'clear-filter', label: 'Clear Filter', icon: '$(filter)', command: 'todoTree.clearFilter' },
+        ],
+      });
+    } else if (groupBy === 'tag') {
+      const groups = {};
+      for (const item of items) {
+        if (!groups[item.tag]) groups[item.tag] = [];
+        groups[item.tag].push(item);
+      }
+
+      for (const [tag, tagItems] of Object.entries(groups).sort()) {
+        treeSections.push({
+          id: `tag-${tag}`,
+          title: tag,
+          collapsible: true,
+          collapsed: false,
+          badge: String(tagItems.length),
+          badgeColor: TAG_COLORS[tag] || '#8b5cf6',
+          type: 'tree',
+          items: tagItems.map(todoToViewItem),
+        });
+      }
+    } else if (groupBy === 'file') {
+      const groups = {};
+      for (const item of items) {
+        if (!groups[item.file]) groups[item.file] = [];
+        groups[item.file].push(item);
+      }
+
+      for (const [file, fileItems] of Object.entries(groups).sort()) {
+        const shortName = file.split('/').pop() || file;
+        treeSections.push({
+          id: `file-${file}`,
+          title: shortName,
+          collapsible: true,
+          collapsed: false,
+          badge: String(fileItems.length),
+          type: 'tree',
+          items: fileItems.map(todoToViewItem),
+        });
+      }
+    } else {
+      // flat list
+      treeSections.push({
+        id: 'flat',
+        title: 'All Items',
+        collapsible: true,
+        collapsed: false,
+        badge: String(items.length),
+        type: 'tree',
+        items: items.map(todoToViewItem),
+      });
+    }
+
+    // ── Compose full view ───────────────────────────────────────────────────
+    const viewContent = {
+      type: 'sections',
+      toolbar: [
+        { id: 'refresh', label: 'Refresh', icon: '$(refresh)', tooltip: 'Scan workspace', command: 'todoTree.refresh' },
+        { id: 'filter', label: 'Filter by Tag', icon: '$(filter)', tooltip: 'Filter by tag', command: 'todoTree.filterByTag' },
+        { id: 'export', label: 'Export', icon: '$(export)', tooltip: 'Export as Markdown', command: 'todoTree.exportTree' },
+      ],
+      searchable: true,
+      searchPlaceholder: 'Search TODOs...',
+      badge: allResults.length > 0 ? { count: allResults.length, tooltip: `${allResults.length} TODO items found` } : undefined,
+      sections: [
+        {
+          id: 'stats',
+          title: 'Overview',
+          collapsible: true,
+          collapsed: false,
+          type: 'stats',
+          stats,
+        },
+        ...treeSections,
+      ],
+      footer: activeFilter
+        ? { text: `Filtered: ${activeFilter} — click to clear`, command: 'todoTree.clearFilter' }
+        : { text: `${allResults.length} items in ${Object.keys(tagCounts).length} tags` },
+    };
+
+    api.views.updateView('todoTree.panel', viewContent);
+  } catch (e) {
+    // views API may not be available
+    console.warn('[TodoTree] Failed to render view:', e);
+  }
+}
+
+function todoToViewItem(item) {
+  const shortFile = item.file.split('/').pop() || item.file;
+  return {
+    id: `${item.file}:${item.line}:${item.tag}`,
+    label: item.text.slice(0, 80) || `${item.tag} at line ${item.line}`,
+    description: `${shortFile}:${item.line}`,
+    icon: TAG_ICONS[item.tag] || '$(check)',
+    iconColor: TAG_COLORS[item.tag] || '#8b5cf6',
+    tooltip: `[${item.tag}] ${item.file}:${item.line}\n${item.text}`,
+    command: 'todoTree.goToItem',
+    commandArgs: [item.file, item.line],
+    badge: item.tag,
+    badgeColor: TAG_COLORS[item.tag] || '#8b5cf6',
+    contextMenu: [
+      { id: 'goto', label: 'Go to Location', icon: '$(file-text)', command: 'todoTree.goToItem', commandArgs: [item.file, item.line] },
+      { id: 'copy', label: 'Copy Text', icon: '$(file)', command: 'todoTree.goToItem', commandArgs: [item.file, item.line] },
+    ],
+  };
+}
+
+function getVisibleItems() {
+  let items = filteredResults();
+
+  // Apply search query
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
+    items = items.filter(item =>
+      item.text.toLowerCase().includes(q) ||
+      item.file.toLowerCase().includes(q) ||
+      item.tag.toLowerCase().includes(q)
+    );
+  }
+
+  return items;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -395,59 +655,6 @@ function updateStatusBar() {
     });
   } catch {
     // ignore
-  }
-}
-
-function updateTreeView() {
-  const items = filteredResults();
-  const groupBy = getSetting('todoTree.groupBy', 'tag');
-
-  try {
-    if (!api.views?.updateTreeView) return;
-
-    if (groupBy === 'tag') {
-      const groups = {};
-      for (const item of items) {
-        if (!groups[item.tag]) groups[item.tag] = [];
-        groups[item.tag].push(item);
-      }
-
-      const tree = Object.entries(groups).map(([tag, tagItems]) => ({
-        label: `${tag} (${tagItems.length})`,
-        children: tagItems.map(i => ({
-          label: `${i.file}:${i.line}`,
-          description: i.text.slice(0, 80),
-          command: { command: 'todoTree.goToNext' },
-        })),
-      }));
-
-      api.views.updateTreeView('todoTree.panel', tree);
-    } else if (groupBy === 'file') {
-      const groups = {};
-      for (const item of items) {
-        if (!groups[item.file]) groups[item.file] = [];
-        groups[item.file].push(item);
-      }
-
-      const tree = Object.entries(groups).map(([file, fileItems]) => ({
-        label: `${file} (${fileItems.length})`,
-        children: fileItems.map(i => ({
-          label: `L${i.line} [${i.tag}]`,
-          description: i.text.slice(0, 80),
-        })),
-      }));
-
-      api.views.updateTreeView('todoTree.panel', tree);
-    } else {
-      const tree = items.map(i => ({
-        label: `[${i.tag}] ${i.file}:${i.line}`,
-        description: i.text.slice(0, 80),
-      }));
-
-      api.views.updateTreeView('todoTree.panel', tree);
-    }
-  } catch {
-    // tree view API may not be available
   }
 }
 

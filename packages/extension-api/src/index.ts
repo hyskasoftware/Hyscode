@@ -208,6 +208,7 @@ export interface HyscodeAPI {
   notifications: NotificationsAPI;
   extensions: ExtensionsManagerAPI;
   ui: UiAPI;
+  views: ViewsAPI;
 }
 
 // ── Workspace API ────────────────────────────────────────────────────────────
@@ -231,6 +232,8 @@ export interface FileEntry {
 // ── Commands API ─────────────────────────────────────────────────────────────
 
 export interface CommandsAPI {
+  /** Alias for registerCommand — preferred shorthand used by extensions */
+  register(id: string, handler: (...args: unknown[]) => unknown): Disposable;
   registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable;
   executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
   getCommands(): string[];
@@ -244,6 +247,8 @@ export interface WindowAPI {
   showErrorMessage(message: string, ...actions: string[]): Promise<string | undefined>;
   createStatusBarItem(options: StatusBarItemOptions): StatusBarItem;
   registerViewProvider(viewId: string, provider: ViewProvider): Disposable;
+  showQuickPick(items: QuickPickItem[], options?: QuickPickOptions): Promise<QuickPickItem | undefined>;
+  showInputBox(options?: InputBoxOptions): Promise<string | undefined>;
 }
 
 export interface StatusBarItemOptions {
@@ -268,6 +273,116 @@ export interface StatusBarItem extends Disposable {
 export interface ViewProvider {
   render(): HTMLElement | string;
   onVisibilityChange?(visible: boolean): void;
+}
+
+// ── Rich View System ─────────────────────────────────────────────────────────
+
+/** Full view content pushed by extensions to their sidebar panels. */
+export interface ViewContent {
+  /** Toolbar actions rendered at the top of the view. */
+  toolbar?: ViewAction[];
+  /** Whether to show a search/filter bar. */
+  searchable?: boolean;
+  /** Placeholder text for the search bar. */
+  searchPlaceholder?: string;
+  /** Badge shown on the activity bar icon for this view. */
+  badge?: { count: number; tooltip?: string };
+  /** The layout type for this view's content. */
+  type: 'tree' | 'list' | 'sections' | 'welcome';
+  /** Tree/list items (for type 'tree' or 'list'). */
+  items?: ViewItem[];
+  /** Rich sections (for type 'sections'). */
+  sections?: ViewSection[];
+  /** Welcome / empty state content (for type 'welcome'). */
+  welcome?: ViewWelcome;
+  /** Footer shown at the bottom of the view. */
+  footer?: { text: string; command?: string };
+}
+
+/** A collapsible section within a 'sections' view. */
+export interface ViewSection {
+  id: string;
+  title: string;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  badge?: string;
+  badgeColor?: string;
+  /** Content type within this section. */
+  type: 'tree' | 'list' | 'stats' | 'actions' | 'progress';
+  /** Items for tree/list sections. */
+  items?: ViewItem[];
+  /** Key-value stats displayed as a grid. */
+  stats?: ViewStat[];
+  /** Action buttons displayed in a row. */
+  actions?: ViewAction[];
+  /** Progress bar (0-100 or indeterminate). */
+  progress?: { value?: number; label?: string };
+}
+
+/** A stat card within a 'stats' section. */
+export interface ViewStat {
+  label: string;
+  value: string | number;
+  color?: string;
+  icon?: string;
+  command?: string;
+}
+
+/** A single item in a tree or list. */
+export interface ViewItem {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  iconColor?: string;
+  badge?: string;
+  badgeColor?: string;
+  tooltip?: string;
+  command?: string;
+  commandArgs?: unknown[];
+  contextMenu?: ViewAction[];
+  children?: ViewItem[];
+  /** Visual decorations applied to the label. */
+  decorations?: {
+    strikethrough?: boolean;
+    faded?: boolean;
+    italic?: boolean;
+    bold?: boolean;
+    color?: string;
+  };
+}
+
+/** A toolbar/action button. */
+export interface ViewAction {
+  id: string;
+  label: string;
+  icon?: string;
+  tooltip?: string;
+  command: string;
+  commandArgs?: unknown[];
+}
+
+/** Welcome/empty state shown when there's no content. */
+export interface ViewWelcome {
+  icon?: string;
+  title: string;
+  description?: string;
+  actions?: ViewAction[];
+}
+
+// ── Views API (injected into extensions) ─────────────────────────────────────
+
+export interface ViewsAPI {
+  /** Push full content to a view panel. Replaces previous content. */
+  updateView(viewId: string, content: ViewContent): void;
+  /** Set the badge on a view's activity bar icon. */
+  setViewBadge(viewId: string, badge: { count: number; tooltip?: string } | null): void;
+  /** Listen for search input changes in a view's search bar. */
+  onDidChangeSearch(viewId: string, handler: (query: string) => void): Disposable;
+  /** Listen for visibility changes of a view panel. */
+  onDidChangeVisibility(viewId: string, handler: (visible: boolean) => void): Disposable;
+  /** Reveal/focus a specific view in the sidebar. */
+  revealView(viewId: string): void;
 }
 
 // ── Editor API ───────────────────────────────────────────────────────────────

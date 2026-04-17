@@ -21,6 +21,8 @@ import {
   activateAllExtensions,
   activateExtension,
   deactivateExtension,
+  reloadExtension,
+  checkAndReloadChangedExtensions,
 } from '../lib/extension-loader';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -126,6 +128,8 @@ export const useExtensionStore = create<ExtensionState>()(
     extensionThemesVersion: 0,
 
     loadExtensions: async () => {
+      const previousExtensions = get().extensions;
+
       set((s) => {
         s.loading = true;
         s.error = null;
@@ -138,8 +142,18 @@ export const useExtensionStore = create<ExtensionState>()(
           s.loading = false;
         });
         get().rebuildContributions();
-        // Activate all enabled extensions that ship a main.js
-        void activateAllExtensions(get().extensions);
+
+        if (previousExtensions.length === 0) {
+          // First load (startup): activate all extensions
+          void activateAllExtensions(get().extensions);
+        } else {
+          // Subsequent load (refresh): check for code changes and reload
+          const current = get().extensions;
+          void checkAndReloadChangedExtensions(current).then(() => {
+            // Activate any newly added extensions that aren't active yet
+            void activateAllExtensions(current);
+          });
+        }
       } catch (err) {
         set((s) => {
           s.error = String(err);
@@ -164,6 +178,8 @@ export const useExtensionStore = create<ExtensionState>()(
           s.installing = false;
         });
         get().rebuildContributions();
+        // Reload (deactivate + reactivate) so fresh code runs immediately
+        void reloadExtension(ext);
       } catch (err) {
         set((s) => {
           s.error = String(err);
@@ -188,6 +204,8 @@ export const useExtensionStore = create<ExtensionState>()(
           s.installing = false;
         });
         get().rebuildContributions();
+        // Reload (deactivate + reactivate) so fresh code runs immediately
+        void reloadExtension(ext);
       } catch (err) {
         set((s) => {
           s.error = String(err);

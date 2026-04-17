@@ -4,6 +4,7 @@ import { useGitStore } from '../../stores/git-store';
 import { useDockerStore } from '../../stores/docker-store';
 import { useAgentStore } from '../../stores/agent-store';
 import { useExtensionStore } from '../../stores/extension-store';
+import { useViewRegistryStore } from '../../stores/view-registry-store';
 import type { SidebarView, BuiltinSidebarView } from './sidebar';
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -42,6 +43,7 @@ function ActivityBadge({ count }: { count: number }) {
 export function ActivityBar({ active, onSelect }: ActivityBarProps) {
   const openSettings = useSettingsStore((s) => s.openSettings);
   const extensionViews = useExtensionStore((s) => s.contributions.views);
+  const viewBadges = useViewRegistryStore((s) => s.badges);
 
   const gitCount = useGitStore(
     (s) => s.staged.length + s.unstaged.length + s.untracked.length + s.conflicts.length,
@@ -102,6 +104,7 @@ export function ActivityBar({ active, onSelect }: ActivityBarProps) {
       {dynamicItems.map((item) => {
         const Icon = item.icon;
         const isActive = active === item.id;
+        const viewBadge = viewBadges[item.id];
         return (
           <button
             key={item.id}
@@ -111,9 +114,10 @@ export function ActivityBar({ active, onSelect }: ActivityBarProps) {
                 ? 'bg-surface-raised text-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-surface-raised/50'
             }`}
-            title={item.label}
+            title={viewBadge?.tooltip || item.label}
           >
             <Icon className="h-[18px] w-[18px]" />
+            {viewBadge && <ActivityBadge count={viewBadge.count} />}
           </button>
         );
       })}

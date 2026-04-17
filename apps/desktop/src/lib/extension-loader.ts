@@ -25,6 +25,7 @@ import type {
   QuickPickItem,
   QuickPickOptions,
   InputBoxOptions,
+  ViewContent,
 } from '@hyscode/extension-api';
 import { registerExtensionTheme } from './monaco-themes';
 import { useProjectStore } from '../stores/project-store';
@@ -33,11 +34,25 @@ import { useEditorStore } from '../stores/editor-store';
 import { useExtensionUiStore } from '../stores/extension-ui-store';
 import { useCommandStore } from '../stores/command-store';
 import { useKeybindingStore } from '../stores/keybinding-store';
+import { useViewRegistryStore } from '../stores/view-registry-store';
 import type { InstalledExtension } from '../stores/extension-store';
 
 // ── Singleton sandbox ────────────────────────────────────────────────────────
 
 const _sandbox = new ExtensionSandbox();
+
+// ── Source hash cache (detects code changes on disk) ─────────────────────────
+
+const _sourceHashes = new Map<string, string>();
+
+/** Simple hash of a string (DJB2). Fast, no crypto needed — just change detection. */
+function hashString(str: string): string {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36);
+}
 
 // ── Minimal HyscodeAPI implementation ────────────────────────────────────────
 
@@ -65,6 +80,10 @@ const _api: HyscodeAPI = {
   },
 
   commands: {
+    register(id: string, handler: (...args: unknown[]) => unknown): Disposable {
+      const dispose = useCommandStore.getState().registerCommand(id, handler);
+      return { dispose };
+    },
     registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable {
       const dispose = useCommandStore.getState().registerCommand(id, handler);
       return { dispose };
@@ -102,7 +121,39 @@ const _api: HyscodeAPI = {
         dispose() {},
       };
     },
-    registerViewProvider: noop,
+    registerViewProvider(_viewId: string): Disposable {
+      // Legacy provider — extensions should use api.views.updateView() instead
+      return noop();
+    },
+    async showQuickPick(
+      items: QuickPickItem[],
+      options?: QuickPickOptions,
+    ): Promise<QuickPickItem | undefined> {
+      const result = await useExtensionUiStore.getState().showQuickPick(items, options);
+      return result ? items.find((i) => i.label === result.label) : undefined;
+    },
+    async showInputBox(options?: InputBoxOptions): Promise<string | undefined> {
+      return useExtensionUiStore.getState().showInputBox(options);
+    },
+  },
+
+  views: {
+    updateView(viewId: string, content: ViewContent): void {
+      console.log(`[ExtAPI:views] updateView("${viewId}") type="${content?.type}"`);
+      useViewRegistryStore.getState().updateView(viewId, content);
+    },
+    setViewBadge(viewId: string, badge: { count: number; tooltip?: string } | null): void {
+      useViewRegistryStore.getState().setViewBadge(viewId, badge);
+    },
+    onDidChangeSearch(viewId: string, handler: (query: string) => void): Disposable {
+      return useViewRegistryStore.getState().onDidChangeSearch(viewId, handler);
+    },
+    onDidChangeVisibility(viewId: string, handler: (visible: boolean) => void): Disposable {
+      return useViewRegistryStore.getState().onDidChangeVisibility(viewId, handler);
+    },
+    revealView(_viewId: string): void {
+      // TODO: integrate with sidebar store to switch active view
+    },
   },
 
   editor: {
@@ -231,6 +282,10 @@ function createExtensionApi(extensionName: string): HyscodeAPI {
   return {
     ..._api,
     commands: {
+      register(id: string, handler: (...args: unknown[]) => unknown): Disposable {
+        const dispose = cmdStore().registerCommand(id, handler, { extensionName });
+        return { dispose };
+      },
       registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable {
         const dispose = cmdStore().registerCommand(id, handler, { extensionName });
         return { dispose };
@@ -327,22 +382,33 @@ export function unregisterExtensionContributions(name: string): void {
  * Reads main.js from the Rust backend and executes it in the sandbox.
  */
 export async function activateExtension(ext: InstalledExtension): Promise<void> {
-  if (!ext.enabled || !ext.hasMain || !ext.manifest) return;
-  if (_sandbox.isActive(ext.name)) return;
+  if (!ext.enabled || !ext.hasMain || !ext.manifest) {
+    console.log(`[ExtensionLoader] Skip "${ext.name}" — enabled=${ext.enabled} hasMain=${ext.hasMain} hasManifest=${!!ext.manifest}`);
+    return;
+  }
+  if (_sandbox.isActive(ext.name)) {
+    console.log(`[ExtensionLoader] Already active: "${ext.name}"`);
+    return;
+  }
 
   // Pre-register command metadata & keybindings from manifest
   registerExtensionContributions(ext);
 
+  console.log(`[ExtensionLoader] Activating "${ext.name}"...`);
   try {
     const mainPath = ext.manifest.main ?? 'main.js';
     const source = await invoke<string>('extension_read_asset', {
       name: ext.name,
       assetPath: mainPath,
     });
+    // Store content hash for change detection
+    _sourceHashes.set(ext.name, hashString(source + JSON.stringify(ext.manifest)));
+    console.log(`[ExtensionLoader] Source loaded for "${ext.name}" (${source?.length ?? 0} chars)`);
     const api = createExtensionApi(ext.name);
     await _sandbox.activate(ext.manifest, ext.path, source, api);
+    console.log(`[ExtensionLoader] ✅ Activation complete for "${ext.name}"`);
   } catch (err) {
-    console.warn(`[ExtensionLoader] Could not activate "${ext.name}":`, err);
+    console.warn(`[ExtensionLoader] ❌ Could not activate "${ext.name}":`, err);
   }
 }
 
@@ -351,8 +417,58 @@ export async function activateExtension(ext: InstalledExtension): Promise<void> 
  */
 export async function deactivateExtension(name: string): Promise<void> {
   await _sandbox.deactivate(name);
+  _sourceHashes.delete(name);
   useExtensionUiStore.getState().removeAllForExtension(name);
   unregisterExtensionContributions(name);
+}
+
+/**
+ * Reload a single extension: deactivate then re-activate with fresh code from disk.
+ */
+export async function reloadExtension(ext: InstalledExtension): Promise<void> {
+  console.log(`[ExtensionLoader] Reloading "${ext.name}"...`);
+  await deactivateExtension(ext.name);
+  await activateExtension(ext);
+}
+
+/**
+ * Check all active extensions for code changes on disk.
+ * If an extension's source has changed, reload it automatically.
+ * Returns the names of extensions that were reloaded.
+ */
+export async function checkAndReloadChangedExtensions(
+  extensions: InstalledExtension[],
+): Promise<string[]> {
+  const reloaded: string[] = [];
+  const eligible = extensions.filter((e) => e.enabled && e.hasMain && e.manifest);
+
+  for (const ext of eligible) {
+    if (!_sandbox.isActive(ext.name)) continue; // not yet activated, skip
+
+    try {
+      const mainPath = ext.manifest!.main ?? 'main.js';
+      const source = await invoke<string>('extension_read_asset', {
+        name: ext.name,
+        assetPath: mainPath,
+      });
+      const currentHash = hashString(source + JSON.stringify(ext.manifest));
+      const previousHash = _sourceHashes.get(ext.name);
+
+      if (previousHash && previousHash !== currentHash) {
+        console.log(`[ExtensionLoader] Change detected in "${ext.name}" — reloading...`);
+        await reloadExtension(ext);
+        reloaded.push(ext.name);
+      }
+    } catch (err) {
+      console.warn(`[ExtensionLoader] Failed to check "${ext.name}" for changes:`, err);
+    }
+  }
+
+  if (reloaded.length > 0) {
+    console.log(`[ExtensionLoader] Reloaded ${reloaded.length} extension(s):`, reloaded);
+  }
+
+  return reloaded;
 }
 
 /**
