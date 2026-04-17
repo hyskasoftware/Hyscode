@@ -1,0 +1,243 @@
+{
+  "name": "csharp-dotnet",
+  "displayName": "C# & .NET",
+  "version": "1.0.0",
+  "description": "Suporte completo a C# e .NET — linguagem, snippets, criação de projetos, NuGet, build, run e debug",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["csharp", "c#", "dotnet", ".net", "nuget", "asp.net", "blazor", "maui", "entity-framework"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:csharp", "workspaceContains:*.csproj", "workspaceContains:*.sln"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "csharp",
+        "aliases": ["C#", "CSharp"],
+        "extensions": [".cs"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "csproj",
+        "aliases": ["C# Project"],
+        "extensions": [".csproj"],
+        "configuration": "language-configuration-xml.json"
+      },
+      {
+        "id": "sln",
+        "aliases": ["Solution"],
+        "extensions": [".sln"]
+      },
+      {
+        "id": "razor",
+        "aliases": ["Razor", "CSHtml"],
+        "extensions": [".cshtml", ".razor"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "csharp", "path": "snippets/csharp.json" }
+    ],
+    "commands": [
+      {
+        "id": "dotnet.newProject",
+        "title": "New .NET Project",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.newSolution",
+        "title": "New Solution",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.build",
+        "title": "Build Project",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.run",
+        "title": "Run Project",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.test",
+        "title": "Run Tests",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.watch",
+        "title": "Watch (Hot Reload)",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.clean",
+        "title": "Clean Project",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.restore",
+        "title": "Restore Packages",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.publish",
+        "title": "Publish Project",
+        "category": ".NET"
+      },
+      {
+        "id": "nuget.add",
+        "title": "Add NuGet Package",
+        "category": "NuGet"
+      },
+      {
+        "id": "nuget.remove",
+        "title": "Remove NuGet Package",
+        "category": "NuGet"
+      },
+      {
+        "id": "nuget.list",
+        "title": "List Installed Packages",
+        "category": "NuGet"
+      },
+      {
+        "id": "nuget.update",
+        "title": "Update NuGet Package",
+        "category": "NuGet"
+      },
+      {
+        "id": "nuget.search",
+        "title": "Search NuGet Packages",
+        "category": "NuGet"
+      },
+      {
+        "id": "dotnet.addReference",
+        "title": "Add Project Reference",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.addToSolution",
+        "title": "Add Project to Solution",
+        "category": ".NET"
+      },
+      {
+        "id": "dotnet.newClass",
+        "title": "New C# Class",
+        "category": "C#"
+      },
+      {
+        "id": "dotnet.newInterface",
+        "title": "New C# Interface",
+        "category": "C#"
+      },
+      {
+        "id": "dotnet.newRecord",
+        "title": "New C# Record",
+        "category": "C#"
+      },
+      {
+        "id": "dotnet.newEnum",
+        "title": "New C# Enum",
+        "category": "C#"
+      },
+      {
+        "id": "dotnet.efMigrationAdd",
+        "title": "Add EF Migration",
+        "category": "Entity Framework"
+      },
+      {
+        "id": "dotnet.efDatabaseUpdate",
+        "title": "Update Database",
+        "category": "Entity Framework"
+      },
+      {
+        "id": "dotnet.efMigrationsList",
+        "title": "List Migrations",
+        "category": "Entity Framework"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "dotnet.build",
+        "key": "ctrl+shift+b",
+        "when": "editorTextFocus && editorLangId == csharp"
+      },
+      {
+        "command": "dotnet.run",
+        "key": "ctrl+f5",
+        "when": "editorTextFocus && editorLangId == csharp"
+      },
+      {
+        "command": "dotnet.test",
+        "key": "ctrl+shift+t",
+        "when": "editorTextFocus && editorLangId == csharp"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "dotnet.build", "group": "1_dotnet", "when": "editorLangId == csharp" },
+        { "command": "dotnet.run", "group": "1_dotnet", "when": "editorLangId == csharp" },
+        { "command": "dotnet.test", "group": "1_dotnet", "when": "editorLangId == csharp" }
+      ],
+      "commandPalette": [
+        { "command": "dotnet.newProject" },
+        { "command": "dotnet.newSolution" },
+        { "command": "dotnet.build" },
+        { "command": "dotnet.run" },
+        { "command": "dotnet.test" },
+        { "command": "dotnet.watch" },
+        { "command": "dotnet.clean" },
+        { "command": "dotnet.restore" },
+        { "command": "dotnet.publish" },
+        { "command": "nuget.add" },
+        { "command": "nuget.remove" },
+        { "command": "nuget.list" },
+        { "command": "nuget.update" },
+        { "command": "nuget.search" },
+        { "command": "dotnet.addReference" },
+        { "command": "dotnet.addToSolution" },
+        { "command": "dotnet.newClass" },
+        { "command": "dotnet.newInterface" },
+        { "command": "dotnet.newRecord" },
+        { "command": "dotnet.newEnum" },
+        { "command": "dotnet.efMigrationAdd" },
+        { "command": "dotnet.efDatabaseUpdate" },
+        { "command": "dotnet.efMigrationsList" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "csharp-dotnet.indicator",
+        "text": "⬡ .NET",
+        "tooltip": "C# & .NET support ativo",
+        "alignment": "right",
+        "priority": 44
+      }
+    ],
+    "configuration": {
+      "title": "C# & .NET",
+      "properties": {
+        "dotnet.sdkPath": {
+          "type": "string",
+          "default": "",
+          "description": "Caminho para o .NET SDK (deixe vazio para usar $PATH)"
+        },
+        "dotnet.defaultFramework": {
+          "type": "string",
+          "default": "net9.0",
+          "description": "Target framework padrão para novos projetos"
+        },
+        "csharp.formatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Formatar código C# ao salvar"
+        },
+        "nuget.defaultSource": {
+          "type": "string",
+          "default": "https://api.nuget.org/v3/index.json",
+          "description": "Fonte NuGet padrão"
+        }
+      }
+    }
+  }
+}

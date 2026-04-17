@@ -1,0 +1,402 @@
+{
+  "Class": {
+    "prefix": ["class"],
+    "body": [
+      "package ${1:com.example};",
+      "",
+      "public class ${2:MyClass} {",
+      "",
+      "    public ${2:MyClass}() {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "Java class"
+  },
+  "Interface": {
+    "prefix": ["interface"],
+    "body": [
+      "package ${1:com.example};",
+      "",
+      "public interface ${2:MyInterface} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Java interface"
+  },
+  "Enum": {
+    "prefix": ["enum"],
+    "body": [
+      "package ${1:com.example};",
+      "",
+      "public enum ${2:MyEnum} {",
+      "    ${3:VALUE1},",
+      "    ${4:VALUE2};",
+      "    $0",
+      "}"
+    ],
+    "description": "Java enum"
+  },
+  "Record": {
+    "prefix": ["record"],
+    "body": [
+      "package ${1:com.example};",
+      "",
+      "public record ${2:MyRecord}(${3:String name}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Java record"
+  },
+  "Main Method": {
+    "prefix": ["main", "psvm"],
+    "body": [
+      "public static void main(String[] args) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Main method"
+  },
+  "System.out.println": {
+    "prefix": ["sout", "sysout"],
+    "body": [
+      "System.out.println(${1:\"$2\"});$0"
+    ],
+    "description": "Print to stdout"
+  },
+  "System.err.println": {
+    "prefix": ["serr"],
+    "body": [
+      "System.err.println(${1:\"$2\"});$0"
+    ],
+    "description": "Print to stderr"
+  },
+  "Method": {
+    "prefix": ["method"],
+    "body": [
+      "public ${1:void} ${2:methodName}(${3}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Method"
+  },
+  "Private Method": {
+    "prefix": ["pmethod"],
+    "body": [
+      "private ${1:void} ${2:methodName}(${3}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Private method"
+  },
+  "Getter": {
+    "prefix": ["getter", "get"],
+    "body": [
+      "public ${1:String} get${2:Name}() {",
+      "    return this.${3:name};",
+      "}"
+    ],
+    "description": "Getter method"
+  },
+  "Setter": {
+    "prefix": ["setter", "set"],
+    "body": [
+      "public void set${1:Name}(${2:String} ${3:name}) {",
+      "    this.${3:name} = ${3:name};",
+      "}"
+    ],
+    "description": "Setter method"
+  },
+  "Constructor": {
+    "prefix": ["ctor", "constructor"],
+    "body": [
+      "public ${1:ClassName}(${2}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Constructor"
+  },
+  "Try Catch": {
+    "prefix": ["try", "trycatch"],
+    "body": [
+      "try {",
+      "    $1",
+      "} catch (${2:Exception} ${3:e}) {",
+      "    ${4:e.printStackTrace();}",
+      "    $0",
+      "}"
+    ],
+    "description": "Try/catch block"
+  },
+  "Try With Resources": {
+    "prefix": ["tryr", "tryresources"],
+    "body": [
+      "try (${1:var resource = new Resource()}) {",
+      "    $0",
+      "} catch (${2:Exception} ${3:e}) {",
+      "    ${3:e}.printStackTrace();",
+      "}"
+    ],
+    "description": "Try-with-resources"
+  },
+  "If Statement": {
+    "prefix": ["if"],
+    "body": [
+      "if (${1:condition}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "If statement"
+  },
+  "For Loop": {
+    "prefix": ["fori"],
+    "body": [
+      "for (int ${1:i} = 0; ${1:i} < ${2:length}; ${1:i}++) {",
+      "    $0",
+      "}"
+    ],
+    "description": "For loop"
+  },
+  "Enhanced For Loop": {
+    "prefix": ["foreach", "fore"],
+    "body": [
+      "for (${1:var} ${2:item} : ${3:collection}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Enhanced for loop"
+  },
+  "While Loop": {
+    "prefix": ["while"],
+    "body": [
+      "while (${1:condition}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "While loop"
+  },
+  "Switch Expression": {
+    "prefix": ["switchexp"],
+    "body": [
+      "var ${1:result} = switch (${2:value}) {",
+      "    case ${3:pattern1} -> ${4:result1};",
+      "    case ${5:pattern2} -> ${6:result2};",
+      "    default -> ${7:defaultResult};",
+      "};",
+      "$0"
+    ],
+    "description": "Switch expression (Java 14+)"
+  },
+  "Stream Pipeline": {
+    "prefix": ["stream"],
+    "body": [
+      "${1:collection}.stream()",
+      "    .filter(${2:item} -> ${3:condition})",
+      "    .map(${2:item} -> ${4:transformation})",
+      "    .collect(Collectors.toList());",
+      "$0"
+    ],
+    "description": "Stream pipeline"
+  },
+  "Optional": {
+    "prefix": ["optional"],
+    "body": [
+      "Optional.ofNullable(${1:value})",
+      "    .map(${2:v} -> ${3:transformation})",
+      "    .orElse(${4:defaultValue});",
+      "$0"
+    ],
+    "description": "Optional chain"
+  },
+  "Lambda": {
+    "prefix": ["lambda"],
+    "body": [
+      "(${1:params}) -> {",
+      "    $0",
+      "}"
+    ],
+    "description": "Lambda expression"
+  },
+  "Singleton Pattern": {
+    "prefix": ["singleton"],
+    "body": [
+      "public class ${1:Singleton} {",
+      "",
+      "    private static final ${1:Singleton} INSTANCE = new ${1:Singleton}();",
+      "",
+      "    private ${1:Singleton}() {}",
+      "",
+      "    public static ${1:Singleton} getInstance() {",
+      "        return INSTANCE;",
+      "    }",
+      "    $0",
+      "}"
+    ],
+    "description": "Singleton pattern"
+  },
+  "Spring REST Controller": {
+    "prefix": ["restcontroller", "springcontroller"],
+    "body": [
+      "package ${1:com.example.controller};",
+      "",
+      "import org.springframework.web.bind.annotation.*;",
+      "import org.springframework.http.ResponseEntity;",
+      "import java.util.List;",
+      "",
+      "@RestController",
+      "@RequestMapping(\"/api/${2:resource}\")",
+      "public class ${3:Resource}Controller {",
+      "",
+      "    @GetMapping",
+      "    public ResponseEntity<List<${4:Object}>> getAll() {",
+      "        $0",
+      "        return ResponseEntity.ok(List.of());",
+      "    }",
+      "",
+      "    @GetMapping(\"/{id}\")",
+      "    public ResponseEntity<${4:Object}> getById(@PathVariable Long id) {",
+      "        return ResponseEntity.ok(null);",
+      "    }",
+      "",
+      "    @PostMapping",
+      "    public ResponseEntity<${4:Object}> create(@RequestBody ${4:Object} body) {",
+      "        return ResponseEntity.status(201).body(body);",
+      "    }",
+      "",
+      "    @DeleteMapping(\"/{id}\")",
+      "    public ResponseEntity<Void> delete(@PathVariable Long id) {",
+      "        return ResponseEntity.noContent().build();",
+      "    }",
+      "}"
+    ],
+    "description": "Spring REST Controller"
+  },
+  "Spring Service": {
+    "prefix": ["springservice", "service"],
+    "body": [
+      "package ${1:com.example.service};",
+      "",
+      "import org.springframework.stereotype.Service;",
+      "",
+      "@Service",
+      "public class ${2:My}Service {",
+      "",
+      "    $0",
+      "}"
+    ],
+    "description": "Spring Service"
+  },
+  "Spring Repository": {
+    "prefix": ["springrepository", "repository"],
+    "body": [
+      "package ${1:com.example.repository};",
+      "",
+      "import org.springframework.data.jpa.repository.JpaRepository;",
+      "import org.springframework.stereotype.Repository;",
+      "",
+      "@Repository",
+      "public interface ${2:Entity}Repository extends JpaRepository<${2:Entity}, ${3:Long}> {",
+      "    $0",
+      "}"
+    ],
+    "description": "Spring JPA Repository"
+  },
+  "JPA Entity": {
+    "prefix": ["entity", "jpaentity"],
+    "body": [
+      "package ${1:com.example.entity};",
+      "",
+      "import jakarta.persistence.*;",
+      "",
+      "@Entity",
+      "@Table(name = \"${2:my_table}\")",
+      "public class ${3:MyEntity} {",
+      "",
+      "    @Id",
+      "    @GeneratedValue(strategy = GenerationType.IDENTITY)",
+      "    private Long id;",
+      "",
+      "    @Column(nullable = false)",
+      "    private String ${4:name};",
+      "",
+      "    public ${3:MyEntity}() {}",
+      "",
+      "    public Long getId() { return id; }",
+      "    public void setId(Long id) { this.id = id; }",
+      "",
+      "    public String get${4/(.*)/${1:/capitalize}/}() { return ${4:name}; }",
+      "    public void set${4/(.*)/${1:/capitalize}/}(String ${4:name}) { this.${4:name} = ${4:name}; }",
+      "    $0",
+      "}"
+    ],
+    "description": "JPA Entity"
+  },
+  "JUnit Test Class": {
+    "prefix": ["junit", "testclass"],
+    "body": [
+      "package ${1:com.example};",
+      "",
+      "import org.junit.jupiter.api.*;",
+      "import static org.junit.jupiter.api.Assertions.*;",
+      "",
+      "class ${2:MyClass}Test {",
+      "",
+      "    @Test",
+      "    void ${3:shouldDoSomething}() {",
+      "        // Arrange",
+      "        $0",
+      "",
+      "        // Act",
+      "",
+      "        // Assert",
+      "    }",
+      "}"
+    ],
+    "description": "JUnit 5 test class"
+  },
+  "JUnit Test Method": {
+    "prefix": ["test"],
+    "body": [
+      "@Test",
+      "void ${1:shouldDoSomething}() {",
+      "    // Arrange",
+      "    $0",
+      "",
+      "    // Act",
+      "",
+      "    // Assert",
+      "}"
+    ],
+    "description": "JUnit 5 test method"
+  },
+  "toString Override": {
+    "prefix": ["tostring"],
+    "body": [
+      "@Override",
+      "public String toString() {",
+      "    return \"${1:ClassName}{\" +",
+      "            \"$0\" +",
+      "            '}';",
+      "}"
+    ],
+    "description": "toString() override"
+  },
+  "equals and hashCode": {
+    "prefix": ["equalshash"],
+    "body": [
+      "@Override",
+      "public boolean equals(Object o) {",
+      "    if (this == o) return true;",
+      "    if (o == null || getClass() != o.getClass()) return false;",
+      "    ${1:ClassName} that = (${1:ClassName}) o;",
+      "    return Objects.equals(${2:id}, that.${2:id});",
+      "}",
+      "",
+      "@Override",
+      "public int hashCode() {",
+      "    return Objects.hash(${2:id});",
+      "}"
+    ],
+    "description": "equals() and hashCode() overrides"
+  }
+}

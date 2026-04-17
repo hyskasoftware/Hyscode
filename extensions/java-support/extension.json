@@ -1,0 +1,281 @@
+{
+  "name": "java-support",
+  "displayName": "Java",
+  "version": "1.0.0",
+  "description": "Suporte completo a Java — linguagem, snippets, criação de projetos, Maven, Gradle, JDK e gerenciamento de dependências",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["java", "jdk", "maven", "gradle", "spring", "spring-boot", "jvm", "jar", "kotlin"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:java", "workspaceContains:pom.xml", "workspaceContains:build.gradle", "workspaceContains:build.gradle.kts"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "java",
+        "aliases": ["Java"],
+        "extensions": [".java"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "xml",
+        "aliases": ["XML", "POM"],
+        "extensions": [".xml", ".pom"],
+        "configuration": "language-configuration-xml.json"
+      },
+      {
+        "id": "gradle",
+        "aliases": ["Gradle"],
+        "extensions": [".gradle"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "gradle-kotlin",
+        "aliases": ["Gradle Kotlin DSL"],
+        "extensions": [".gradle.kts"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "properties",
+        "aliases": ["Properties"],
+        "extensions": [".properties"]
+      }
+    ],
+    "snippets": [
+      { "language": "java", "path": "snippets/java.json" }
+    ],
+    "commands": [
+      {
+        "id": "java.newProject",
+        "title": "New Java Project",
+        "category": "Java"
+      },
+      {
+        "id": "java.newSpringProject",
+        "title": "New Spring Boot Project",
+        "category": "Java"
+      },
+      {
+        "id": "java.newClass",
+        "title": "New Java Class",
+        "category": "Java"
+      },
+      {
+        "id": "java.newInterface",
+        "title": "New Java Interface",
+        "category": "Java"
+      },
+      {
+        "id": "java.newEnum",
+        "title": "New Java Enum",
+        "category": "Java"
+      },
+      {
+        "id": "java.newRecord",
+        "title": "New Java Record",
+        "category": "Java"
+      },
+      {
+        "id": "java.compile",
+        "title": "Compile",
+        "category": "Java"
+      },
+      {
+        "id": "java.run",
+        "title": "Run Main Class",
+        "category": "Java"
+      },
+      {
+        "id": "java.test",
+        "title": "Run Tests",
+        "category": "Java"
+      },
+      {
+        "id": "java.buildJar",
+        "title": "Build JAR",
+        "category": "Java"
+      },
+      {
+        "id": "maven.compile",
+        "title": "Maven: Compile",
+        "category": "Maven"
+      },
+      {
+        "id": "maven.package",
+        "title": "Maven: Package",
+        "category": "Maven"
+      },
+      {
+        "id": "maven.install",
+        "title": "Maven: Install",
+        "category": "Maven"
+      },
+      {
+        "id": "maven.clean",
+        "title": "Maven: Clean",
+        "category": "Maven"
+      },
+      {
+        "id": "maven.test",
+        "title": "Maven: Test",
+        "category": "Maven"
+      },
+      {
+        "id": "maven.addDependency",
+        "title": "Maven: Add Dependency",
+        "category": "Maven"
+      },
+      {
+        "id": "maven.dependencyTree",
+        "title": "Maven: Dependency Tree",
+        "category": "Maven"
+      },
+      {
+        "id": "maven.effectivePom",
+        "title": "Maven: Effective POM",
+        "category": "Maven"
+      },
+      {
+        "id": "gradle.build",
+        "title": "Gradle: Build",
+        "category": "Gradle"
+      },
+      {
+        "id": "gradle.clean",
+        "title": "Gradle: Clean",
+        "category": "Gradle"
+      },
+      {
+        "id": "gradle.test",
+        "title": "Gradle: Test",
+        "category": "Gradle"
+      },
+      {
+        "id": "gradle.run",
+        "title": "Gradle: Run",
+        "category": "Gradle"
+      },
+      {
+        "id": "gradle.tasks",
+        "title": "Gradle: List Tasks",
+        "category": "Gradle"
+      },
+      {
+        "id": "gradle.dependencies",
+        "title": "Gradle: Dependencies",
+        "category": "Gradle"
+      },
+      {
+        "id": "java.generateGetterSetter",
+        "title": "Generate Getter/Setter",
+        "category": "Java"
+      },
+      {
+        "id": "java.generateConstructor",
+        "title": "Generate Constructor",
+        "category": "Java"
+      },
+      {
+        "id": "java.generateToString",
+        "title": "Generate toString()",
+        "category": "Java"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "java.compile",
+        "key": "ctrl+shift+b",
+        "when": "editorTextFocus && editorLangId == java"
+      },
+      {
+        "command": "java.run",
+        "key": "ctrl+f5",
+        "when": "editorTextFocus && editorLangId == java"
+      },
+      {
+        "command": "java.test",
+        "key": "ctrl+shift+t",
+        "when": "editorTextFocus && editorLangId == java"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "java.run", "group": "1_java", "when": "editorLangId == java" },
+        { "command": "java.compile", "group": "1_java", "when": "editorLangId == java" },
+        { "command": "java.generateGetterSetter", "group": "2_java_generate", "when": "editorLangId == java" },
+        { "command": "java.generateConstructor", "group": "2_java_generate", "when": "editorLangId == java" },
+        { "command": "java.generateToString", "group": "2_java_generate", "when": "editorLangId == java" }
+      ],
+      "commandPalette": [
+        { "command": "java.newProject" },
+        { "command": "java.newSpringProject" },
+        { "command": "java.newClass" },
+        { "command": "java.newInterface" },
+        { "command": "java.newEnum" },
+        { "command": "java.newRecord" },
+        { "command": "java.compile" },
+        { "command": "java.run" },
+        { "command": "java.test" },
+        { "command": "java.buildJar" },
+        { "command": "maven.compile" },
+        { "command": "maven.package" },
+        { "command": "maven.install" },
+        { "command": "maven.clean" },
+        { "command": "maven.test" },
+        { "command": "maven.addDependency" },
+        { "command": "maven.dependencyTree" },
+        { "command": "maven.effectivePom" },
+        { "command": "gradle.build" },
+        { "command": "gradle.clean" },
+        { "command": "gradle.test" },
+        { "command": "gradle.run" },
+        { "command": "gradle.tasks" },
+        { "command": "gradle.dependencies" },
+        { "command": "java.generateGetterSetter" },
+        { "command": "java.generateConstructor" },
+        { "command": "java.generateToString" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "java-support.indicator",
+        "text": "☕ Java",
+        "tooltip": "Java support ativo",
+        "alignment": "right",
+        "priority": 43
+      }
+    ],
+    "configuration": {
+      "title": "Java",
+      "properties": {
+        "java.home": {
+          "type": "string",
+          "default": "",
+          "description": "Caminho para o JAVA_HOME (deixe vazio para usar a variável de ambiente)"
+        },
+        "java.defaultJdkVersion": {
+          "type": "string",
+          "default": "21",
+          "description": "Versão JDK padrão para novos projetos"
+        },
+        "java.buildTool": {
+          "type": "string",
+          "default": "maven",
+          "enum": ["maven", "gradle"],
+          "description": "Ferramenta de build padrão"
+        },
+        "maven.executable": {
+          "type": "string",
+          "default": "mvn",
+          "description": "Executável do Maven (mvn ou mvnw)"
+        },
+        "gradle.executable": {
+          "type": "string",
+          "default": "gradle",
+          "description": "Executável do Gradle (gradle ou gradlew)"
+        }
+      }
+    }
+  }
+}

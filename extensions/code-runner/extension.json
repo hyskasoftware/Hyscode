@@ -1,0 +1,160 @@
+{
+  "name": "code-runner",
+  "displayName": "Code Runner",
+  "version": "1.0.0",
+  "description": "Execute código e projetos diretamente na IDE com um botão — suporta 30+ linguagens, integração com terminal, execução de arquivos e seleções",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Other"],
+  "keywords": ["run", "execute", "code", "runner", "play", "terminal", "build", "compile", "script"],
+  "license": "MIT",
+  "activationEvents": ["onStartup"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      {
+        "id": "codeRunner.run",
+        "title": "Run Code",
+        "category": "Code Runner",
+        "icon": "play"
+      },
+      {
+        "id": "codeRunner.runSelection",
+        "title": "Run Selection",
+        "category": "Code Runner",
+        "icon": "play"
+      },
+      {
+        "id": "codeRunner.runProject",
+        "title": "Run Project",
+        "category": "Code Runner",
+        "icon": "play"
+      },
+      {
+        "id": "codeRunner.stop",
+        "title": "Stop Running",
+        "category": "Code Runner",
+        "icon": "stop"
+      },
+      {
+        "id": "codeRunner.runInDedicatedTerminal",
+        "title": "Run in New Terminal",
+        "category": "Code Runner"
+      },
+      {
+        "id": "codeRunner.runCustomCommand",
+        "title": "Run Custom Command",
+        "category": "Code Runner"
+      },
+      {
+        "id": "codeRunner.clearOutput",
+        "title": "Clear Output",
+        "category": "Code Runner"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "codeRunner.run",
+        "key": "ctrl+alt+n",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeRunner.runSelection",
+        "key": "ctrl+alt+k",
+        "when": "editorTextFocus && editorHasSelection"
+      },
+      {
+        "command": "codeRunner.runProject",
+        "key": "ctrl+alt+p",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeRunner.stop",
+        "key": "ctrl+alt+m",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeRunner.run",
+        "key": "f5",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "codeRunner.run", "group": "0_run", "when": "editorTextFocus" },
+        { "command": "codeRunner.runSelection", "group": "0_run", "when": "editorHasSelection" },
+        { "command": "codeRunner.stop", "group": "0_run" }
+      ],
+      "editor/title": [
+        { "command": "codeRunner.run", "group": "navigation", "when": "editorTextFocus" }
+      ],
+      "commandPalette": [
+        { "command": "codeRunner.run" },
+        { "command": "codeRunner.runSelection" },
+        { "command": "codeRunner.runProject" },
+        { "command": "codeRunner.stop" },
+        { "command": "codeRunner.runInDedicatedTerminal" },
+        { "command": "codeRunner.runCustomCommand" },
+        { "command": "codeRunner.clearOutput" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "codeRunner.runButton",
+        "text": "▶ Run",
+        "tooltip": "Executar arquivo atual (Ctrl+Alt+N)",
+        "command": "codeRunner.run",
+        "alignment": "left",
+        "priority": 100
+      },
+      {
+        "id": "codeRunner.stopButton",
+        "text": "■ Stop",
+        "tooltip": "Parar execução (Ctrl+Alt+M)",
+        "command": "codeRunner.stop",
+        "alignment": "left",
+        "priority": 99
+      }
+    ],
+    "configuration": {
+      "title": "Code Runner",
+      "properties": {
+        "codeRunner.runInTerminal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Executar código no terminal integrado (true) ou no output panel (false)"
+        },
+        "codeRunner.saveFileBeforeRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "Salvar arquivo automaticamente antes de executar"
+        },
+        "codeRunner.clearPreviousOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Limpar output anterior antes de cada execução"
+        },
+        "codeRunner.showExecutionTime": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar tempo de execução ao finalizar"
+        },
+        "codeRunner.cwd": {
+          "type": "string",
+          "default": "",
+          "description": "Diretório de trabalho para execução (vazio = diretório do arquivo)"
+        },
+        "codeRunner.executorMap": {
+          "type": "object",
+          "default": {},
+          "description": "Mapa customizado de linguagem → comando de execução. Ex: { \"python\": \"python3 -u\" }"
+        },
+        "codeRunner.defaultProjectRunner": {
+          "type": "string",
+          "default": "",
+          "description": "Comando customizado para 'Run Project' (ex: npm start, dotnet run)"
+        }
+      }
+    }
+  }
+}

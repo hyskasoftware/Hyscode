@@ -1,0 +1,331 @@
+{
+  "Class": {
+    "prefix": ["class"],
+    "body": [
+      "namespace ${1:MyNamespace};",
+      "",
+      "public class ${2:MyClass}",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "C# class"
+  },
+  "Interface": {
+    "prefix": ["interface"],
+    "body": [
+      "namespace ${1:MyNamespace};",
+      "",
+      "public interface I${2:MyInterface}",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "C# interface"
+  },
+  "Record": {
+    "prefix": ["record"],
+    "body": [
+      "namespace ${1:MyNamespace};",
+      "",
+      "public record ${2:MyRecord}(${3:string Name});",
+      "$0"
+    ],
+    "description": "C# record"
+  },
+  "Enum": {
+    "prefix": ["enum"],
+    "body": [
+      "namespace ${1:MyNamespace};",
+      "",
+      "public enum ${2:MyEnum}",
+      "{",
+      "    ${3:Value1},",
+      "    ${4:Value2}",
+      "}"
+    ],
+    "description": "C# enum"
+  },
+  "Console App Main": {
+    "prefix": ["main", "program"],
+    "body": [
+      "// Top-level statements",
+      "Console.WriteLine(\"${1:Hello, World!}\");",
+      "$0"
+    ],
+    "description": "C# top-level program"
+  },
+  "Property": {
+    "prefix": ["prop"],
+    "body": [
+      "public ${1:string} ${2:Name} { get; set; }"
+    ],
+    "description": "Auto property"
+  },
+  "Property with backing field": {
+    "prefix": ["propfull"],
+    "body": [
+      "private ${1:string} _${2:name};",
+      "public ${1:string} ${3:Name}",
+      "{",
+      "    get => _${2:name};",
+      "    set => _${2:name} = value;",
+      "}"
+    ],
+    "description": "Property with backing field"
+  },
+  "Constructor": {
+    "prefix": ["ctor"],
+    "body": [
+      "public ${1:ClassName}(${2})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Constructor"
+  },
+  "Primary Constructor": {
+    "prefix": ["pctor"],
+    "body": [
+      "public class ${1:ClassName}(${2:string name})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Primary constructor (C# 12)"
+  },
+  "Method": {
+    "prefix": ["method"],
+    "body": [
+      "public ${1:void} ${2:MethodName}(${3})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Method"
+  },
+  "Async Method": {
+    "prefix": ["asyncmethod", "taskmethod"],
+    "body": [
+      "public async Task${1:<${2:string}>} ${3:MethodName}Async(${4})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Async method"
+  },
+  "Try Catch": {
+    "prefix": ["try", "trycatch"],
+    "body": [
+      "try",
+      "{",
+      "    $1",
+      "}",
+      "catch (${2:Exception} ${3:ex})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Try/catch block"
+  },
+  "If Statement": {
+    "prefix": ["if"],
+    "body": [
+      "if (${1:condition})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "If statement"
+  },
+  "For Loop": {
+    "prefix": ["for"],
+    "body": [
+      "for (int ${1:i} = 0; ${1:i} < ${2:length}; ${1:i}++)",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "For loop"
+  },
+  "Foreach Loop": {
+    "prefix": ["foreach"],
+    "body": [
+      "foreach (var ${1:item} in ${2:collection})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Foreach loop"
+  },
+  "LINQ Query": {
+    "prefix": ["linq"],
+    "body": [
+      "var ${1:result} = ${2:collection}",
+      "    .Where(${3:x} => ${4:x.Property == value})",
+      "    .Select(${3:x} => ${5:x})",
+      "    .ToList();",
+      "$0"
+    ],
+    "description": "LINQ query"
+  },
+  "Using Statement": {
+    "prefix": ["using"],
+    "body": [
+      "using var ${1:resource} = ${2:new Resource()};",
+      "$0"
+    ],
+    "description": "Using declaration"
+  },
+  "Dependency Injection": {
+    "prefix": ["di", "inject"],
+    "body": [
+      "private readonly ${1:IService} _${2:service};",
+      "",
+      "public ${3:ClassName}(${1:IService} ${2:service})",
+      "{",
+      "    _${2:service} = ${2:service};",
+      "}"
+    ],
+    "description": "Dependency injection pattern"
+  },
+  "ASP.NET Controller": {
+    "prefix": ["apicontroller", "controller"],
+    "body": [
+      "using Microsoft.AspNetCore.Mvc;",
+      "",
+      "namespace ${1:MyApp}.Controllers;",
+      "",
+      "[ApiController]",
+      "[Route(\"api/[controller]\")]",
+      "public class ${2:My}Controller : ControllerBase",
+      "{",
+      "    [HttpGet]",
+      "    public IActionResult GetAll()",
+      "    {",
+      "        $0",
+      "        return Ok();",
+      "    }",
+      "",
+      "    [HttpGet(\"{id}\")]",
+      "    public IActionResult GetById(int id)",
+      "    {",
+      "        return Ok();",
+      "    }",
+      "",
+      "    [HttpPost]",
+      "    public IActionResult Create([FromBody] ${3:object} body)",
+      "    {",
+      "        return CreatedAtAction(nameof(GetById), new { id = 1 }, body);",
+      "    }",
+      "}"
+    ],
+    "description": "ASP.NET API Controller"
+  },
+  "Minimal API Endpoint": {
+    "prefix": ["minimalapi", "mapget"],
+    "body": [
+      "app.Map${1|Get,Post,Put,Delete|}(\"${2:/api/resource}\", (${3}) =>",
+      "{",
+      "    $0",
+      "    return Results.Ok();",
+      "});"
+    ],
+    "description": "Minimal API endpoint"
+  },
+  "Entity Framework DbContext": {
+    "prefix": ["dbcontext"],
+    "body": [
+      "using Microsoft.EntityFrameworkCore;",
+      "",
+      "namespace ${1:MyApp}.Data;",
+      "",
+      "public class ${2:App}DbContext : DbContext",
+      "{",
+      "    public ${2:App}DbContext(DbContextOptions<${2:App}DbContext> options)",
+      "        : base(options) { }",
+      "",
+      "    public DbSet<${3:Entity}> ${4:Entities} { get; set; }",
+      "",
+      "    protected override void OnModelCreating(ModelBuilder modelBuilder)",
+      "    {",
+      "        base.OnModelCreating(modelBuilder);",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "EF Core DbContext"
+  },
+  "xUnit Test": {
+    "prefix": ["xtest", "fact"],
+    "body": [
+      "[Fact]",
+      "public void ${1:Should_DoSomething_When_Condition}()",
+      "{",
+      "    // Arrange",
+      "    $0",
+      "",
+      "    // Act",
+      "",
+      "    // Assert",
+      "}"
+    ],
+    "description": "xUnit Fact test"
+  },
+  "xUnit Theory": {
+    "prefix": ["theory"],
+    "body": [
+      "[Theory]",
+      "[InlineData(${1})]",
+      "public void ${2:Should_DoSomething}(${3:string input})",
+      "{",
+      "    // Arrange",
+      "    $0",
+      "",
+      "    // Act",
+      "",
+      "    // Assert",
+      "}"
+    ],
+    "description": "xUnit Theory test"
+  },
+  "Switch Expression": {
+    "prefix": ["switchexp"],
+    "body": [
+      "var ${1:result} = ${2:value} switch",
+      "{",
+      "    ${3:pattern1} => ${4:result1},",
+      "    ${5:pattern2} => ${6:result2},",
+      "    _ => ${7:defaultResult}",
+      "};",
+      "$0"
+    ],
+    "description": "Switch expression (C# 8+)"
+  },
+  "Pattern Matching": {
+    "prefix": ["ispattern"],
+    "body": [
+      "if (${1:obj} is ${2:Type} ${3:name})",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Pattern matching with is"
+  },
+  "Null Check": {
+    "prefix": ["nullcheck"],
+    "body": [
+      "ArgumentNullException.ThrowIfNull(${1:parameter});"
+    ],
+    "description": "Null argument check"
+  },
+  "Region": {
+    "prefix": ["region"],
+    "body": [
+      "#region ${1:Region Name}",
+      "$0",
+      "#endregion"
+    ],
+    "description": "#region block"
+  }
+}
