@@ -1,21 +1,48 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+export interface CommandHistoryEntry {
+  command: string;
+  output: string;
+  exitCode: number | null;
+  timestamp: number;
+  /** Who executed this command */
+  source: 'user' | 'agent';
+}
+
 export interface TerminalSession {
   id: string;
   name: string;
   ptyId: string | null;
+  /** Whether this session is owned by the AI agent */
+  isAgentSession: boolean;
+  /** Last executed command (for environment context injection) */
+  lastCommand: CommandHistoryEntry | null;
+  /** Rolling command history (capped at MAX_HISTORY) */
+  commandHistory: CommandHistoryEntry[];
 }
+
+const MAX_HISTORY = 50;
 
 interface TerminalState {
   sessions: TerminalSession[];
   activeSessionId: string | null;
   nextIndex: number;
-  createSession: (name?: string) => string;
+  createSession: (name?: string, isAgentSession?: boolean) => string;
   closeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
   renameSession: (id: string, name: string) => void;
   setPtyId: (sessionId: string, ptyId: string) => void;
+  /** Record a finished command on a session */
+  setLastCommand: (sessionId: string, command: string, output: string, exitCode: number | null) => void;
+  /** Append a command to the rolling history */
+  appendCommandHistory: (sessionId: string, entry: CommandHistoryEntry) => void;
+  /** Find or create the dedicated agent terminal session. Returns its id. */
+  ensureAgentSession: () => string;
+  /** Get the agent session (if it exists) */
+  getAgentSession: () => TerminalSession | undefined;
 }
 
 let _counter = 0;
@@ -29,7 +56,7 @@ export const useTerminalStore = create<TerminalState>()(
     activeSessionId: null,
     nextIndex: 1,
 
-    createSession: (name?: string) => {
+    createSession: (name?: string, isAgentSession = false) => {
       const id = genId();
       const idx = get().nextIndex;
       const sessionName = name ?? `Terminal ${idx}`;
@@ -38,6 +65,9 @@ export const useTerminalStore = create<TerminalState>()(
           id,
           name: sessionName,
           ptyId: null,
+          isAgentSession,
+          lastCommand: null,
+          commandHistory: [],
         });
         state.activeSessionId = id;
         state.nextIndex = idx + 1;
@@ -77,5 +107,49 @@ export const useTerminalStore = create<TerminalState>()(
         const session = state.sessions.find((s) => s.id === sessionId);
         if (session) session.ptyId = ptyId;
       }),
+
+    setLastCommand: (sessionId: string, command: string, output: string, exitCode: number | null) =>
+      set((state) => {
+        const session = state.sessions.find((s) => s.id === sessionId);
+        if (session) {
+          session.lastCommand = { command, output, exitCode, timestamp: Date.now(), source: 'user' };
+        }
+      }),
+
+    appendCommandHistory: (sessionId: string, entry: CommandHistoryEntry) =>
+      set((state) => {
+        const session = state.sessions.find((s) => s.id === sessionId);
+        if (session) {
+          session.commandHistory.push(entry);
+          // Cap at MAX_HISTORY
+          if (session.commandHistory.length > MAX_HISTORY) {
+            session.commandHistory = session.commandHistory.slice(-MAX_HISTORY);
+          }
+        }
+      }),
+
+    ensureAgentSession: () => {
+      const existing = get().sessions.find((s) => s.isAgentSession);
+      if (existing) return existing.id;
+      // Create a new agent session (does not auto-focus it)
+      const id = genId();
+      const idx = get().nextIndex;
+      set((state) => {
+        state.sessions.push({
+          id,
+          name: 'Agent Terminal',
+          ptyId: null,
+          isAgentSession: true,
+          lastCommand: null,
+          commandHistory: [],
+        });
+        state.nextIndex = idx + 1;
+      });
+      return id;
+    },
+
+    getAgentSession: () => {
+      return get().sessions.find((s) => s.isAgentSession);
+    },
   })),
 );

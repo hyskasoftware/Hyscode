@@ -1,8 +1,9 @@
-import { useEffect, useCallback } from 'react';
-import { Terminal, Plus, X, GripVertical } from 'lucide-react';
+import { useEffect, useCallback, useRef } from 'react';
+import { Terminal, Plus, X, GripVertical, Bot } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTerminalStore } from '../../stores/terminal-store';
 import { useLayoutStore } from '../../stores/layout-store';
+import { useAgentStore } from '../../stores/agent-store';
 import { TerminalInstance } from './terminal-instance';
 
 export function TerminalPanel() {
@@ -12,6 +13,10 @@ export function TerminalPanel() {
   const closeSession = useTerminalStore((s) => s.closeSession);
   const setActiveSession = useTerminalStore((s) => s.setActiveSession);
   const terminalLocation = useLayoutStore((s) => s.terminalLocation);
+  const isStreaming = useAgentStore((s) => s.isStreaming);
+
+  // Track whether the user was on the agent tab before we auto-switched
+  const prevActiveRef = useRef<string | null>(null);
 
   // Auto-create first terminal session
   useEffect(() => {
@@ -19,6 +24,24 @@ export function TerminalPanel() {
       createSession();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-focus agent terminal when agent starts streaming
+  useEffect(() => {
+    if (isStreaming) {
+      const agentSession = sessions.find((s) => s.isAgentSession);
+      if (agentSession && activeSessionId !== agentSession.id) {
+        prevActiveRef.current = activeSessionId;
+        setActiveSession(agentSession.id);
+      }
+    } else if (prevActiveRef.current) {
+      // Restore previous tab when streaming ends
+      const prev = sessions.find((s) => s.id === prevActiveRef.current);
+      if (prev) {
+        setActiveSession(prev.id);
+      }
+      prevActiveRef.current = null;
+    }
+  }, [isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClose = useCallback(
     (e: React.MouseEvent, sessionId: string, ptyId: string | null) => {
@@ -56,18 +79,25 @@ export function TerminalPanel() {
               <GripVertical className="h-3 w-3" />
             </div>
           )}
-          {sessions.map((session) => (
+          {sessions.map((session) => {
+              const isAgent = session.isAgentSession;
+              const TabIcon = isAgent ? Bot : Terminal;
+              return (
               <button
                 key={session.id}
                 onClick={() => setActiveSession(session.id)}
                 className={`group flex h-8 items-center gap-1.5 px-3 text-[11px] transition-colors ${
                   session.id === activeSessionId
-                    ? 'bg-surface text-foreground'
+                    ? isAgent
+                      ? 'bg-surface text-accent-foreground'
+                      : 'bg-surface text-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
-                <Terminal className="h-3 w-3 shrink-0" />
+                <TabIcon className={`h-3 w-3 shrink-0 ${isAgent ? 'text-primary' : ''}`} />
                 <span className="truncate max-w-[100px]">{session.name}</span>
+                {/* Don't allow closing the agent terminal while agent is running */}
+                {!isAgent && (
                 <span
                   role="button"
                   onClick={(e) => handleClose(e, session.id, session.ptyId)}
@@ -75,8 +105,10 @@ export function TerminalPanel() {
                 >
                   <X className="h-2.5 w-2.5" />
                 </span>
+                )}
               </button>
-            ))}
+              );
+            })}
             <button
               onClick={() => createSession()}
               className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

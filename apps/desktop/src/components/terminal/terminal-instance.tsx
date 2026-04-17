@@ -19,8 +19,12 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const ptyIdRef = useRef<string | null>(null);
+  /** Tracks what the user is typing so we can log commands on Enter */
+  const inputBufferRef = useRef<string>('');
 
   const setPtyId = useTerminalStore((s) => s.setPtyId);
+  const setLastCommand = useTerminalStore((s) => s.setLastCommand);
+  const appendCommandHistory = useTerminalStore((s) => s.appendCommandHistory);
   const rootPath = useProjectStore((s) => s.rootPath);
   const themeId = useSettingsStore((s) => s.themeId);
   const extensionThemesVersion = useExtensionStore((s) => s.extensionThemesVersion);
@@ -77,10 +81,34 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
 
     term.open(container);
 
-    // Forward user keystrokes to the PTY
+    // Forward user keystrokes to the PTY and track commands
+    const session = useTerminalStore.getState().sessions.find(s => s.id === sessionId);
+    const isAgentSession = session?.isAgentSession ?? false;
     const onDataDisposable = term.onData((data) => {
       if (ptyIdRef.current) {
         invoke('pty_write', { ptyId: ptyIdRef.current, data }).catch(() => {});
+      }
+      // Track user-typed commands (non-agent sessions only)
+      if (!isAgentSession) {
+        if (data === '\r' || data === '\n') {
+          const cmd = inputBufferRef.current.trim();
+          if (cmd) {
+            setLastCommand(sessionId, cmd, '', null);
+            appendCommandHistory(sessionId, {
+              command: cmd,
+              output: '',
+              exitCode: null,
+              timestamp: Date.now(),
+              source: 'user',
+            });
+          }
+          inputBufferRef.current = '';
+        } else if (data === '\x7f') {
+          // Backspace
+          inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+        } else if (data.length === 1 && data >= ' ') {
+          inputBufferRef.current += data;
+        }
       }
     });
 
@@ -91,6 +119,7 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
     observer.observe(container);
 
     // Spawn PTY after a frame so the container has real pixel dimensions
+    // For agent sessions, the bridge may have already spawned a PTY — reuse it.
     let rafId: number;
     rafId = requestAnimationFrame(async () => {
       if (cancelled) return;
@@ -98,19 +127,28 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
       try { fitAddon.fit(); } catch { /* not yet visible */ }
 
       try {
-        const ptyId = await invoke<string>('pty_spawn', {
-          shell: null,
-          cwd: rootPath ?? null,
-          env: null,
-        });
+        // Check if a PTY was already spawned (e.g., by the harness bridge for agent sessions)
+        const existingSession = useTerminalStore.getState().sessions.find(s => s.id === sessionId);
+        let ptyId: string;
 
-        if (cancelled) {
-          await invoke('pty_kill', { ptyId }).catch(() => {});
-          return;
+        if (existingSession?.ptyId) {
+          ptyId = existingSession.ptyId;
+        } else {
+          ptyId = await invoke<string>('pty_spawn', {
+            shell: null,
+            cwd: rootPath ?? null,
+            env: null,
+          });
+
+          if (cancelled) {
+            await invoke('pty_kill', { ptyId }).catch(() => {});
+            return;
+          }
+
+          setPtyId(sessionId, ptyId);
         }
 
         ptyIdRef.current = ptyId;
-        setPtyId(sessionId, ptyId);
 
         const unlistenData = await listen<{ pty_id: string; data: string }>('pty:data', (e) => {
           if (e.payload.pty_id === ptyId && !cancelled) {

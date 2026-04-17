@@ -10,9 +10,10 @@ const viewLabels: Record<SidebarView, string> = {
   extensions: 'Extensions',
   agent: 'Agent',
   devices: 'Devices',
+  docker: 'Docker',
 };
 
-export type SidebarView = 'files' | 'search' | 'git' | 'skills' | 'extensions' | 'agent' | 'devices';
+export type SidebarView = 'files' | 'search' | 'git' | 'skills' | 'extensions' | 'agent' | 'devices' | 'docker';
 
 export function Sidebar() {
   const [activeView, setActiveView] = useState<SidebarView>('files');

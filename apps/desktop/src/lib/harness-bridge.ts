@@ -26,6 +26,7 @@ import { useSettingsStore } from '@/stores/settings-store';
 import { useSkillsStore } from '@/stores/skills-store';
 import { useFileStore } from '@/stores/file-store';
 import { useEditorStore } from '@/stores/editor-store';
+import { useTerminalStore } from '@/stores/terminal-store';
 import type { ToolCallDisplay, PendingApproval, AgentEditSession } from '@/stores/agent-store';
 import { computeDiffHunks } from './compute-diff';
 
@@ -107,6 +108,12 @@ export class HarnessBridge {
   private pendingToolResults: Array<{ toolCallId: string; output: string; isError: boolean }> = [];
   /** Tool call IDs seen in the current iteration (for building assistant blocks). */
   private currentIterationToolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
+
+  // ─── Agent Terminal Integration ───────────────────────────────────
+  /** The terminal store session id for the agent terminal */
+  private _agentTerminalSessionId: string | null = null;
+  /** Last terminal command executed by the agent (persists across turns within a conversation) */
+  private _lastTerminalCommand: { command: string; output: string; exitCode: number | null } | null = null;
 
   private constructor(workspacePath: string, projectId: string, homePath: string) {
     const settings = useSettingsStore.getState();
@@ -338,6 +345,11 @@ export class HarnessBridge {
       // Reset iteration tracking for the new turn
       this.currentIterationToolCalls = [];
       this.pendingToolResults = [];
+
+      // ── Ensure agent terminal is available ──
+      // Creates or finds the shared agent terminal session so the agent's
+      // run_terminal_command tool uses the visible terminal tab instead of hidden PTYs.
+      await this.ensureAgentTerminal();
 
       // ── Inject deterministic environment context ──
       // Gives the agent awareness of the current workspace state before it starts
@@ -1288,6 +1300,15 @@ export class HarnessBridge {
       // Git not available — skip
     }
 
+    // Last terminal command executed by the agent (if any)
+    if (this._lastTerminalCommand) {
+      env.lastTerminalCommand = {
+        command: this._lastTerminalCommand.command,
+        output: this._lastTerminalCommand.output,
+        exitCode: this._lastTerminalCommand.exitCode,
+      };
+    }
+
     this.harness.injectEnvironmentContext(env);
   }
 
@@ -1527,6 +1548,63 @@ ${hints.map(h => `- ${h}`).join('\n')}
     } catch (err) {
       // DB persistence is best-effort; don't break the chat flow
       console.warn('[HarnessBridge] Failed to persist conversation:', err);
+    }
+  }
+
+  // ─── Agent Terminal Integration ──────────────────────────────────────
+
+  /**
+   * Ensure a visible "Agent Terminal" session exists in the terminal store.
+   * If one already exists, reuse it. Then tell the Harness to use its PTY id
+   * so `run_terminal_command` streams live in the visible terminal tab.
+   */
+  private async ensureAgentTerminal(): Promise<void> {
+    try {
+      const termStore = useTerminalStore.getState();
+      const workspacePath = this.harness['workspacePath'] as string;
+
+      // ensureAgentSession finds existing agent session or creates a new one
+      const sessionId = termStore.ensureAgentSession();
+      this._agentTerminalSessionId = sessionId;
+
+      // Get the session to read its PTY id
+      let session = termStore.sessions.find(s => s.id === sessionId);
+
+      // If no PTY has been spawned yet (component hasn't mounted), spawn one directly
+      if (!session?.ptyId) {
+        const ptyId = await tauriInvokeRaw<string>('pty_spawn', {
+          shell: null,
+          cwd: workspacePath,
+          env: null,
+        });
+        useTerminalStore.getState().setPtyId(sessionId, ptyId);
+        session = useTerminalStore.getState().sessions.find(s => s.id === sessionId);
+      }
+
+      if (session?.ptyId) {
+        this.harness.setAgentTerminalPtyId(session.ptyId);
+      }
+
+      // Wire the command callback so we can track agent terminal commands
+      this.harness.setOnTerminalCommand((command: string, output: string, exitCode: number | null) => {
+        this._lastTerminalCommand = { command, output, exitCode };
+
+        // Also update the terminal store's command history for the agent session
+        if (this._agentTerminalSessionId) {
+          const ts = useTerminalStore.getState();
+          ts.setLastCommand(this._agentTerminalSessionId, command, output.slice(0, 2000), exitCode);
+          ts.appendCommandHistory(this._agentTerminalSessionId, {
+            command,
+            output: output.slice(0, 2000), // cap stored output size
+            exitCode,
+            timestamp: Date.now(),
+            source: 'agent',
+          });
+        }
+      });
+    } catch (err) {
+      // Agent terminal is best-effort — fall back to hidden PTY behavior
+      console.warn('[HarnessBridge] Failed to ensure agent terminal:', err);
     }
   }
 }

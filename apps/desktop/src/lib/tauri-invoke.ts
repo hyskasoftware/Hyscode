@@ -105,6 +105,23 @@ interface TauriCommands {
   // Database: Mode Policies
   db_list_mode_policies: { args: Record<string, never>; ret: Array<{ mode: string; max_iterations: number; max_input_tokens: number; max_output_tokens: number; turn_timeout_ms: number; approval_mode: string; verification_required: boolean; allowed_tool_categories: string; tool_overrides: string | null; skill_triggers: string | null }> };
   db_update_mode_policy: { args: { mode: string; maxIterations?: number; maxInputTokens?: number; maxOutputTokens?: number; turnTimeoutMs?: number; approvalMode?: string; verificationRequired?: boolean; allowedToolCategories?: string; toolOverrides?: string; skillTriggers?: string }; ret: void };
+
+  // Docker
+  docker_is_available: { args: Record<string, never>; ret: boolean };
+  docker_list_containers: { args: { all?: boolean }; ret: Array<{ id: string; name: string; image: string; status: string; state: string; ports: string; created: string }> };
+  docker_list_images: { args: Record<string, never>; ret: Array<{ id: string; repository: string; tag: string; size: string; created: string }> };
+  docker_start_container: { args: { id: string }; ret: void };
+  docker_stop_container: { args: { id: string }; ret: void };
+  docker_restart_container: { args: { id: string }; ret: void };
+  docker_remove_container: { args: { id: string; force?: boolean }; ret: void };
+  docker_remove_image: { args: { id: string; force?: boolean }; ret: void };
+  docker_container_logs: { args: { id: string; tail?: number }; ret: string };
+  docker_pull_image: { args: { image: string }; ret: string };
+  docker_inspect_container: { args: { id: string }; ret: string };
+  docker_compose_up: { args: { composePath: string; detach?: boolean }; ret: string };
+  docker_compose_down: { args: { composePath: string }; ret: string };
+  docker_watch_start: { args: { intervalMs: number }; ret: string };
+  docker_watch_stop: { args: { watchId: string }; ret: void };
 }
 
 // ─── Typed invoke ───────────────────────────────────────────────────────────

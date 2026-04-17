@@ -52,6 +52,11 @@ export interface HarnessOptions {
   sddDb?: SddDatabase;
   /** Skill loader config */
   skillLoader?: SkillLoader;
+  /** PTY id of the persistent agent terminal (managed by the UI). When set,
+   *  run_terminal_command writes to this shared session instead of spawning a new one. */
+  agentTerminalPtyId?: string;
+  /** Callback fired after a terminal command finishes (for environment context tracking). */
+  onTerminalCommand?: (command: string, output: string, exitCode: number | null) => void;
 }
 
 export class Harness {
@@ -75,6 +80,10 @@ export class Harness {
   private onUserQuestionRequest: HarnessOptions['onUserQuestionRequest'] = undefined;
   private activeSkills: Skill[] = [];
 
+  // ─── Agent Terminal Integration ───────────────────────────────────
+  private agentTerminalPtyId: string | undefined;
+  private onTerminalCommand: ((command: string, output: string, exitCode: number | null) => void) | undefined;
+
   // ─── Middleware ────────────────────────────────────────────────────
   private preCompletionHooks: PreCompletionHook[] = [verificationMiddleware];
   private postToolHooks: PostToolHook[] = [];
@@ -93,6 +102,10 @@ export class Harness {
     this.listen = options.listen;
     this.eventHandler = options.onEvent ?? null;
     this.skillLoader = options.skillLoader ?? null;
+
+    // Agent terminal integration
+    this.agentTerminalPtyId = options.agentTerminalPtyId;
+    this.onTerminalCommand = options.onTerminalCommand;
 
     // Initialize context manager
     this.contextManager = new ContextManager();
@@ -167,6 +180,16 @@ export class Harness {
       this.config.modelId = patch.modelId;
       this._effectivePolicy = null; // Invalidate — model change affects budgets
     }
+  }
+
+  /** Update the shared agent terminal PTY id (called by the bridge before each turn). */
+  setAgentTerminalPtyId(ptyId: string | undefined): void {
+    this.agentTerminalPtyId = ptyId;
+  }
+
+  /** Update the terminal command callback (called by the bridge at init). */
+  setOnTerminalCommand(cb: ((command: string, output: string, exitCode: number | null) => void) | undefined): void {
+    this.onTerminalCommand = cb;
   }
 
   getSddEngine(): SddEngine | null {
@@ -507,6 +530,9 @@ export class Harness {
         onFileChange: (change) => {
           this.emit({ type: 'file_change_pending', change });
         },
+        // Agent terminal integration — shared PTY + command tracking
+        agentTerminalPtyId: this.agentTerminalPtyId,
+        onTerminalCommand: this.onTerminalCommand,
         gatheredContext: {
           add: (path, content, relevance, reason) => {
             const tokens = this.contextManager.addGatheredFile(path, content, relevance, reason);

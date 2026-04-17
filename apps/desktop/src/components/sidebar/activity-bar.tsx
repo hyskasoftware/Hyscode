@@ -1,4 +1,4 @@
-import { Files, Search, GitBranch, Settings, Bot, Puzzle, Blocks, Smartphone } from 'lucide-react';
+import { Files, Search, GitBranch, Settings, Bot, Puzzle, Blocks, Smartphone, Container } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import type { SidebarView } from './sidebar';
 
@@ -10,6 +10,7 @@ const items = [
   { id: 'extensions', icon: Blocks, label: 'Extensions' },
   { id: 'agent', icon: Bot, label: 'Agent' },
   { id: 'devices', icon: Smartphone, label: 'Devices' },
+  { id: 'docker', icon: Container, label: 'Docker' },
 ] as const;
 
 interface ActivityBarProps {

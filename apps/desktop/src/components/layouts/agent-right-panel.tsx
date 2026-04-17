@@ -7,6 +7,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useLayoutStore } from '@/stores/layout-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useFileStore } from '@/stores/file-store';
+import { useTerminalStore } from '@/stores/terminal-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { tauriFs } from '@/lib/tauri-fs';
 import { defineAllMonacoThemes, getMonacoThemeName } from '@/lib/monaco-themes';
@@ -399,6 +400,11 @@ export function AgentRightPanel() {
     ).length,
   );
 
+  // Pulsing dot: agent is streaming and has an agent terminal active
+  const isStreaming = useAgentStore((s) => s.isStreaming);
+  const hasAgentTerminal = useTerminalStore((s) => s.sessions.some((sess) => sess.isAgentSession));
+  const terminalActive = isStreaming && hasAgentTerminal;
+
   return (
     <div className="flex h-full flex-col">
       {/* Tab bar */}
@@ -419,6 +425,12 @@ export function AgentRightPanel() {
             {id === 'changes' && pendingCount > 0 && (
               <span className="rounded-full bg-accent/20 px-1.5 text-[9px] font-medium text-accent tabular-nums">
                 {pendingCount}
+              </span>
+            )}
+            {id === 'terminal' && terminalActive && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
               </span>
             )}
           </button>

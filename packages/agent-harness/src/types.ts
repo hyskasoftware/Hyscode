@@ -5,7 +5,7 @@ import type { Message, StreamChunk, ToolDefinition } from '@hyscode/ai-providers
 
 // ─── Tool System ────────────────────────────────────────────────────────────
 
-export type ToolCategory = 'filesystem' | 'terminal' | 'git' | 'code' | 'browser' | 'mcp' | 'meta';
+export type ToolCategory = 'filesystem' | 'terminal' | 'git' | 'code' | 'browser' | 'mcp' | 'meta' | 'docker';
 
 export interface ToolResult {
   success: boolean;
@@ -43,6 +43,11 @@ export interface ToolExecutionContext {
   };
   /** Ask the user a set of questions. Pauses the agent loop until answered. */
   askUser?: (questions: AgentQuestion[], title?: string) => Promise<AgentQuestionAnswer[]>;
+  /** PTY id of the persistent agent terminal session (if available). When set,
+   *  run_terminal_command writes to this shared PTY instead of spawning a new one. */
+  agentTerminalPtyId?: string;
+  /** Callback fired after a terminal command completes (for environment context tracking). */
+  onTerminalCommand?: (command: string, output: string, exitCode: number | null) => void;
 }
 
 /** Emitted when a tool writes/edits/creates a file so the UI can track it */
@@ -97,6 +102,7 @@ export const CATEGORY_RISK: Record<ToolCategory, ToolRiskLevel> = {
   browser: 'safe',
   mcp: 'moderate',
   meta: 'safe',
+  docker: 'moderate',
 };
 
 /** Read-only tools that are always safe regardless of category */
@@ -109,6 +115,9 @@ export const SAFE_TOOLS = new Set([
   'list_code_symbols',
   'get_diagnostics',
   'grep_search',
+  'docker_list_containers',
+  'docker_list_images',
+  'docker_container_logs',
 ]);
 
 /** Destructive tools that always need approval (even in smart mode) */

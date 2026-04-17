@@ -9,6 +9,7 @@ import {
   BrainCircuit,
   Braces,
   Smartphone,
+  Container,
 } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
 import { EditorTab } from './tabs/editor-tab';
@@ -19,8 +20,9 @@ import { GeneralTab } from './tabs/general-tab';
 import { AiTab } from './tabs/ai-tab';
 import { LanguageServersTab } from './tabs/language-servers-tab';
 import { MobileTab } from './tabs/mobile-tab';
+import { DockerTab } from './tabs/docker-tab';
 
-type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile';
+type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile' | 'docker';
 
 const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'editor', icon: Code2, label: 'Editor' },
@@ -30,6 +32,7 @@ const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'git', icon: GitBranch, label: 'Git' },
   { id: 'ai', icon: BrainCircuit, label: 'AI & Providers' },
   { id: 'mobile', icon: Smartphone, label: 'Mobile' },
+  { id: 'docker', icon: Container, label: 'Docker' },
   { id: 'general', icon: Settings2, label: 'General' },
 ];
 
@@ -41,6 +44,7 @@ const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
   git: <GitTab />,
   ai: <AiTab />,
   mobile: <MobileTab />,
+  docker: <DockerTab />,
   general: <GeneralTab />,
 };
 

@@ -134,6 +134,12 @@ interface SettingsState {
   androidSdkPath: string;
   reactNativeAutoDetect: boolean;
 
+  // ─ Docker ─
+  dockerSocketPath: string;
+  dockerShowStopped: boolean;
+  dockerAutoRefreshInterval: number;
+  dockerComposeFile: string;
+
   // ─ Settings modal ─
   settingsOpen: boolean;
 
@@ -227,6 +233,12 @@ export const useSettingsStore = create<SettingsState>()(
       flutterSdkPath: '',
       androidSdkPath: '',
       reactNativeAutoDetect: true,
+
+      // Docker
+      dockerSocketPath: '',
+      dockerShowStopped: true,
+      dockerAutoRefreshInterval: 5,
+      dockerComposeFile: 'docker-compose.yml',
 
       // Settings modal
       settingsOpen: false,

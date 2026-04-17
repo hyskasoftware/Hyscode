@@ -274,7 +274,7 @@ export const searchCodeTool = defineTool(
 
 export const runTerminalCommandTool = defineTool(
   'run_terminal_command',
-  'Execute a command in the terminal. Returns stdout and stderr. Use for running tests, installing packages, running scripts, etc.',
+  'Execute a command in the terminal. The command runs in the visible Agent Terminal so the user can watch it live. Returns stdout and stderr. Use for running tests, installing packages, running scripts, etc.',
   {
     command: { type: 'string', description: 'The command to execute' },
     cwd: { type: 'string', description: 'Working directory (default: workspace root)' },
@@ -300,8 +300,11 @@ export const runTerminalCommandTool = defineTool(
         };
       }
 
-      // Spawn a dedicated PTY for this command
-      const ptyId = await ctx.invoke<string>('pty_spawn', { cwd });
+      // Use the shared agent terminal PTY if available, otherwise spawn a disposable one
+      const useSharedPty = !!ctx.agentTerminalPtyId;
+      const ptyId = useSharedPty
+        ? ctx.agentTerminalPtyId!
+        : await ctx.invoke<string>('pty_spawn', { cwd });
 
       // Collect output via pty:data events
       let output = '';
@@ -323,9 +326,19 @@ export const runTerminalCommandTool = defineTool(
         }
       });
 
+      // For the shared PTY, cd into the target cwd first if it differs from workspace root
+      const isWin = typeof navigator !== 'undefined' && navigator.userAgent?.includes('Win');
+      if (useSharedPty && cwd !== ctx.workspacePath) {
+        const cdCmd = isWin ? `cd "${cwd}"\r\n` : `cd "${cwd}"\n`;
+        await ctx.invoke('pty_write', { ptyId, data: cdCmd });
+        // Small delay so the cd completes before we send the real command
+        await new Promise((r) => setTimeout(r, 150));
+        // Reset output to avoid capturing the cd noise
+        output = '';
+      }
+
       // Write command followed by an exit marker
       const exitMarker = `__HYSCODE_EXIT_${Date.now()}__`;
-      const isWin = typeof navigator !== 'undefined' && navigator.userAgent?.includes('Win');
       const wrappedCommand = isWin
         ? `${command}; echo ${exitMarker}; echo EXIT_CODE:$LASTEXITCODE\r\n`
         : `${command}; echo "${exitMarker}"; echo "EXIT_CODE:$?"\n`;
@@ -345,13 +358,23 @@ export const runTerminalCommandTool = defineTool(
         await new Promise((r) => setTimeout(r, 100));
       }
 
-      // Cleanup
+      // Cleanup listeners
       unlisten();
       unlistenExit();
-      try {
-        await ctx.invoke('pty_kill', { ptyId });
-      } catch {
-        // Ignore kill errors if PTY already exited
+
+      // Only kill the PTY if we spawned a disposable one
+      if (!useSharedPty) {
+        try {
+          await ctx.invoke('pty_kill', { ptyId });
+        } catch {
+          // Ignore kill errors if PTY already exited
+        }
+      }
+
+      // For the shared PTY, cd back to workspace root after command (keep cwd stable)
+      if (useSharedPty && cwd !== ctx.workspacePath) {
+        const cdBack = isWin ? `cd "${ctx.workspacePath}"\r\n` : `cd "${ctx.workspacePath}"\n`;
+        await ctx.invoke('pty_write', { ptyId, data: cdBack });
       }
 
       // Trim PTY noise (echoed command prompt)
@@ -363,6 +386,7 @@ export const runTerminalCommandTool = defineTool(
 
       const timedOut = !exited && !output.includes(exitMarker) && exitCode === null;
       if (timedOut) {
+        ctx.onTerminalCommand?.(command, output || '', null);
         return {
           success: false,
           output: output || '',
@@ -370,6 +394,9 @@ export const runTerminalCommandTool = defineTool(
           metadata: { cwd, timeoutMs, timedOut: true },
         };
       }
+
+      // Notify bridge about the completed terminal command (for context tracking)
+      ctx.onTerminalCommand?.(command, output || '', exitCode);
 
       return {
         success: exitCode === 0 || exitCode === null,
@@ -1142,6 +1169,90 @@ Each question can have predefined options (numbered choices) and/or allow free-f
   },
 );
 
+// ─── Docker Tools ───────────────────────────────────────────────────────────
+
+export const dockerListContainersTool = defineTool(
+  'docker_list_containers',
+  'List all Docker containers on the system, including running and stopped ones. Returns container id, name, image, status, state, ports, and creation time.',
+  {
+    all: { type: 'boolean', description: 'Include stopped containers (default: true)' },
+  },
+  [],
+  'docker',
+  false,
+  async (input, ctx) => {
+    try {
+      const containers = await ctx.invoke<unknown[]>('docker_list_containers', {
+        all: input.all !== false,
+      });
+      return { output: JSON.stringify(containers, null, 2) };
+    } catch (err) {
+      return { output: '', error: `Failed to list containers: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const dockerListImagesTool = defineTool(
+  'docker_list_images',
+  'List all Docker images available locally. Returns image id, repository, tag, size, and creation time.',
+  {},
+  [],
+  'docker',
+  false,
+  async (_input, ctx) => {
+    try {
+      const images = await ctx.invoke<unknown[]>('docker_list_images', {});
+      return { output: JSON.stringify(images, null, 2) };
+    } catch (err) {
+      return { output: '', error: `Failed to list images: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const dockerContainerLogsTool = defineTool(
+  'docker_container_logs',
+  'Fetch logs from a Docker container. Returns the last N lines of logs.',
+  {
+    id: { type: 'string', description: 'Container ID or name' },
+    tail: { type: 'integer', description: 'Number of lines from the end to show (default: 100)' },
+  },
+  ['id'],
+  'docker',
+  false,
+  async (input, ctx) => {
+    try {
+      const logs = await ctx.invoke<string>('docker_container_logs', {
+        id: input.id as string,
+        tail: (input.tail as number) || 100,
+      });
+      return { output: logs };
+    } catch (err) {
+      return { output: '', error: `Failed to fetch logs: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const dockerRunTool = defineTool(
+  'docker_run',
+  'Pull and start a Docker image. This will pull the image if not present locally, then the user can start a container from it via the UI.',
+  {
+    image: { type: 'string', description: 'Docker image to pull (e.g., "nginx:latest", "postgres:16")' },
+  },
+  ['image'],
+  'docker',
+  true, // requires approval — mutating action
+  async (input, ctx) => {
+    try {
+      const result = await ctx.invoke<string>('docker_pull_image', {
+        image: input.image as string,
+      });
+      return { output: `Image pulled successfully.\n${result}` };
+    } catch (err) {
+      return { output: '', error: `Failed to pull image: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
 // ─── Export All Tools ───────────────────────────────────────────────────────
 
 export function getAllBuiltinTools(): ToolHandler[] {
@@ -1178,5 +1289,10 @@ export function getAllBuiltinTools(): ToolHandler[] {
     manageTasksTool,
     requestModeSwitchTool,
     askUserTool,
+    // Docker
+    dockerListContainersTool,
+    dockerListImagesTool,
+    dockerContainerLogsTool,
+    dockerRunTool,
   ];
 }

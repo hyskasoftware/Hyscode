@@ -7,6 +7,7 @@ import {
   ExtensionsView,
   AgentSidebarView,
   DevicesView,
+  DockerView,
 } from './views';
 
 interface SidebarContentProps {
@@ -29,5 +30,7 @@ export function SidebarContent({ view }: SidebarContentProps) {
       return <AgentSidebarView />;
     case 'devices':
       return <DevicesView />;
+    case 'docker':
+      return <DockerView />;
   }
 }

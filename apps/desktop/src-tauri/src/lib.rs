@@ -8,6 +8,7 @@ use commands::keychain::KeychainState;
 use commands::lsp::LspState;
 use commands::db::DbState;
 use commands::fs::FsWatcherState;
+use commands::docker::DockerWatchState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,6 +22,7 @@ pub fn run() {
         .manage(commands::pty::PtyState(Mutex::new(HashMap::new())))
         .manage(LspState(Mutex::new(HashMap::new())))
         .manage(FsWatcherState(Mutex::new(HashMap::new())))
+        .manage(DockerWatchState(Mutex::new(HashMap::new())))
         .manage(KeychainState(Mutex::new(commands::keychain::load_keychain())))
         .manage({
             let app_dir = dirs::data_dir()
@@ -133,6 +135,22 @@ pub fn run() {
             commands::devices::list_emulators,
             commands::devices::start_emulator,
             commands::devices::run_on_device,
+            // Docker commands
+            commands::docker::docker_is_available,
+            commands::docker::docker_list_containers,
+            commands::docker::docker_list_images,
+            commands::docker::docker_start_container,
+            commands::docker::docker_stop_container,
+            commands::docker::docker_restart_container,
+            commands::docker::docker_remove_container,
+            commands::docker::docker_remove_image,
+            commands::docker::docker_container_logs,
+            commands::docker::docker_pull_image,
+            commands::docker::docker_inspect_container,
+            commands::docker::docker_compose_up,
+            commands::docker::docker_compose_down,
+            commands::docker::docker_watch_start,
+            commands::docker::docker_watch_stop,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

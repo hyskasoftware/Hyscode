@@ -62,7 +62,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     turnTimeoutMs: 300_000, // 5 minutes
     approvalMode: 'smart',
     verificationRequired: true,
-    allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'browser', 'mcp', 'meta'],
+    allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'browser', 'mcp', 'meta', 'docker'],
   },
   review: {
     mode: 'review',
@@ -86,7 +86,7 @@ const DEFAULT_POLICIES: Record<AgentType, ModePolicy> = {
     turnTimeoutMs: 300_000, // 5 minutes
     approvalMode: 'session-trust',
     verificationRequired: true,
-    allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'mcp', 'meta'],
+    allowedToolCategories: ['filesystem', 'terminal', 'git', 'code', 'mcp', 'meta', 'docker'],
   },
   plan: {
     mode: 'plan',

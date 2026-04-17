@@ -17,10 +17,12 @@ import {
   Globe,
   Database,
   Network,
+  ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
 import { useState, memo, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { useTerminalStore } from '@/stores/terminal-store';
 import type { ToolCallDisplay } from '@/stores/agent-store';
 
 // ─── Icon mapping ─────────────────────────────────────────────────────────────
@@ -207,6 +209,24 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
               <pre className="mt-1 overflow-x-auto rounded-md bg-red-950/15 p-2.5 font-mono text-[10px] leading-relaxed text-red-300/70">
                 {toolCall.error}
               </pre>
+            </div>
+          )}
+          {/* Jump to agent terminal — only for terminal commands */}
+          {category === 'terminal' && (
+            <div className="border-t border-border/10 px-3 py-1.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const agentSession = useTerminalStore.getState().getAgentSession();
+                  if (agentSession) {
+                    useTerminalStore.getState().setActiveSession(agentSession.id);
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] text-green-400/70 transition-colors hover:bg-green-500/10 hover:text-green-400"
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Jump to Agent Terminal
+              </button>
             </div>
           )}
         </div>
