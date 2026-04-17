@@ -21,3 +21,9 @@ apps/desktop/src-tauri/gen/
 .env
 .env.local
 .env.*.local
+
+# SSH keys
+*.pem
+*.key
+*.pub
+hyska
