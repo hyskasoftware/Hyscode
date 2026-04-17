@@ -18,6 +18,7 @@ import {
 import { useDockerStore, type ContainerInfo, type ImageInfo } from '../../../stores/docker-store';
 import { useSettingsStore } from '../../../stores';
 import { cn } from '../../../lib/utils';
+import { TabBadge } from '../../ui/tab-badge';
 
 // ── Status helpers ───────────────────────────────────────────────────────────
 
@@ -455,28 +456,26 @@ export function DockerView() {
           <button
             onClick={() => setActiveTab('containers')}
             className={cn(
-              'rounded px-2 py-0.5 text-[9px] font-medium transition-colors',
+              'flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-medium transition-colors',
               activeTab === 'containers'
                 ? 'bg-surface-raised text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             Containers
-            {runningCount > 0 && (
-              <span className="ml-1 text-[8px] text-green-500">{runningCount}</span>
-            )}
+            <TabBadge count={runningCount} />
           </button>
           <button
             onClick={() => setActiveTab('images')}
             className={cn(
-              'rounded px-2 py-0.5 text-[9px] font-medium transition-colors',
+              'flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-medium transition-colors',
               activeTab === 'images'
                 ? 'bg-surface-raised text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             Images
-            <span className="ml-1 text-[8px] text-muted-foreground">{images.length}</span>
+            <TabBadge count={images.length} />
           </button>
         </div>
 

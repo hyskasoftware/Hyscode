@@ -19,6 +19,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useExtensionStore, type ExtensionFilter, type InstalledExtension } from '../../../stores/extension-store';
+import { TabBadge } from '../../ui/tab-badge';
 
 // ── Filter Tabs ──────────────────────────────────────────────────────────────
 
@@ -341,6 +342,23 @@ export function ExtensionsView() {
   const filtered = getFiltered();
   const enabledCount = extensions.filter((e) => e.enabled).length;
 
+  const filterCounts: Record<ExtensionFilter, number> = {
+    all: extensions.length,
+    enabled: enabledCount,
+    disabled: extensions.filter((e) => !e.enabled).length,
+    themes: extensions.filter(
+      (e) =>
+        e.categories?.some((c) => c.toLowerCase().includes('theme')) ||
+        e.manifest?.contributes?.themes?.length,
+    ).length,
+    languages: extensions.filter(
+      (e) =>
+        e.categories?.some((c) => c.toLowerCase().includes('language')) ||
+        e.manifest?.contributes?.languages?.length ||
+        e.manifest?.contributes?.languageServers?.length,
+    ).length,
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Search Bar */}
@@ -378,6 +396,10 @@ export function ExtensionsView() {
             }`}
           >
             {opt.label}
+            <TabBadge
+              count={filterCounts[opt.value]}
+              showZero
+            />
           </button>
         ))}
       </div>

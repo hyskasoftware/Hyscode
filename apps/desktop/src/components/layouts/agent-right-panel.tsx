@@ -4,6 +4,7 @@ import { MarkdownViewer } from '../editor/viewers/markdown-viewer';
 import { TerminalPanel } from '../terminal';
 import { GitView } from '../sidebar/views/git-view-new';
 import { useAgentStore } from '@/stores/agent-store';
+import { useGitStore } from '@/stores/git-store';
 import { useLayoutStore } from '@/stores/layout-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useFileStore } from '@/stores/file-store';
@@ -12,6 +13,7 @@ import { HarnessBridge } from '@/lib/harness-bridge';
 import { tauriFs } from '@/lib/tauri-fs';
 import { defineAllMonacoThemes, getMonacoThemeName } from '@/lib/monaco-themes';
 import { cn } from '@/lib/utils';
+import { TabBadge } from '../ui/tab-badge';
 import type { AgentEditSession } from '@/stores/agent-store';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -57,6 +59,10 @@ function ChangesTab() {
     ).length,
   );
 
+  const gitChangesCount = useGitStore(
+    (s) => s.staged.length + s.unstaged.length + s.untracked.length + s.conflicts.length,
+  );
+
   return (
     <div className="flex h-full flex-col">
       {/* Sub-tab bar */}
@@ -72,11 +78,7 @@ function ChangesTab() {
         >
           <GitCompare className="h-3 w-3" />
           Agent
-          {pendingCount > 0 && (
-            <span className="rounded-full bg-accent/20 px-1 text-[9px] font-medium text-accent tabular-nums">
-              {pendingCount}
-            </span>
-          )}
+          <TabBadge count={pendingCount} />
         </button>
         <button
           onClick={() => setSubTab('git')}
@@ -89,6 +91,7 @@ function ChangesTab() {
         >
           <GitBranch className="h-3 w-3" />
           Git
+          <TabBadge count={gitChangesCount} />
         </button>
       </div>
 
