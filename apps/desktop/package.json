@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:build": "tauri build",
+    "tauri:build:debug": "tauri build --debug",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },

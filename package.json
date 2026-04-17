@@ -9,7 +9,10 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "build:prod": "pwsh -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1",
+    "build:prod:nsis": "pwsh -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 -NsisOnly",
+    "build:prod:inno": "pwsh -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 -InnoOnly"
   },
   "devDependencies": {
     "prettier": "^3.5.0",

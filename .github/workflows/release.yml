@@ -1,0 +1,338 @@
+name: "Build & Release"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/desktop/src-tauri/tauri.conf.json"
+      - "apps/desktop/src/**"
+      - "apps/desktop/src-tauri/src/**"
+      - "packages/**"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 1.2.3). Leave empty to read from tauri.conf.json"
+        required: false
+        default: ""
+
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 1 — Create tag + draft release
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.create-release.outputs.result }}
+      tag_name: ${{ steps.get-version.outputs.tag }}
+      version: ${{ steps.get-version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: get-version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(python3 -c "import sys,json; print(json.load(open('apps/desktop/src-tauri/tauri.conf.json'))['version'])")
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION"    >> "$GITHUB_OUTPUT"
+          echo "Releasing version: $VERSION (tag: v$VERSION)"
+
+      - name: Create git tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = "${{ steps.get-version.outputs.tag }}"
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                ref:   `refs/tags/${tag}`,
+                sha:   context.sha,
+              })
+              console.log(`✓ Tag ${tag} created`)
+            } catch (e) {
+              if (e.status === 422) {
+                console.log(`Tag ${tag} already exists — continuing`)
+              } else {
+                throw e
+              }
+            }
+
+      - name: Create draft release
+        id: create-release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = "${{ steps.get-version.outputs.version }}"
+            const tag     = "${{ steps.get-version.outputs.tag }}"
+            const body = [
+              `## HysCode ${tag}`,
+              ``,
+              `### Downloads`,
+              ``,
+              `| Platform | File | Notes |`,
+              `|----------|------|-------|`,
+              `| Windows  | \`HysCode-Setup-*.exe\` (NSIS) | Recommended installer |`,
+              `| Windows  | \`HysCode_*.msi\` | MSI installer |`,
+              `| Linux    | \`hyscode_*.deb\` | Debian/Ubuntu |`,
+              `| Linux    | \`hyscode_*.AppImage\` | Universal Linux |`,
+              `| Linux    | \`hyscode-*-linux-x86_64.tar.gz\` | Manual install |`,
+              `| macOS    | \`HysCode_*_x64.dmg\` | Intel |`,
+              `| macOS    | \`HysCode_*_aarch64.dmg\` | Apple Silicon |`,
+              ``,
+              `### Changelog`,
+              `See commit history for full list of changes.`,
+            ].join('\n')
+
+            const { data } = await github.rest.repos.createRelease({
+              owner:      context.repo.owner,
+              repo:       context.repo.repo,
+              tag_name:   tag,
+              name:       `HysCode ${tag}`,
+              body:       body,
+              draft:      true,
+              prerelease: false,
+            })
+            console.log(`✓ Draft release created: ${data.html_url}`)
+            return data.id
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 2 — Build Windows
+# ─────────────────────────────────────────────────────────────────────────────
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "apps/desktop/src-tauri -> target"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri (Windows)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: --target x86_64-pc-windows-msvc
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 3 — Build Linux
+# ─────────────────────────────────────────────────────────────────────────────
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libssl-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "apps/desktop/src-tauri -> target"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri (Linux)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+
+      - name: Create tar.gz
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          RELEASE_DIR="apps/desktop/src-tauri/target/release"
+          TAR_DIR="$RELEASE_DIR/bundle/tar"
+          STAGING="$TAR_DIR/hyscode-$VERSION"
+          mkdir -p "$STAGING"
+
+          cp "$RELEASE_DIR/hyscode" "$STAGING/" || true
+          [ -d "$RELEASE_DIR/resources" ] && cp -r "$RELEASE_DIR/resources" "$STAGING/"
+
+          cd "$TAR_DIR"
+          tar -czf "hyscode-${VERSION}-linux-x86_64.tar.gz" "hyscode-$VERSION"
+          echo "TAR_FILE=$(pwd)/hyscode-${VERSION}-linux-x86_64.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Upload tar.gz to release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs')
+            const path = require('path')
+            const file = process.env.TAR_FILE
+            await github.rest.repos.uploadReleaseAsset({
+              owner:      context.repo.owner,
+              repo:       context.repo.repo,
+              release_id: ${{ needs.create-release.outputs.release_id }},
+              name:       path.basename(file),
+              data:       fs.readFileSync(file),
+            })
+            console.log(`✓ Uploaded ${path.basename(file)}`)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 4 — Build macOS Intel
+# ─────────────────────────────────────────────────────────────────────────────
+  build-macos-intel:
+    needs: create-release
+    runs-on: macos-13
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "apps/desktop/src-tauri -> target"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri (macOS Intel)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: --target x86_64-apple-darwin
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 5 — Build macOS Apple Silicon
+# ─────────────────────────────────────────────────────────────────────────────
+  build-macos-arm:
+    needs: create-release
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "apps/desktop/src-tauri -> target"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri (macOS ARM)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: --target aarch64-apple-darwin
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 6 — Publish release (after all builds succeed)
+# ─────────────────────────────────────────────────────────────────────────────
+  publish-release:
+    needs: [create-release, build-windows, build-linux, build-macos-intel, build-macos-arm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Publish release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releaseId = ${{ needs.create-release.outputs.release_id }}
+            const { data } = await github.rest.repos.updateRelease({
+              owner:      context.repo.owner,
+              repo:       context.repo.repo,
+              release_id: releaseId,
+              draft:      false,
+            })
+            console.log(`✓ Release published: ${data.html_url}`)
