@@ -140,6 +140,11 @@ interface SettingsState {
   dockerAutoRefreshInterval: number;
   dockerComposeFile: string;
 
+  // ─ Layout tabs ─
+  showAgentTab: boolean;
+  showReviewTab: boolean;
+  showAgentChatPanel: boolean;
+
   // ─ Settings modal ─
   settingsOpen: boolean;
 
@@ -239,6 +244,11 @@ export const useSettingsStore = create<SettingsState>()(
       dockerShowStopped: true,
       dockerAutoRefreshInterval: 5,
       dockerComposeFile: 'docker-compose.yml',
+
+      // Layout tabs
+      showAgentTab: true,
+      showReviewTab: true,
+      showAgentChatPanel: true,
 
       // Settings modal
       settingsOpen: false,

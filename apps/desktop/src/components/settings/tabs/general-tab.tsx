@@ -78,6 +78,36 @@ export function GeneralTab() {
           />
         </Row>
       </Section>
+
+      <Section title="Layout">
+        <Row
+          label="Show Agent Tab"
+          description="Display the Agent mode tab in the title bar"
+        >
+          <Toggle
+            checked={store.showAgentTab}
+            onChange={(v) => store.set('showAgentTab', v)}
+          />
+        </Row>
+        <Row
+          label="Show Review Tab"
+          description="Display the Review mode tab in the title bar"
+        >
+          <Toggle
+            checked={store.showReviewTab}
+            onChange={(v) => store.set('showReviewTab', v)}
+          />
+        </Row>
+        <Row
+          label="Show Agent Chat Panel"
+          description="Display the agent chat panel on the right side of the editor"
+        >
+          <Toggle
+            checked={store.showAgentChatPanel}
+            onChange={(v) => store.set('showAgentChatPanel', v)}
+          />
+        </Row>
+      </Section>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Terminal, GripVertical, Bot } from 'lucide-react';
 import { useLayoutStore } from '@/stores/layout-store';
+import { useSettingsStore } from '@/stores';
 import { AgentPanel } from '@/components/agent';
 import { TerminalPanel } from '@/components/terminal';
 import { useCallback } from 'react';
@@ -14,7 +15,10 @@ export function SidebarPanel() {
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const activeTab = useLayoutStore((s) => s.sidebarActiveTab);
   const setSidebarActiveTab = useLayoutStore((s) => s.setSidebarActiveTab);
-  const showTabs = terminalLocation === 'sidebar' && terminalVisible;
+  const showAgentChat = useSettingsStore((s) => s.showAgentChatPanel);
+
+  const terminalInSidebar = terminalLocation === 'sidebar' && terminalVisible;
+  const showTabs = terminalInSidebar && showAgentChat;
 
   // ── Drag source: terminal tab can be dragged out ──
   const handleDragStart = useCallback(
@@ -25,8 +29,13 @@ export function SidebarPanel() {
     [],
   );
 
+  // Terminal only (chat disabled, terminal in sidebar)
+  if (!showAgentChat && terminalInSidebar) {
+    return <TerminalPanel />;
+  }
+
+  // No tabs needed
   if (!showTabs) {
-    // Terminal is in bottom panel — just render Agent
     return <AgentPanel />;
   }
 
@@ -75,3 +84,5 @@ export function SidebarPanel() {
     </div>
   );
 }
+
+

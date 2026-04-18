@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { FileMenu } from './file-menu';
 import { ViewMenu } from './view-menu';
 import { BrandMark } from '../brand-mark';
 import { useLayoutStore } from '../../stores/layout-store';
+import { useSettingsStore } from '../../stores';
 import type { WorkspaceMode } from '../../stores/layout-store';
 
 const MODE_LABELS: Record<WorkspaceMode, string> = {
@@ -13,6 +15,20 @@ const MODE_LABELS: Record<WorkspaceMode, string> = {
 export function TitleBar() {
   const mode = useLayoutStore((s) => s.workspaceMode);
   const setMode = useLayoutStore((s) => s.setWorkspaceMode);
+  const showAgentTab = useSettingsStore((s) => s.showAgentTab);
+  const showReviewTab = useSettingsStore((s) => s.showReviewTab);
+
+  // If the current mode's tab is hidden, fall back to editor
+  useEffect(() => {
+    if (mode === 'agent' && !showAgentTab) setMode('editor');
+    if (mode === 'review' && !showReviewTab) setMode('editor');
+  }, [showAgentTab, showReviewTab, mode, setMode]);
+
+  const visibleModes = (['editor', 'agent', 'review'] as const).filter((m) => {
+    if (m === 'agent') return showAgentTab;
+    if (m === 'review') return showReviewTab;
+    return true;
+  });
 
   return (
     <header
@@ -30,21 +46,23 @@ export function TitleBar() {
 
       {/* Center: filled mode pills */}
       <div className="flex flex-1 items-center justify-center">
-        <div className="flex items-center gap-0.5 rounded-pill bg-surface-raised p-[3px]">
-          {(['editor', 'agent', 'review'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`rounded-pill px-4 py-[3px] text-[10px] font-medium uppercase tracking-wider transition-colors ${
-                mode === m
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {MODE_LABELS[m]}
-            </button>
-          ))}
-        </div>
+        {visibleModes.length > 1 && (
+          <div className="flex items-center gap-0.5 rounded-pill bg-surface-raised p-[3px]">
+            {visibleModes.map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`rounded-pill px-4 py-[3px] text-[10px] font-medium uppercase tracking-wider transition-colors ${
+                  mode === m
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Right spacer for visual balance */}

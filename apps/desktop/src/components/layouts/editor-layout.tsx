@@ -5,14 +5,19 @@ import { SidebarPanel } from '../agent/sidebar-panel';
 import { TerminalDropZone } from '../terminal/terminal-drop-zone';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { useLayoutStore } from '../../stores/layout-store';
+import { useSettingsStore } from '../../stores';
 
 export function EditorLayout() {
   const terminalLocation = useLayoutStore((s) => s.terminalLocation);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const moveTerminalToSidebar = useLayoutStore((s) => s.moveTerminalToSidebar);
   const moveTerminalToBottom = useLayoutStore((s) => s.moveTerminalToBottom);
+  const showAgentChat = useSettingsStore((s) => s.showAgentChatPanel);
 
   const showBottomTerminal = terminalLocation === 'bottom' && terminalVisible;
+  const terminalInSidebar = terminalLocation === 'sidebar' && terminalVisible;
+  // Show right panel if chat is enabled OR the terminal lives there
+  const showRightPanel = showAgentChat || terminalInSidebar;
 
   return (
     <PanelGroup direction="horizontal">
@@ -26,7 +31,7 @@ export function EditorLayout() {
       <PanelResizeHandle className="w-1.5" />
 
       {/* Editor + (optionally) Terminal stacked */}
-      <Panel defaultSize={50} minSize={30}>
+      <Panel defaultSize={showRightPanel ? 50 : 84} minSize={30}>
         {showBottomTerminal ? (
           <PanelGroup direction="vertical">
             <Panel defaultSize={65} minSize={25}>
@@ -39,7 +44,7 @@ export function EditorLayout() {
 
             <Panel defaultSize={35} minSize={15}>
               <TerminalDropZone
-                onDrop={moveTerminalToSidebar}
+                onDrop={showRightPanel ? moveTerminalToSidebar : undefined}
                 label="Move to Sidebar"
                 className="h-full rounded-lg bg-surface overflow-hidden"
               >
@@ -58,18 +63,21 @@ export function EditorLayout() {
         )}
       </Panel>
 
-      <PanelResizeHandle className="w-1.5" />
-
       {/* Agent + (optionally) Terminal in sidebar */}
-      <Panel defaultSize={34} minSize={22} maxSize={50}>
-        <TerminalDropZone
-          onDrop={moveTerminalToSidebar}
-          label="Drop Terminal Here"
-          className="h-full rounded-lg bg-surface overflow-hidden"
-        >
-          <SidebarPanel />
-        </TerminalDropZone>
-      </Panel>
+      {showRightPanel && (
+        <>
+          <PanelResizeHandle className="w-1.5" />
+          <Panel defaultSize={34} minSize={22} maxSize={50}>
+            <TerminalDropZone
+              onDrop={moveTerminalToSidebar}
+              label="Drop Terminal Here"
+              className="h-full rounded-lg bg-surface overflow-hidden"
+            >
+              <SidebarPanel />
+            </TerminalDropZone>
+          </Panel>
+        </>
+      )}
     </PanelGroup>
   );
 }
