@@ -45,6 +45,22 @@ export interface InstalledExtension {
 
 export type ExtensionFilter = 'all' | 'enabled' | 'disabled' | 'themes' | 'languages';
 
+export interface GitUpdateInfo {
+  extensionName: string;
+  repoUrl: string;
+  currentSha: string;
+  remoteSha: string;
+  hasUpdate: boolean;
+}
+
+export interface ExtensionGitSource {
+  extensionName: string;
+  repoUrl: string;
+  branch: string;
+  localClonePath: string;
+  localCommitSha: string;
+}
+
 export interface MergedContributions {
   themes: Array<ThemeContribution & { extensionName: string }>;
   languages: Array<LanguageContribution & { extensionName: string }>;
@@ -97,18 +113,27 @@ interface ExtensionState {
   selectedExtension: string | null;
   contributions: MergedContributions;
   extensionThemesVersion: number;
+  // Git install/update
+  gitUpdates: Record<string, GitUpdateInfo>;
+  gitSources: Record<string, ExtensionGitSource>;
+  checkingUpdates: boolean;
+  installingFromGit: boolean;
 
   // Actions
   loadExtensions: () => Promise<void>;
   installFromFolder: (sourcePath: string) => Promise<void>;
   installFromZip: (zipPath: string) => Promise<void>;
+  installFromGit: (repoUrl: string, branch?: string) => Promise<void>;
   uninstallExtension: (name: string) => Promise<void>;
   toggleExtension: (name: string) => Promise<void>;
+  checkGitUpdates: () => Promise<void>;
+  updateFromGit: (extensionName: string) => Promise<void>;
+  loadGitSources: () => Promise<void>;
   setSearchQuery: (query: string) => void;
   setFilter: (filter: ExtensionFilter) => void;
   selectExtension: (name: string | null) => void;
   rebuildContributions: () => void;
-    loadExtensionThemes: (themes: Array<ThemeContribution & { extensionName: string }>) => Promise<void>;
+  loadExtensionThemes: (themes: Array<ThemeContribution & { extensionName: string }>) => Promise<void>;
   // Computed-like helpers
   getFiltered: () => InstalledExtension[];
 }
@@ -126,6 +151,10 @@ export const useExtensionStore = create<ExtensionState>()(
     selectedExtension: null,
     contributions: emptyContributions(),
     extensionThemesVersion: 0,
+    gitUpdates: {},
+    gitSources: {},
+    checkingUpdates: false,
+    installingFromGit: false,
 
     loadExtensions: async () => {
       const previousExtensions = get().extensions;
@@ -144,8 +173,10 @@ export const useExtensionStore = create<ExtensionState>()(
         get().rebuildContributions();
 
         if (previousExtensions.length === 0) {
-          // First load (startup): activate all extensions
+          // First load (startup): activate all extensions then check for git updates
           void activateAllExtensions(get().extensions);
+          void get().loadGitSources();
+          void get().checkGitUpdates();
         } else {
           // Subsequent load (refresh): check for code changes and reload
           const current = get().extensions;
@@ -214,13 +245,106 @@ export const useExtensionStore = create<ExtensionState>()(
       }
     },
 
+    installFromGit: async (repoUrl: string, branch?: string) => {
+      set((s) => {
+        s.installingFromGit = true;
+        s.error = null;
+      });
+
+      try {
+        const ext = await invoke<InstalledExtension>('extension_install_git', {
+          repoUrl,
+          branch: branch ?? null,
+        });
+        set((s) => {
+          s.extensions = s.extensions.filter((e) => e.name !== ext.name);
+          s.extensions.push(ext);
+          s.installingFromGit = false;
+        });
+        get().rebuildContributions();
+        void reloadExtension(ext);
+        // Reload git sources to reflect the new entry
+        void get().loadGitSources();
+      } catch (err) {
+        set((s) => {
+          s.error = String(err);
+          s.installingFromGit = false;
+        });
+      }
+    },
+
+    checkGitUpdates: async () => {
+      set((s) => {
+        s.checkingUpdates = true;
+      });
+      try {
+        const updates = await invoke<GitUpdateInfo[]>('extension_check_git_updates');
+        set((s) => {
+          s.checkingUpdates = false;
+          s.gitUpdates = {};
+          for (const u of updates) {
+            s.gitUpdates[u.extensionName] = u;
+          }
+        });
+      } catch {
+        set((s) => {
+          s.checkingUpdates = false;
+        });
+      }
+    },
+
+    updateFromGit: async (extensionName: string) => {
+      set((s) => {
+        s.error = null;
+      });
+      try {
+        const ext = await invoke<InstalledExtension>('extension_update_git', { extensionName });
+        set((s) => {
+          s.extensions = s.extensions.filter((e) => e.name !== ext.name);
+          s.extensions.push(ext);
+          // Clear the update badge
+          if (s.gitUpdates[extensionName]) {
+            s.gitUpdates[extensionName].hasUpdate = false;
+          }
+        });
+        get().rebuildContributions();
+        void reloadExtension(ext);
+        void get().loadGitSources();
+      } catch (err) {
+        set((s) => {
+          s.error = String(err);
+        });
+      }
+    },
+
+    loadGitSources: async () => {
+      try {
+        const sources = await invoke<ExtensionGitSource[]>('extension_get_git_sources');
+        set((s) => {
+          s.gitSources = {};
+          for (const src of sources) {
+            s.gitSources[src.extensionName] = src;
+          }
+        });
+      } catch {
+        // silently ignore — not critical
+      }
+    },
+
     uninstallExtension: async (name: string) => {
       try {
         await invoke('extension_uninstall', { name });
+        // Also clean up git source record if this was a git-sourced extension
+        const isGit = !!get().gitSources[name];
+        if (isGit) {
+          await invoke('extension_remove_git_source', { extensionName: name }).catch(() => {});
+        }
         await deactivateExtension(name);
         set((s) => {
           s.extensions = s.extensions.filter((e) => e.name !== name);
           if (s.selectedExtension === name) s.selectedExtension = null;
+          delete s.gitSources[name];
+          delete s.gitUpdates[name];
         });
         get().rebuildContributions();
       } catch (err) {

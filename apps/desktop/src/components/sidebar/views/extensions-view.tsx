@@ -17,6 +17,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  GitFork,
+  ArrowUpCircle,
+  Link,
 } from 'lucide-react';
 import { useExtensionStore, type ExtensionFilter, type InstalledExtension } from '../../../stores/extension-store';
 import { TabBadge } from '../../ui/tab-badge';
@@ -42,7 +45,23 @@ function ExtensionDetail({
 }) {
   const toggleExtension = useExtensionStore((s) => s.toggleExtension);
   const uninstallExtension = useExtensionStore((s) => s.uninstallExtension);
+  const gitSources = useExtensionStore((s) => s.gitSources);
+  const gitUpdates = useExtensionStore((s) => s.gitUpdates);
+  const updateFromGit = useExtensionStore((s) => s.updateFromGit);
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+  const [updatingGit, setUpdatingGit] = useState(false);
+
+  const gitSource = gitSources[ext.name];
+  const gitUpdate = gitUpdates[ext.name];
+
+  const handleUpdate = useCallback(async () => {
+    setUpdatingGit(true);
+    try {
+      await updateFromGit(ext.name);
+    } finally {
+      setUpdatingGit(false);
+    }
+  }, [ext.name, updateFromGit]);
 
   const contributes = ext.manifest?.contributes;
   const contributionSummary: { label: string; count: number }[] = [];
@@ -214,6 +233,68 @@ function ExtensionDetail({
             </div>
           </div>
         </div>
+
+        {/* Git Source section */}
+        {gitSource && (
+          <div className="space-y-1.5 border-t border-border pt-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                Git Source
+              </p>
+              {gitUpdate?.hasUpdate && (
+                <span className="flex items-center gap-0.5 rounded-full bg-orange-500/15 px-1.5 py-px text-[9px] font-medium text-orange-400">
+                  <ArrowUpCircle className="h-2.5 w-2.5" />
+                  Update available
+                </span>
+              )}
+            </div>
+            <div className="space-y-1 text-[10px]">
+              <div className="flex items-center gap-1.5 rounded bg-muted/60 px-2 py-1">
+                <Link className="h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
+                <span className="truncate text-muted-foreground" title={gitSource.repoUrl}>
+                  {gitSource.repoUrl.replace(/^https?:\/\//, '')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-0.5">
+                <span className="text-muted-foreground/70">Branch</span>
+                <span className="font-mono text-[9px] text-foreground/60">{gitSource.branch}</span>
+              </div>
+              <div className="flex items-center justify-between px-0.5">
+                <span className="text-muted-foreground/70">Commit</span>
+                <span className="font-mono text-[9px] text-foreground/60">
+                  {gitSource.localCommitSha.slice(0, 7)}
+                </span>
+              </div>
+              {gitUpdate?.hasUpdate && (
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-muted-foreground/70">Remote</span>
+                  <span className="font-mono text-[9px] text-orange-400">
+                    {gitUpdate.remoteSha.slice(0, 7)}
+                  </span>
+                </div>
+              )}
+            </div>
+            {gitUpdate?.hasUpdate && (
+              <button
+                onClick={handleUpdate}
+                disabled={updatingGit}
+                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md bg-orange-500/10 py-1.5 text-[10px] font-medium text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {updatingGit ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpCircle className="h-3 w-3" />
+                    Update Extension
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -229,14 +310,19 @@ function ExtensionRow({
   onSelect: () => void;
 }) {
   const toggleExtension = useExtensionStore((s) => s.toggleExtension);
+  const gitUpdates = useExtensionStore((s) => s.gitUpdates);
+  const hasUpdate = gitUpdates[ext.name]?.hasUpdate ?? false;
 
   return (
     <div
       className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 transition-colors cursor-pointer group"
       onClick={onSelect}
     >
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
+      <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
         <Package className="h-3.5 w-3.5 text-muted-foreground" />
+        {hasUpdate && (
+          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-orange-400 ring-1 ring-background" />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -250,6 +336,11 @@ function ExtensionRow({
           {!ext.enabled && (
             <span className="shrink-0 rounded bg-muted px-1 py-px text-[8px] text-muted-foreground/60">
               OFF
+            </span>
+          )}
+          {hasUpdate && (
+            <span className="shrink-0 rounded-full bg-orange-500/15 px-1 py-px text-[8px] font-medium text-orange-400">
+              ↑
             </span>
           )}
         </div>
@@ -285,6 +376,8 @@ export function ExtensionsView() {
   const extensions = useExtensionStore((s) => s.extensions);
   const loading = useExtensionStore((s) => s.loading);
   const installing = useExtensionStore((s) => s.installing);
+  const installingFromGit = useExtensionStore((s) => s.installingFromGit);
+  const checkingUpdates = useExtensionStore((s) => s.checkingUpdates);
   const error = useExtensionStore((s) => s.error);
   const searchQuery = useExtensionStore((s) => s.searchQuery);
   const filter = useExtensionStore((s) => s.filter);
@@ -292,10 +385,16 @@ export function ExtensionsView() {
   const loadExtensions = useExtensionStore((s) => s.loadExtensions);
   const installFromFolder = useExtensionStore((s) => s.installFromFolder);
   const installFromZip = useExtensionStore((s) => s.installFromZip);
+  const installFromGit = useExtensionStore((s) => s.installFromGit);
   const setSearchQuery = useExtensionStore((s) => s.setSearchQuery);
   const setFilter = useExtensionStore((s) => s.setFilter);
   const selectExtension = useExtensionStore((s) => s.selectExtension);
   const getFiltered = useExtensionStore((s) => s.getFiltered);
+
+  const [showGitForm, setShowGitForm] = useState(false);
+  const [gitUrl, setGitUrl] = useState('');
+  const [gitBranch, setGitBranch] = useState('');
+  const [showBranchField, setShowBranchField] = useState(false);
 
   useEffect(() => {
     loadExtensions();
@@ -327,6 +426,16 @@ export function ExtensionsView() {
       // user cancelled
     }
   }, [installFromZip]);
+
+  const handleInstallGit = useCallback(async () => {
+    const url = gitUrl.trim();
+    if (!url) return;
+    await installFromGit(url, gitBranch.trim() || undefined);
+    setGitUrl('');
+    setGitBranch('');
+    setShowGitForm(false);
+    setShowBranchField(false);
+  }, [gitUrl, gitBranch, installFromGit]);
 
   // If an extension is selected, show detail
   const selectedExt = selectedExtension
@@ -409,6 +518,7 @@ export function ExtensionsView() {
         <span className="text-[9px] text-muted-foreground/60">
           {enabledCount}/{extensions.length} active
           {filtered.length !== extensions.length && ` · ${filtered.length} shown`}
+          {checkingUpdates && <span className="ml-1 text-muted-foreground/40">· checking…</span>}
         </span>
         <div className="flex gap-0.5">
           <button
@@ -417,6 +527,17 @@ export function ExtensionsView() {
             title="Refresh"
           >
             <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => { setShowGitForm((v) => !v); }}
+            className={`rounded p-0.5 transition-colors ${
+              showGitForm
+                ? 'text-accent bg-accent/10'
+                : 'text-muted-foreground/50 hover:text-foreground hover:bg-muted'
+            }`}
+            title="Install from Git repository"
+          >
+            <GitFork className="h-3 w-3" />
           </button>
           <button
             onClick={handleInstallZip}
@@ -435,6 +556,61 @@ export function ExtensionsView() {
         </div>
       </div>
 
+      {/* Git Install Form */}
+      {showGitForm && (
+        <div className="border-b border-border bg-muted/20 px-2 py-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
+            <GitFork className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+            <input
+              type="url"
+              value={gitUrl}
+              onChange={(e) => setGitUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleInstallGit(); }}
+              placeholder="https://github.com/user/extension"
+              className="flex-1 bg-transparent text-[11px] text-foreground placeholder:text-muted-foreground/40 outline-none"
+              autoFocus
+            />
+          </div>
+          {showBranchField && (
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
+              <span className="text-[9px] text-muted-foreground/50 shrink-0">branch</span>
+              <input
+                type="text"
+                value={gitBranch}
+                onChange={(e) => setGitBranch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') void handleInstallGit(); }}
+                placeholder="main"
+                className="flex-1 bg-transparent text-[11px] text-foreground placeholder:text-muted-foreground/30 outline-none"
+              />
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setShowBranchField((v) => !v)}
+              className="text-[9px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            >
+              {showBranchField ? 'Hide branch' : 'Specify branch'}
+            </button>
+            <div className="flex gap-1">
+              <button
+                onClick={() => { setShowGitForm(false); setGitUrl(''); setGitBranch(''); setShowBranchField(false); }}
+                className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleInstallGit()}
+                disabled={!gitUrl.trim() || installingFromGit}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {installingFromGit ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <GitFork className="h-2.5 w-2.5" />}
+                Install
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div className="flex items-center gap-1.5 px-2 py-1.5 text-[10px] text-red-400 bg-red-500/5 border-b border-red-500/10">
@@ -444,10 +620,10 @@ export function ExtensionsView() {
       )}
 
       {/* Installing indicator */}
-      {installing && (
+      {(installing || installingFromGit) && (
         <div className="flex items-center gap-1.5 px-2 py-1.5 text-[10px] text-accent bg-accent/5 border-b border-accent/10">
           <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-          <span>Installing extension...</span>
+          <span>{installingFromGit ? 'Cloning and installing from git…' : 'Installing extension...'}</span>
         </div>
       )}
 
@@ -473,12 +649,19 @@ export function ExtensionsView() {
             <Blocks className="mb-3 h-8 w-8 opacity-20" />
             <p className="text-[11px] font-medium">No extensions installed</p>
             <p className="mt-1 text-[10px] text-muted-foreground/60 text-center px-4">
-              Install extensions from .zip files or folders to add themes, languages, and more.
+              Install extensions from a git repository, .zip file, or folder.
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => setShowGitForm(true)}
+                className="flex items-center gap-1.5 rounded-md bg-accent/10 px-3 py-1.5 text-[10px] font-medium text-accent hover:bg-accent/20 transition-colors"
+              >
+                <GitFork className="h-3 w-3" />
+                From Git
+              </button>
               <button
                 onClick={handleInstallZip}
-                className="flex items-center gap-1.5 rounded-md bg-accent/10 px-3 py-1.5 text-[10px] font-medium text-accent hover:bg-accent/20 transition-colors"
+                className="flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
               >
                 <FileArchive className="h-3 w-3" />
                 Install .zip

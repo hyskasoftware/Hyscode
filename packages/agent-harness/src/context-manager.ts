@@ -301,8 +301,16 @@ export class ContextManager {
       }
     }
 
-    // Combine: older history → gathered context → user context → must-include
-    const combined = [...includedOlder, ...gatheredMessages, ...contextMessages, ...mustInclude];
+    // Combine: gathered context → user context → older history → must-include
+    //
+    // IMPORTANT: context/gathered messages MUST come BEFORE older history, never
+    // between history and mustInclude. When a prior turn ended with a tool_result
+    // as the last message (e.g. max_iterations or empty finalResponse), mustInclude
+    // starts with that tool_result and its paired assistant+tool_calls is at the end
+    // of includedOlder. Inserting any role:'user' context messages between them
+    // causes OpenAI/OpenRouter to reject with:
+    // "An assistant message with 'tool_calls' must be followed by tool messages"
+    const combined = [...gatheredMessages, ...contextMessages, ...includedOlder, ...mustInclude];
 
     // Ensure the first message has role 'user'. Anthropic (and others) reject
     // conversations that start with an assistant message. This can happen when

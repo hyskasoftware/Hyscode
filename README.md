@@ -122,24 +122,6 @@ docs/                # Architecture and specification docs
 scripts/             # Platform build scripts
 ```
 
----
-
-## Roadmap
-
-| Milestone | Status | Description |
-|---|---|---|
-| M0 — Foundation | Done | Monorepo, Tauri shell, UI scaffold, CI |
-| M1 — Core IDE | In progress | Monaco editor, file tree, terminal, tabs |
-| M2 — AI Providers | Planned | 5-provider layer, streaming chat, settings |
-| M3 — Agent Harness v1 | Planned | Agentic loop, tool routing, approval UI |
-| M4 — SDD Engine | Planned | Spec → Plan → Execute workflow |
-| M5 — MCP & Skills | Planned | MCP client, built-in skills, tool library |
-| M6 — Extensions | Planned | Extension host, marketplace, LSP |
-| M7 — Polish & Beta | Planned | Performance, accessibility, packaging |
-
-Full details: [docs/MILESTONES.md](./docs/MILESTONES.md)
-
----
 
 ## Documentation
 

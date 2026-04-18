@@ -91,6 +91,11 @@ pub fn run() {
             commands::extension::extension_read_asset,
             commands::extension::extension_toggle,
             commands::extension::extension_get_dir,
+            commands::extension::extension_install_git,
+            commands::extension::extension_check_git_updates,
+            commands::extension::extension_update_git,
+            commands::extension::extension_get_git_sources,
+            commands::extension::extension_remove_git_source,
             // LSP commands
             commands::lsp::lsp_start,
             commands::lsp::lsp_send,
