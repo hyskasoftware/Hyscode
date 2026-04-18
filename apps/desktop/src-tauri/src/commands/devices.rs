@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 use tauri::Emitter;
+use super::utils::cmd;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -199,7 +199,7 @@ pub async fn check_sdk_paths(
     let sdk_root = resolve_android_sdk_root(android_sdk_path.as_deref());
 
     // Test Flutter — `flutter --version` outputs "Flutter X.Y.Z • channel …"
-    let (flutter_found, flutter_version) = match Command::new(&flutter.path)
+    let (flutter_found, flutter_version) = match cmd(&flutter.path)
         .arg("--version")
         .output()
     {
@@ -216,7 +216,7 @@ pub async fn check_sdk_paths(
     };
 
     // Test ADB — `adb version` outputs "Android Debug Bridge version X.Y.Z"
-    let (adb_found, adb_version) = match Command::new(&adb.path).arg("version").output() {
+    let (adb_found, adb_version) = match cmd(&adb.path).arg("version").output() {
         Ok(out) => {
             let text = String::from_utf8_lossy(&out.stdout);
             let version = text
@@ -259,7 +259,7 @@ pub async fn list_devices(
     let mut any_tool_found = false;
 
     // ── Flutter devices ───────────────────────────────────────────────────────
-    if let Ok(out) = Command::new(&flutter.path)
+    if let Ok(out) = cmd(&flutter.path)
         .args(["devices", "--machine"])
         .output()
     {
@@ -289,7 +289,7 @@ pub async fn list_devices(
     // ── ADB devices ───────────────────────────────────────────────────────────
     // Supplements Flutter: adds Android devices Flutter may miss, and provides
     // Android visibility when Flutter is not installed.
-    if let Ok(out) = Command::new(&adb.path).args(["devices", "-l"]).output() {
+    if let Ok(out) = cmd(&adb.path).args(["devices", "-l"]).output() {
         any_tool_found = true;
         let stdout = String::from_utf8_lossy(&out.stdout);
 
@@ -352,7 +352,7 @@ pub async fn list_emulators(
     let mut emulators: Vec<EmulatorInfo> = Vec::new();
 
     // ── Flutter emulators ─────────────────────────────────────────────────────
-    if let Ok(out) = Command::new(&flutter.path)
+    if let Ok(out) = cmd(&flutter.path)
         .args(["emulators", "--machine"])
         .output()
     {
@@ -379,7 +379,7 @@ pub async fn list_emulators(
         .map(emulator_bin_from_root)
         .unwrap_or_else(|| "emulator".to_string());
 
-    if let Ok(out) = Command::new(&emulator_bin).arg("-list-avds").output() {
+    if let Ok(out) = cmd(&emulator_bin).arg("-list-avds").output() {
         let stdout = String::from_utf8_lossy(&out.stdout);
         for avd in stdout.lines() {
             let avd = avd.trim();
@@ -412,7 +412,7 @@ pub async fn start_emulator(
 
     std::thread::spawn(move || {
         // Try Flutter first (works for AVDs + Genymotion)
-        let launched = Command::new(&flutter.path)
+        let launched = cmd(&flutter.path)
             .args(["emulators", "--launch", &emulator_id])
             .spawn()
             .map(|mut c| c.wait().map(|s| s.success()).unwrap_or(false))
@@ -423,7 +423,7 @@ pub async fn start_emulator(
                 .as_deref()
                 .map(emulator_bin_from_root)
                 .unwrap_or_else(|| "emulator".to_string());
-            let _ = Command::new(&bin).args(["-avd", &emulator_id]).spawn();
+            let _ = cmd(&bin).args(["-avd", &emulator_id]).spawn();
         }
     });
 

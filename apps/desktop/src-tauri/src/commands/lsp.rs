@@ -1,9 +1,10 @@
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use super::utils::cmd;
 
 pub struct LspProcess {
     pub child: Child,
@@ -22,7 +23,7 @@ pub async fn lsp_start(
 ) -> Result<String, String> {
     // Resolve the full path to the command if it's not directly on PATH.
     let resolved = resolve_lsp_command(&command);
-    let mut child = Command::new(&resolved)
+    let mut child = cmd(&resolved)
         .args(&args)
         .current_dir(&root_path)
         .stdin(Stdio::piped())
@@ -174,7 +175,7 @@ pub async fn lsp_list_active(app: tauri::AppHandle) -> Result<Vec<String>, Strin
 pub async fn lsp_probe_server(command: String) -> Result<bool, String> {
     // 1. Try `where` / `which` against the current PATH
     #[cfg(target_os = "windows")]
-    let path_found = std::process::Command::new("where")
+    let path_found = cmd("where")
         .arg(&command)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -183,7 +184,7 @@ pub async fn lsp_probe_server(command: String) -> Result<bool, String> {
         .unwrap_or(false);
 
     #[cfg(not(target_os = "windows"))]
-    let path_found = std::process::Command::new("which")
+    let path_found = cmd("which")
         .arg(&command)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -251,7 +252,7 @@ pub async fn lsp_probe_server(command: String) -> Result<bool, String> {
 fn resolve_lsp_command(command: &str) -> String {
     // First check if the command is directly available
     #[cfg(target_os = "windows")]
-    let on_path = std::process::Command::new("where")
+    let on_path = cmd("where")
         .arg(command)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -260,7 +261,7 @@ fn resolve_lsp_command(command: &str) -> String {
         .unwrap_or(false);
 
     #[cfg(not(target_os = "windows"))]
-    let on_path = std::process::Command::new("which")
+    let on_path = cmd("which")
         .arg(command)
         .stdout(Stdio::null())
         .stderr(Stdio::null())

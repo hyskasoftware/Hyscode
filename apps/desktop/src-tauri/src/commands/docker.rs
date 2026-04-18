@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
+use super::utils::cmd;
 
 // ─── Managed state for docker watch ─────────────────────────────────────────
 
@@ -41,7 +41,7 @@ struct DockerContainersUpdatedPayload {
 
 /// Run a docker CLI command and return stdout on success, Err on failure.
 fn run_docker(args: &[&str]) -> Result<String, String> {
-    let output = Command::new("docker")
+    let output = cmd("docker")
         .args(args)
         .output()
         .map_err(|e| format!("Failed to run docker: {}. Is Docker installed and on PATH?", e))?;
@@ -109,7 +109,7 @@ fn validate_id(id: &str) -> Result<(), String> {
 /// Check if Docker CLI is available on the system.
 #[tauri::command]
 pub fn docker_is_available() -> bool {
-    Command::new("docker")
+    cmd("docker")
         .arg("version")
         .output()
         .map(|o| o.status.success())

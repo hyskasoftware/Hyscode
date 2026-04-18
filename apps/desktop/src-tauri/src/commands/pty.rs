@@ -46,8 +46,8 @@ fn default_shell() -> String {
 
 #[cfg(target_os = "windows")]
 fn which_exists(name: &str) -> bool {
-    use std::process::Command;
-    Command::new("where")
+    use super::utils::cmd;
+    cmd("where")
         .arg(name)
         .output()
         .map(|o| o.status.success())

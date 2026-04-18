@@ -4,7 +4,7 @@ use git2::{
 };
 use serde::Serialize;
 use std::path::Path;
-use std::process::Command as StdCommand;
+use super::utils::cmd;
 
 // ── Serializable Types ──────────────────────────────────────────────────────
 
@@ -978,7 +978,7 @@ pub fn git_commit_file_diff(
 // ── Remote operations (via CLI for auth compatibility) ───────────────────────
 
 fn run_git_cli(repo_path: &str, args: &[&str]) -> Result<String, String> {
-    let output = StdCommand::new("git")
+    let output = cmd("git")
         .args(args)
         .current_dir(repo_path)
         .output()

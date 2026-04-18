@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{Emitter, State, Window};
 
 use super::keychain::KeychainState;
+use super::utils::cmd;
 
 // ─── Claude Agent Sidecar Command ─────────────────────────────────────────────
 // Spawns the Bun-compiled claude-agent sidecar binary, sends a JSON request
@@ -126,7 +127,7 @@ pub async fn claude_agent_run(
         }
 
         // Spawn the sidecar process
-        let mut child = match std::process::Command::new(&sidecar_path)
+        let mut child = match cmd(&sidecar_path)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

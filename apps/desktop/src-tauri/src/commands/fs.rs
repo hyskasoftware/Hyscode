@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher, Event, EventKind};
 use tauri::{AppHandle, Emitter};
+use super::utils::cmd;
 
 #[derive(Serialize)]
 pub struct FileEntry {
@@ -506,7 +507,7 @@ pub fn reveal_path(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("explorer")
+        cmd("explorer")
             .arg("/select,")
             .arg(&path)
             .spawn()
@@ -515,7 +516,7 @@ pub fn reveal_path(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
+        cmd("open")
             .arg("-R")
             .arg(&path)
             .spawn()
@@ -526,7 +527,7 @@ pub fn reveal_path(path: String) -> Result<(), String> {
     {
         // Try xdg-open on the parent directory
         let target = if p.is_dir() { p } else { p.parent().unwrap_or(&p).to_path_buf() };
-        std::process::Command::new("xdg-open")
+        cmd("xdg-open")
             .arg(target.to_string_lossy().to_string())
             .spawn()
             .map_err(|e| format!("Failed to reveal: {}", e))?;

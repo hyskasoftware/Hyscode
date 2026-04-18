@@ -10,3 +10,4 @@ pub mod github_oauth;
 pub mod keychain;
 pub mod lsp;
 pub mod pty;
+pub mod utils;
