@@ -1,37 +1,70 @@
 # HysCode
 
-**Desktop-native agentic IDE** built on Tauri v2 where AI agents write, edit, and execute code using real developer tools.
+<p align="center">
+  <img src="img-logos/logo-150px.png" alt="HysCode logo" width="140" />
+</p>
 
-[![CI](https://github.com/Estevaobonatto/Hyscode/actions/workflows/ci.yml/badge.svg)](https://github.com/Estevaobonatto/Hyscode/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](./CHANGELOG.md)
+<p align="center">
+  <strong>IDE agentiva nativa para desktop</strong> — onde agentes de IA escrevem, editam e executam código usando ferramentas reais de desenvolvedor.
+</p>
 
----
-
-## What is HysCode?
-
-HysCode reimagines software development by bringing AI to the core of your coding environment. Instead of just suggesting code, HysCode enables AI agents to:
-
-- **Write and edit code** in real time using Monaco Editor
-- **Execute developer tools** — terminal, git, filesystem operations
-- **Follow specifications** via Spec-Driven Development (SDD)
-- **Request approval** for every change with full user control
+<p align="center">
+  <a href="https://github.com/Estevaobonatto/Hyscode/actions/workflows/ci.yml"><img src="https://github.com/Estevaobonatto/Hyscode/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"/></a>
+  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version"/></a>
+</p>
 
 ---
 
-## Architecture
+Índice
+
+- [O que é o HysCode?](#o-que-é-o-hyscode)
+- [Destaques](#destaques)
+- [Arquitetura](#arquitetura)
+- [Stack Tecnológico](#stack-tecnológico)
+- [Começando (rápido)](#começando-rápido)
+- [Desenvolvimento](#desenvolvimento)
+- [Build/Produção](#buildprodução)
+- [Estrutura do Repositório](#estrutura-do-repositório)
+- [Documentação](#documentação)
+- [Contribuição](#contribuição)
+- [Segurança](#segurança)
+- [Licença](#licença)
+
+---
+
+## O que é o HysCode?
+
+HysCode reimagina o fluxo de desenvolvimento trazendo agentes de IA para o coração do ambiente de desenvolvimento. Em vez de apenas sugerir código, agentes podem:
+
+- Escrever e editar código em tempo real usando o Monaco Editor
+- Executar ferramentas de desenvolvedor (terminal, git, operações de arquivo)
+- Seguir especificações com o motor Spec-Driven Development (SDD)
+- Solicitar aprovação do usuário para cada alteração — você sempre tem controle final
+
+
+## Destaques
+
+- Agentes autônomos com ciclo de feedback (SDD)
+- Integração com múltiplos provedores de IA (Anthropic, OpenAI, Gemini, Ollama, OpenRouter)
+- Shell Rust/Tauri para operações seguras de filesystem, PTY e git
+- Editor avançado (Monaco), terminal integrado (xterm.js) e componentes shadcn/ui + Tailwind
+
+---
+
+## Arquitetura
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        USER INTERFACE                            │
+│                        INTERFACE DO USUÁRIO                      │
 │  File Tree │ Monaco Editor │ Agent Panel │ Terminal │ Settings   │
-│  React 19 + shadcn/ui + Tailwind v4 + Zustand                   │
+│  React + shadcn/ui + Tailwind + Zustand                          │
 ├──────────────────────────────────────────────────────────────────┤
 │                     TAURI IPC BOUNDARY                           │
-│  invoke() / emit() / listen() — typed commands                   │
+│  invoke()/emit()/listen() — comandos tipados                      │
 ├──────────────────────────────────────────────────────────────────┤
 │                      TAURI RUST SHELL                            │
-│  FS Commands │ PTY Manager │ Git Ops │ SQLite │ Process Sandbox  │
+│  FS Commands │ PTY Manager │ Git Ops │ SQLite │ Process Sandbox   │
 ├──────────────────────────────────────────────────────────────────┤
 │                     AGENT HARNESS (TS)                           │
 │  Agent Loop │ Context Manager │ Tool Router │ SDD Engine         │
@@ -46,109 +79,125 @@ HysCode reimagines software development by bringing AI to the core of your codin
 
 ---
 
-## Tech Stack
+## Stack Tecnológico
 
-| Layer | Technology |
-|---|---|
-| Desktop shell | Tauri v2 (Rust) |
-| Frontend | React 19 + TypeScript |
-| UI components | shadcn/ui + Tailwind CSS v4 |
-| State management | Zustand |
-| Code editor | Monaco Editor |
-| Terminal | xterm.js + Tauri PTY |
-| Database | SQLite (tauri-plugin-sql) |
-| Build system | Turborepo + pnpm workspaces |
-| AI providers | Anthropic, OpenAI, Gemini, Ollama, OpenRouter |
+- Desktop shell: Tauri v2 (Rust)
+- Frontend: React + TypeScript
+- UI: shadcn/ui + Tailwind CSS
+- Estado: Zustand
+- Editor de código: Monaco Editor
+- Terminal: xterm.js + Tauri PTY
+- Banco de dados: SQLite (tauri-plugin-sql)
+- Monorepo: Turborepo + pnpm workspaces
 
 ---
 
-## Getting Started
+## Começando (rápido)
 
-### Prerequisites
+Pré-requisitos:
 
-- [Node.js](https://nodejs.org/) 18+
-- [pnpm](https://pnpm.io/) 10+
-- [Rust](https://rustup.rs/) 1.70+
-- [Tauri CLI prerequisites](https://tauri.app/start/prerequisites/)
+- Node.js 18+
+- pnpm 10+
+- Rust 1.70+
+- Tauri CLI prerequisites — veja https://tauri.app/start/prerequisites/
 
-### Development
+Passos rápidos:
 
 ```bash
-# Clone the repository
+# Clonar o repositório
 git clone https://github.com/Estevaobonatto/Hyscode.git
 cd Hyscode
 
-# Install dependencies
+# Instalar dependências
 pnpm install
 
-# Start in development mode
+# Rodar em modo dev (hot reload)
 pnpm dev
 ```
 
-The Tauri window will open automatically with hot reload enabled.
+Ao iniciar, a janela Tauri será aberta automaticamente.
 
-### Production Build
+---
+
+## Desenvolvimento
+
+Scripts úteis (definidos em `package.json`):
+
+- `pnpm dev` — inicia todos os apps em modo desenvolvimento (turbo dev)
+- `pnpm build` — build do monorepo (turbo build)
+- `pnpm lint` — executa linter
+- `pnpm typecheck` — checagem de tipos TypeScript
+- `pnpm format` — formata o código com Prettier
+
+---
+
+## Build/Produção
+
+Para gerar builds:
 
 ```bash
-# Windows
+# Windows (script PowerShell que empacota o app)
 pnpm run build:prod
 
 # macOS / Linux
 pnpm run build
 ```
 
-Installers are output to `apps/desktop/src-tauri/target/release/bundle/`.
+Os instaladores ficam em `apps/desktop/src-tauri/target/release/bundle/` após o build.
 
 ---
 
-## Repository Structure
+## Estrutura do Repositório
+
+Principais pastas:
 
 ```
-apps/
-  desktop/           # Tauri v2 desktop app (React + Vite frontend)
-    src/             # React components, stores, hooks
-    src-tauri/       # Rust backend, commands, migrations
-packages/
-  ai-providers/      # Multi-provider AI abstraction layer
-  agent-harness/     # Agentic loop, tool routing, SDD engine
-  mcp-client/        # Model Context Protocol client
-  skills/            # Built-in agent skills
-  ui/                # Shared UI components
-  extension-api/     # Extension authoring API
-  extension-host/    # Extension sandbox runtime
-  lsp-client/        # Language Server Protocol client
-extensions/          # Bundled extensions (themes, language support)
-docs/                # Architecture and specification docs
-scripts/             # Platform build scripts
+apps/                 # apps (desktop Tauri + outras aplicações)
+packages/             # bibliotecas compartilhadas (ai-providers, agent-harness, etc)
+extensions/           # extensões empacotadas
+docs/                 # documentação de arquitetura e especificações
+scripts/              # scripts auxiliares
 ```
 
+---
 
-## Documentation
+## Documentação
 
-- [Architecture Overview](./docs/architecture/OVERVIEW.md)
-- [Agent Harness](./docs/architecture/AGENT_HARNESS.md)
-- [AI Providers](./docs/architecture/AI_PROVIDERS.md)
-- [MCP Client](./docs/architecture/MCP.md)
-- [Database Schema](./docs/architecture/DATABASE.md)
-- [Frontend Architecture](./docs/architecture/FRONTEND.md)
-- [Tauri Backend](./docs/architecture/TAURI.md)
-- [Extension Guide](./docs/EXTENSION_GUIDE.md)
-- [MVP Spec](./docs/specs/MVP_SPEC.md)
+Consulte os documentos em `docs/` para detalhes de arquitetura e design:
+
+- docs/architecture/OVERVIEW.md
+- docs/architecture/AGENT_HARNESS.md
+- docs/architecture/AI_PROVIDERS.md
+- docs/architecture/MCP.md
+- docs/architecture/FRONTEND.md
+- docs/architecture/TAURI.md
+- docs/EXTENSION_GUIDE.md
+- docs/specs/MVP_SPEC.md
 
 ---
 
-## Contributing
+## Contribuição
 
-Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) to get started.
+Contribuições são muito bem-vindas! Antes de abrir PRs, por favor leia `CONTRIBUTING.md`.
+
+Sugestões para contribuir:
+
+- Abra issues descrevendo bugs ou propostas de melhoria
+- Crie uma branch por feature/bugfix (ex.: `feat/agent-loop-improvement`)
+- Mantenha commits pequenos e com mensagens claras
 
 ---
 
-## Security
+## Segurança
 
-For responsible disclosure of security vulnerabilities, see [SECURITY.md](./SECURITY.md).
+Para divulgação responsável de vulnerabilidades, veja `SECURITY.md`.
 
 ---
 
-## License
+## Licença
 
-MIT — see [LICENSE](./LICENSE) for details.
+MIT — veja `LICENSE` para detalhes.
+
+---
+
+Se quiser ajuda para configurar o ambiente ou rodar o projeto localmente, me diga qual SO você está usando — eu posso guiar passo a passo.

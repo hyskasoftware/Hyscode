@@ -44,7 +44,7 @@ export function EditorLayout() {
 
             <Panel defaultSize={35} minSize={15}>
               <TerminalDropZone
-                onDrop={showRightPanel ? moveTerminalToSidebar : undefined}
+                onDrop={showRightPanel ? moveTerminalToSidebar : () => {}}
                 label="Move to Sidebar"
                 className="h-full rounded-lg bg-surface overflow-hidden"
               >
