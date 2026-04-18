@@ -148,13 +148,40 @@ export function activate(context) {
   } catch {
     // ignore
   }
+
+  // Settings tab
+  if (api.settings?.updateTabContent) {
+    api.settings.updateTabContent('yaml-support.settings', {
+      sections: [
+        {
+          title: 'Editor',
+          items: [
+            { type: 'toggle', key: 'validate', label: 'Validation', description: 'Enable YAML schema validation', defaultValue: true },
+            { type: 'toggle', key: 'hover', label: 'Hover Info', description: 'Show info on mouse hover', defaultValue: true },
+            { type: 'toggle', key: 'completion', label: 'Auto-complete', description: 'Enable YAML auto-complete', defaultValue: true },
+          ],
+        },
+        {
+          title: 'Formatting',
+          items: [
+            { type: 'toggle', key: 'format.enable', label: 'Enable Formatter', description: 'Enable YAML formatter', defaultValue: true },
+            { type: 'toggle', key: 'format.singleQuote', label: 'Single Quotes', description: 'Use single quotes instead of double', defaultValue: false },
+            { type: 'toggle', key: 'format.bracketSpacing', label: 'Bracket Spacing', description: 'Spaces inside flow object braces', defaultValue: true },
+            { type: 'number', key: 'format.printWidth', label: 'Print Width', description: 'Max line width before wrapping', defaultValue: 120, min: 40, max: 300 },
+          ],
+        },
+        {
+          title: 'Schemas',
+          items: [
+            { type: 'toggle', key: 'schemaStore.enable', label: 'Schema Store', description: 'Auto-download schemas from JSON Schema Store', defaultValue: true },
+            { type: 'select', key: 'yamlVersion', label: 'YAML Version', description: 'YAML specification version', defaultValue: '1.2', options: [{ value: '1.1', label: '1.1' }, { value: '1.2', label: '1.2' }] },
+            { type: 'toggle', key: 'keyOrdering', label: 'Key Ordering', description: 'Force alphabetical key ordering', defaultValue: false },
+          ],
+        },
+      ],
+    });
+  }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Deactivate
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function deactivate() {
   disposables.forEach(d => {
     if (typeof d === 'function') d();
     else if (d && typeof d.dispose === 'function') d.dispose();

@@ -51,6 +51,13 @@
         { "command": "sparkle-format.formatSelection" }
       ]
     },
+    "settingsTabs": [
+      {
+        "id": "sparkle-format.settings",
+        "label": "Sparkle Format",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "Sparkle Format",
       "properties": {

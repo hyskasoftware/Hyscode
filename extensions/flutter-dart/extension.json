@@ -101,6 +101,13 @@
         "priority": 45
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "flutter-dart.settings",
+        "label": "Flutter & Dart",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "Flutter & Dart",
       "properties": {

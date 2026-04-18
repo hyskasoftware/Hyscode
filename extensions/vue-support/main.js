@@ -206,6 +206,28 @@ export const use${pascalName}Store = defineStore('${name}', () => {
   });
 
   console.log('[vue-support] Commands registered');
+
+  // Settings tab
+  if (api && api.settings?.updateTabContent) {
+    api.settings.updateTabContent('vue-support.settings', {
+      sections: [
+        {
+          title: 'Single File Components',
+          items: [
+            { type: 'select', key: 'defaultScriptLang', label: 'Script Language', description: 'Language for the <script> block', defaultValue: 'ts', options: [{ value: 'ts', label: 'TypeScript' }, { value: 'js', label: 'JavaScript' }] },
+            { type: 'select', key: 'defaultStyleLang', label: 'Style Language', description: 'Language for the <style> block', defaultValue: 'scss', options: [{ value: 'css', label: 'CSS' }, { value: 'scss', label: 'SCSS' }, { value: 'sass', label: 'Sass' }, { value: 'less', label: 'Less' }] },
+            { type: 'toggle', key: 'styleScoped', label: 'Scoped Styles', description: "Add 'scoped' to <style> by default", defaultValue: true },
+          ],
+        },
+        {
+          title: 'Snippets',
+          items: [
+            { type: 'toggle', key: 'snippets.enabled', label: 'Enable Snippets', description: 'Enable Vue code snippets', defaultValue: true },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

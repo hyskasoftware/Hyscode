@@ -333,13 +333,30 @@ export function activate(context) {
   } catch {
     // views API may not be available yet
   }
+
+  // Settings tab
+  if (api.settings?.updateTabContent) {
+    api.settings.updateTabContent('project-manager.settings', {
+      sections: [
+        {
+          title: 'Project List',
+          items: [
+            { type: 'select', key: 'sortList', label: 'Sort By', description: 'Sort order for project list', defaultValue: 'name', options: [{ value: 'name', label: 'Name' }, { value: 'recent', label: 'Most Recent' }, { value: 'saved', label: 'Saved Order' }] },
+            { type: 'toggle', key: 'groupList', label: 'Group by Tag', description: 'Group projects by tag', defaultValue: false },
+            { type: 'toggle', key: 'removeCurrentFromList', label: 'Hide Current Project', description: 'Remove current project from the selection list', defaultValue: false },
+            { type: 'toggle', key: 'showProjectInStatusBar', label: 'Show in Status Bar', description: 'Display project name in the status bar', defaultValue: true },
+          ],
+        },
+        {
+          title: 'Auto-Detection',
+          items: [
+            { type: 'number', key: 'maxDepthRecursion', label: 'Max Depth', description: 'Maximum recursion depth for auto-detecting repositories', defaultValue: 3, min: 1, max: 10 },
+          ],
+        },
+      ],
+    });
+  }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Deactivate
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function deactivate() {
   disposables.forEach(d => {
     if (typeof d === 'function') d();
     else if (d && typeof d.dispose === 'function') d.dispose();

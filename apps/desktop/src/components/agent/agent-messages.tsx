@@ -1,4 +1,4 @@
-import { Sparkles, User, ChevronDown, ChevronRight, Copy, Check, Brain, AlertCircle, Zap } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronRight, Copy, Check, Brain, AlertCircle, Zap } from 'lucide-react';
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -266,13 +266,7 @@ const MessageItem = memo(function MessageItem({
       {/* User message */}
       {msg.role === 'user' && (
         <div className="mb-3 mt-2">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted/80">
-              <User className="h-3 w-3 text-foreground/60" />
-            </div>
-            <span className="text-[11px] font-semibold text-foreground/90">You</span>
-          </div>
-          <div className="pl-7">
+          <div className="pl-0">
             {/* Render attached images from blocks */}
             {msg.blocks && msg.blocks.some((b) => b.type === 'image') && (
               <div className="flex flex-wrap gap-2 mb-2">

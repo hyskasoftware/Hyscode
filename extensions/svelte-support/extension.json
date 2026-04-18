@@ -139,6 +139,13 @@
         "priority": 50
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "svelte-support.settings",
+        "label": "Svelte",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "Svelte Support",
       "properties": {

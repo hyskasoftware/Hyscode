@@ -264,6 +264,13 @@
         "priority": 50
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "go-support.settings",
+        "label": "Go",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "Go",
       "properties": {

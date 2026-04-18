@@ -219,13 +219,30 @@ export function activate(context) {
   } catch {
     // ignore
   }
+
+  // Settings tab
+  if (api.settings?.updateTabContent) {
+    api.settings.updateTabContent('django-support.settings', {
+      sections: [
+        {
+          title: 'Project',
+          items: [
+            { type: 'text', key: 'managePyPath', label: 'manage.py Path', description: 'Path to manage.py', placeholder: 'manage.py', defaultValue: 'manage.py' },
+            { type: 'text', key: 'pythonPath', label: 'Python Command', description: 'Python interpreter command', placeholder: 'python', defaultValue: 'python' },
+            { type: 'number', key: 'defaultPort', label: 'Default Port', description: 'Default port for runserver', defaultValue: 8000, min: 1024, max: 65535 },
+            { type: 'toggle', key: 'autoActivateVenv', label: 'Auto Activate Venv', description: 'Auto-activate virtualenv if detected', defaultValue: true },
+          ],
+        },
+        {
+          title: 'Tests',
+          items: [
+            { type: 'select', key: 'testFramework', label: 'Test Framework', description: 'Testing framework to use', defaultValue: 'unittest', options: [{ value: 'unittest', label: 'unittest' }, { value: 'pytest', label: 'pytest' }] },
+          ],
+        },
+      ],
+    });
+  }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Deactivate
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function deactivate() {
   disposables.forEach(d => {
     if (typeof d === 'function') d();
     else if (d && typeof d.dispose === 'function') d.dispose();

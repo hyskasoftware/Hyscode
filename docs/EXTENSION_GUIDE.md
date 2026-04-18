@@ -383,6 +383,32 @@ Combina todos os tipos — como a extensão de suporte a React.
 }
 ```
 
+### `settingsTabs` — Abas de Configurações
+
+Permite que a extensão adicione abas dedicadas na tela de **Settings** do app. Cada aba tem um ID único, label exibido na navegação e um ícone opcional.
+
+```json
+{
+  "settingsTabs": [
+    {
+      "id": "minha-extensao.settings",
+      "label": "Minha Extensão",
+      "icon": "blocks"
+    }
+  ]
+}
+```
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | `string` | ID único da aba (deve incluir o nome da extensão para evitar colisões) |
+| `label` | `string` | Texto exibido na navegação lateral |
+| `icon` | `string` | Ícone opcional (`blocks`, `settings`, `code`, `palette`, `terminal`, `git`, `brain`, `info`) |
+
+O conteúdo da aba é enviado em tempo de execução via `api.settings.updateTabContent()` (ver [API de Settings](#settings--configurações-da-extensão)).
+
+---
+
 ### `snippets` — Trechos de Código
 
 ```json
@@ -569,6 +595,123 @@ const tema = hyscode.themes.registerTheme({
 const ativo = hyscode.themes.getActiveThemeId();
 ```
 
+### settings — Configurações da Extensão
+
+A API `settings` permite ler e escrever valores persistentes isolados por extensão, além de registrar abas de configurações customizadas na interface do app.
+
+```javascript
+// Ler / escrever valores (chaves são isoladas por extensão automaticamente)
+const valor = hyscode.settings.get('minhaChave', 'padrão');
+hyscode.settings.set('minhaChave', 42);
+
+// Reagir a mudanças
+const sub = hyscode.settings.onDidChange('minhaChave', (novoValor) => {
+  console.log('Novo valor:', novoValor);
+});
+context.subscriptions.push(sub);
+```
+
+#### Registrando uma aba de Settings
+
+Declare a aba em `extension.json` com o ponto de contribuição `settingsTabs`, depois envie o conteúdo declarativo no `activate`:
+
+```javascript
+// main.js
+export function activate(context, api) {
+  api.settings.updateTabContent('minha-extensao.settings', {
+    sections: [
+      {
+        title: 'Comportamento',
+        items: [
+          {
+            type: 'heading',
+            label: 'Configurações Gerais',
+          },
+          {
+            type: 'toggle',
+            key: 'habilitado',
+            label: 'Habilitar extensão',
+            description: 'Ativa ou desativa a extensão completamente',
+            defaultValue: true,
+          },
+          {
+            type: 'select',
+            key: 'nivel',
+            label: 'Nível de operação',
+            description: 'Define a prioridade de processamento',
+            defaultValue: 'normal',
+            options: [
+              { value: 'baixo', label: 'Baixo' },
+              { value: 'normal', label: 'Normal' },
+              { value: 'alto', label: 'Alto' },
+            ],
+          },
+          { type: 'separator' },
+          {
+            type: 'text',
+            key: 'apiKey',
+            label: 'Chave de API',
+            description: 'Insira sua chave de acesso',
+            placeholder: 'sk-...',
+            defaultValue: '',
+          },
+          {
+            type: 'number',
+            key: 'timeout',
+            label: 'Timeout (ms)',
+            defaultValue: 5000,
+            min: 500,
+            max: 30000,
+          },
+        ],
+      },
+      {
+        title: 'Aparência',
+        items: [
+          {
+            type: 'color',
+            key: 'corDestaque',
+            label: 'Cor de destaque',
+            defaultValue: '#6366f1',
+          },
+          {
+            type: 'button',
+            label: 'Redefinir configurações',
+            description: 'Restaura todos os valores padrão',
+            variant: 'destructive',
+            command: 'minha-extensao.resetSettings',
+          },
+        ],
+      },
+    ],
+  });
+
+  // Reagir quando o usuário abre a aba
+  const sub = api.settings.onTabVisible('minha-extensao.settings', () => {
+    console.log('Aba de configurações aberta!');
+    // Recarregar conteúdo se necessário
+  });
+  context.subscriptions.push(sub);
+}
+```
+
+#### Tipos de itens (`SettingsItem`)
+
+| `type` | Campos extras | Descrição |
+|--------|---------------|-----------|
+| `heading` | `label` | Título de seção dentro da aba |
+| `separator` | — | Linha divisória |
+| `toggle` | `key`, `label`, `description?`, `defaultValue` | Interruptor booleano |
+| `text` | `key`, `label`, `description?`, `placeholder?`, `defaultValue` | Campo de texto |
+| `number` | `key`, `label`, `description?`, `defaultValue`, `min?`, `max?` | Campo numérico |
+| `select` | `key`, `label`, `description?`, `defaultValue`, `options[]` | Dropdown com opções |
+| `color` | `key`, `label`, `description?`, `defaultValue` | Seletor de cor |
+| `button` | `label`, `description?`, `variant?`, `command` | Botão que dispara um comando |
+
+> **Isolamento de chaves**: ao chamar `api.settings.get('minhaChave')` ou `api.settings.set(...)`, as chaves são armazenadas internamente como `nomeExtensao.minhaChave`. Isso evita colisões entre extensões sem que o desenvolvedor precise adicionar prefixos.
+
+---
+
 ### notifications — Notificações
 
 ```javascript
@@ -591,7 +734,7 @@ reporter.done();
 | `commands` | `registerCommand()`, `executeCommand()`, `getCommands()` |
 | `window` | `showInformationMessage()`, `showWarningMessage()`, `showErrorMessage()`, `createStatusBarItem()` |
 | `editor` | `openFile()`, `getSelection()`, `insertText()`, `addDecoration()` |
-| `settings` | `get()`, `set()`, `onDidChange()` |
+| `settings` | `get()`, `set()`, `onDidChange()`, `updateTabContent()`, `onTabVisible()` |
 | `git` | `getBranch()`, `getStatus()`, `getDiff()` |
 | `themes` | `registerTheme()`, `getActiveThemeId()` |
 | `languages` | `registerLanguage()`, `registerLanguageServer()`, `setLanguageDiagnostics()` |

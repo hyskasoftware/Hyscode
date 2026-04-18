@@ -253,6 +253,33 @@ export const ${toCamelCase(name)}Interceptor: HttpInterceptorFn = (req, next) =>
   });
 
   console.log('[angular-support] Commands registered');
+
+  // Settings tab
+  if (api && api.settings?.updateTabContent) {
+    api.settings.updateTabContent('angular-support.settings', {
+      sections: [
+        {
+          title: 'Components',
+          items: [
+            { type: 'select', key: 'defaultComponentStyle', label: 'Default Style', description: 'CSS preprocessor for new components', defaultValue: 'scss', options: [{ value: 'css', label: 'CSS' }, { value: 'scss', label: 'SCSS' }, { value: 'sass', label: 'Sass' }, { value: 'less', label: 'Less' }] },
+            { type: 'toggle', key: 'standalone', label: 'Standalone by Default', description: 'Generate standalone components (Angular 19+)', defaultValue: true },
+          ],
+        },
+        {
+          title: 'CLI',
+          items: [
+            { type: 'text', key: 'cliPath', label: 'Angular CLI Path', description: 'Path to Angular CLI (empty = npx/global)', placeholder: '', defaultValue: '' },
+          ],
+        },
+        {
+          title: 'Snippets',
+          items: [
+            { type: 'toggle', key: 'snippets.enabled', label: 'Enable Snippets', description: 'Enable Angular code snippets', defaultValue: true },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

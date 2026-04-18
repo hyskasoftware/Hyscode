@@ -15,6 +15,7 @@ import type {
   ExtensionStatusBarItem,
   ExtensionPanel,
   ExtensionToolbarAction,
+  SettingsTabContent,
 } from '@hyscode/extension-api';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -30,6 +31,8 @@ interface ExtensionUiState {
   statusBarItems: RegisteredItem<ExtensionStatusBarItem>[];
   panels: RegisteredItem<ExtensionPanel>[];
   toolbarActions: RegisteredItem<ExtensionToolbarAction>[];
+  /** Settings tab content pushed by extensions at runtime. Key = tabId. */
+  settingsTabContents: Record<string, SettingsTabContent>;
 
   /** Quick-pick state (only one at a time) */
   quickPick: {
@@ -57,6 +60,11 @@ interface ExtensionUiState {
   addStatusBarItem: (extensionName: string, item: ExtensionStatusBarItem) => Disposable;
   addPanel: (extensionName: string, panel: ExtensionPanel) => Disposable;
   addToolbarAction: (extensionName: string, action: ExtensionToolbarAction) => Disposable;
+
+  /** Push or replace settings tab content for the given tabId. */
+  setSettingsTabContent: (tabId: string, content: SettingsTabContent) => void;
+  /** Remove all settings tab content registered for a given extension. */
+  clearSettingsTabContents: (extensionName: string) => void;
 
   /** Remove all contributions for a given extension */
   removeAllForExtension: (extensionName: string) => void;
@@ -94,6 +102,7 @@ export const useExtensionUiStore = create<ExtensionUiState>()(
     statusBarItems: [],
     panels: [],
     toolbarActions: [],
+    settingsTabContents: {},
     quickPick: { visible: false, items: [] },
     inputBox: { visible: false },
 
@@ -179,6 +188,30 @@ export const useExtensionUiStore = create<ExtensionUiState>()(
         s.statusBarItems = s.statusBarItems.filter((r) => r.extensionName !== extensionName);
         s.panels = s.panels.filter((r) => r.extensionName !== extensionName);
         s.toolbarActions = s.toolbarActions.filter((r) => r.extensionName !== extensionName);
+        // Remove settings tab contents whose tabId starts with `extensionName.`
+        const prefix = extensionName + '.';
+        for (const tabId of Object.keys(s.settingsTabContents)) {
+          if (tabId.startsWith(prefix) || tabId === extensionName) {
+            delete s.settingsTabContents[tabId];
+          }
+        }
+      });
+    },
+
+    setSettingsTabContent: (tabId, content) => {
+      set((s) => {
+        s.settingsTabContents[tabId] = content;
+      });
+    },
+
+    clearSettingsTabContents: (extensionName) => {
+      set((s) => {
+        const prefix = extensionName + '.';
+        for (const tabId of Object.keys(s.settingsTabContents)) {
+          if (tabId.startsWith(prefix) || tabId === extensionName) {
+            delete s.settingsTabContents[tabId];
+          }
+        }
       });
     },
 

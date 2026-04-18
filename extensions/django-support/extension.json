@@ -64,6 +64,14 @@
       { "command": "django.newApp",         "title": "Django: Scaffold New App" }
     ],
 
+    "settingsTabs": [
+      {
+        "id": "django-support.settings",
+        "label": "Django",
+        "icon": "code"
+      }
+    ],
+
     "configuration": {
       "title": "Django Support",
       "properties": {

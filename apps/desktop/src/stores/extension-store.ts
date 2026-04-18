@@ -15,6 +15,7 @@ import type {
   IconThemeContribution,
   MenuItem,
   ThemeDefinition,
+  SettingsTabContribution,
 } from '@hyscode/extension-api';
 import { registerExtensionTheme, unregisterExtensionTheme } from '../lib/monaco-themes';
 import {
@@ -72,6 +73,7 @@ export interface MergedContributions {
   configurations: Array<{ extensionName: string; config: ConfigurationContribution }>;
   snippets: Array<SnippetContribution & { extensionName: string }>;
   iconThemes: Array<IconThemeContribution & { extensionName: string }>;
+  settingsTabs: Array<SettingsTabContribution & { extensionName: string }>;
   menus: {
     'editor/context': Array<MenuItem & { extensionName: string }>;
     'editor/title': Array<MenuItem & { extensionName: string }>;
@@ -92,6 +94,7 @@ function emptyContributions(): MergedContributions {
     configurations: [],
     snippets: [],
     iconThemes: [],
+    settingsTabs: [],
     menus: {
       'editor/context': [],
       'editor/title': [],
@@ -483,6 +486,9 @@ export const useExtensionStore = create<ExtensionState>()(
         }
         if (c.iconThemes) {
           for (const it of c.iconThemes) next.iconThemes.push({ ...it, extensionName: extName });
+        }
+        if (c.settingsTabs) {
+          for (const st of c.settingsTabs) next.settingsTabs.push({ ...st, extensionName: extName });
         }
         if (c.menus) {
           const menuKeys = ['editor/context', 'editor/title', 'explorer/context', 'commandPalette'] as const;

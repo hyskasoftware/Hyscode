@@ -221,6 +221,28 @@ export const POST: RequestHandler = async ({ request }) => {
   });
 
   console.log('[svelte-support] Commands registered');
+
+  // Settings tab
+  if (api && api.settings?.updateTabContent) {
+    api.settings.updateTabContent('svelte-support.settings', {
+      sections: [
+        {
+          title: 'Components',
+          items: [
+            { type: 'select', key: 'defaultScriptLang', label: 'Script Language', description: 'Language for the <script> block', defaultValue: 'ts', options: [{ value: 'ts', label: 'TypeScript' }, { value: 'js', label: 'JavaScript' }] },
+            { type: 'select', key: 'defaultStyleLang', label: 'Style Language', description: 'Language for the <style> block', defaultValue: 'css', options: [{ value: 'css', label: 'CSS' }, { value: 'scss', label: 'SCSS' }, { value: 'sass', label: 'Sass' }, { value: 'less', label: 'Less' }] },
+            { type: 'toggle', key: 'checkOnSave', label: 'Check on Save', description: 'Run svelte-check on file save', defaultValue: false },
+          ],
+        },
+        {
+          title: 'Snippets',
+          items: [
+            { type: 'toggle', key: 'snippets.enabled', label: 'Enable Snippets', description: 'Enable Svelte code snippets', defaultValue: true },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

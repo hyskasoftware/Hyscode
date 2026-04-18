@@ -214,6 +214,13 @@
         "priority": 44
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "csharp-dotnet.settings",
+        "label": "C# & .NET",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "C# & .NET",
       "properties": {

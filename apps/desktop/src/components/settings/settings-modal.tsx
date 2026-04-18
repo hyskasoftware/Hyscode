@@ -12,8 +12,11 @@ import {
   Container,
   Info,
   Blocks,
+  type LucideIcon,
 } from 'lucide-react';
 import { useSettingsStore } from '../../stores';
+import { useExtensionStore } from '../../stores/extension-store';
+import { notifyTabVisible } from '../../lib/extension-loader';
 import { EditorTab } from './tabs/editor-tab';
 import { ThemeTab } from './tabs/theme-tab';
 import { TerminalTab } from './tabs/terminal-tab';
@@ -25,10 +28,13 @@ import { MobileTab } from './tabs/mobile-tab';
 import { DockerTab } from './tabs/docker-tab';
 import { AboutTab } from './tabs/about-tab';
 import { ExtensionSettingsTab } from './tabs/extension-settings-tab';
+import { ExtensionCustomTab } from './tabs/extension-custom-tab';
 
-type SettingsTab = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile' | 'docker' | 'about' | 'extensions';
+// ── Built-in tabs ────────────────────────────────────────────────────────────
 
-const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
+type BuiltinTabId = 'editor' | 'theme' | 'terminal' | 'git' | 'general' | 'ai' | 'languages' | 'mobile' | 'docker' | 'about' | 'extensions';
+
+const BUILTIN_TAB_ITEMS: { id: BuiltinTabId; icon: LucideIcon; label: string }[] = [
   { id: 'editor', icon: Code2, label: 'Editor' },
   { id: 'theme', icon: Palette, label: 'Themes' },
   { id: 'languages', icon: Braces, label: 'Languages' },
@@ -42,7 +48,7 @@ const TAB_ITEMS: { id: SettingsTab; icon: typeof Code2; label: string }[] = [
   { id: 'about', icon: Info, label: 'About' },
 ];
 
-const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
+const BUILTIN_TAB_CONTENT: Record<BuiltinTabId, ReactNode> = {
   editor: <EditorTab />,
   theme: <ThemeTab />,
   languages: <LanguageServersTab />,
@@ -56,10 +62,38 @@ const TAB_CONTENT: Record<SettingsTab, ReactNode> = {
   about: <AboutTab />,
 };
 
+// ── Active tab discriminated union ───────────────────────────────────────────
+
+type ActiveTab =
+  | { type: 'builtin'; id: BuiltinTabId }
+  | { type: 'extension'; tabId: string; extensionName: string; label: string };
+
+// ── Icon map for extension-contributed icons ─────────────────────────────────
+
+const EXT_ICON_MAP: Record<string, LucideIcon> = {
+  blocks: Blocks,
+  settings: Settings2,
+  code: Code2,
+  palette: Palette,
+  terminal: Terminal,
+  git: GitBranch,
+  brain: BrainCircuit,
+  info: Info,
+};
+
+function resolveExtIcon(icon?: string): LucideIcon {
+  if (!icon) return Blocks;
+  return EXT_ICON_MAP[icon.toLowerCase()] ?? Blocks;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
 export function SettingsModal() {
   const open = useSettingsStore((s) => s.settingsOpen);
   const close = useSettingsStore((s) => s.closeSettings);
-  const [activeTab, setActiveTab] = useState<SettingsTab>('editor');
+  const extensionSettingsTabs = useExtensionStore((s) => s.contributions.settingsTabs);
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>({ type: 'builtin', id: 'editor' });
 
   // Close on Escape
   useEffect(() => {
@@ -71,7 +105,28 @@ export function SettingsModal() {
     return () => window.removeEventListener('keydown', handler);
   }, [open, close]);
 
+  // When the active extension tab is removed (extension disabled), fall back to editor
+  useEffect(() => {
+    if (activeTab.type !== 'extension') return;
+    const still = extensionSettingsTabs.find((t) => t.id === activeTab.tabId);
+    if (!still) setActiveTab({ type: 'builtin', id: 'editor' });
+  }, [extensionSettingsTabs, activeTab]);
+
   if (!open) return null;
+
+  const handleBuiltinTabClick = (id: BuiltinTabId) => {
+    setActiveTab({ type: 'builtin', id });
+  };
+
+  const handleExtTabClick = (tab: typeof extensionSettingsTabs[number]) => {
+    setActiveTab({ type: 'extension', tabId: tab.id, extensionName: tab.extensionName, label: tab.label });
+    notifyTabVisible(tab.id);
+  };
+
+  const activeLabel =
+    activeTab.type === 'builtin'
+      ? BUILTIN_TAB_ITEMS.find((t) => t.id === activeTab.id)?.label ?? ''
+      : activeTab.label;
 
   return (
     <div
@@ -82,7 +137,7 @@ export function SettingsModal() {
     >
       <div className="flex h-[580px] w-[860px] overflow-hidden rounded-xl bg-surface shadow-2xl">
         {/* Left navigation */}
-        <nav className="flex w-[200px] flex-col bg-background p-3">
+        <nav className="flex w-[200px] flex-col bg-background p-3 overflow-y-auto">
           <div className="mb-4 flex items-center justify-between px-2">
             <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               Settings
@@ -95,13 +150,14 @@ export function SettingsModal() {
             </button>
           </div>
 
+          {/* Built-in tabs */}
           <div className="flex flex-col gap-0.5">
-            {TAB_ITEMS.map(({ id, icon: Icon, label }) => (
+            {BUILTIN_TAB_ITEMS.map(({ id, icon: Icon, label }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id)}
+                onClick={() => handleBuiltinTabClick(id)}
                 className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12px] font-medium transition-colors ${
-                  activeTab === id
+                  activeTab.type === 'builtin' && activeTab.id === id
                     ? 'bg-surface-raised text-foreground'
                     : 'text-muted-foreground hover:bg-surface-raised/50 hover:text-foreground'
                 }`}
@@ -111,23 +167,57 @@ export function SettingsModal() {
               </button>
             ))}
           </div>
+
+          {/* Extension tabs — only shown when extensions contribute them */}
+          {extensionSettingsTabs.length > 0 && (
+            <>
+              <div className="my-2 border-t border-border/40" />
+              <span className="mb-1 px-2.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                Extensions
+              </span>
+              <div className="flex flex-col gap-0.5">
+                {extensionSettingsTabs.map((tab) => {
+                  const Icon = resolveExtIcon(tab.icon);
+                  const isActive =
+                    activeTab.type === 'extension' && activeTab.tabId === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => handleExtTabClick(tab)}
+                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12px] font-medium transition-colors ${
+                        isActive
+                          ? 'bg-surface-raised text-foreground'
+                          : 'text-muted-foreground hover:bg-surface-raised/50 hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </nav>
 
         {/* Right content */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Tab header */}
           <div className="flex h-12 items-center border-b border-surface-raised px-6">
-            <h2 className="text-[13px] font-semibold text-foreground">
-              {TAB_ITEMS.find((t) => t.id === activeTab)?.label}
-            </h2>
+            <h2 className="text-[13px] font-semibold text-foreground">{activeLabel}</h2>
           </div>
 
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto px-6 py-5">
-            {TAB_CONTENT[activeTab]}
+            {activeTab.type === 'builtin' ? (
+              BUILTIN_TAB_CONTENT[activeTab.id]
+            ) : (
+              <ExtensionCustomTab tabId={activeTab.tabId} extensionName={activeTab.extensionName} />
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
+

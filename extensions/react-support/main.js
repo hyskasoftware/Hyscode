@@ -74,6 +74,27 @@ export function ${name}({}: ${name}Props) {
   }
 
   console.log('[react-support] Commands registered');
+
+  // Settings tab
+  if (api && api.settings?.updateTabContent) {
+    api.settings.updateTabContent('react-support.settings', {
+      sections: [
+        {
+          title: 'Components',
+          items: [
+            { type: 'select', key: 'defaultComponentType', label: 'Component Style', description: 'Default function style for new components', defaultValue: 'function', options: [{ value: 'function', label: 'Function Declaration' }, { value: 'arrow', label: 'Arrow Function' }] },
+            { type: 'select', key: 'importStyle', label: 'Import Style', description: 'Style of React imports', defaultValue: 'named', options: [{ value: 'named', label: 'Named  (import { useState })' }, { value: 'default', label: 'Default  (import React)' }] },
+          ],
+        },
+        {
+          title: 'Snippets',
+          items: [
+            { type: 'toggle', key: 'snippets.enabled', label: 'Enable Snippets', description: 'Enable React code snippets', defaultValue: true },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

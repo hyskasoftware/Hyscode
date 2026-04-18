@@ -138,6 +138,13 @@
         "priority": 50
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "angular-support.settings",
+        "label": "Angular",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "Angular Support",
       "properties": {

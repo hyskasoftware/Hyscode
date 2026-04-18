@@ -317,6 +317,28 @@ public enum ${name}
   });
 
   console.log('[csharp-dotnet] Commands registered');
+
+  // Settings tab
+  if (api && api.settings?.updateTabContent) {
+    api.settings.updateTabContent('csharp-dotnet.settings', {
+      sections: [
+        {
+          title: '.NET SDK',
+          items: [
+            { type: 'text', key: 'sdkPath', label: 'SDK Path', description: 'Path to .NET SDK (empty = use $PATH)', placeholder: '/usr/share/dotnet', defaultValue: '' },
+            { type: 'text', key: 'defaultFramework', label: 'Default Framework', description: 'Target framework for new projects', placeholder: 'net9.0', defaultValue: 'net9.0' },
+            { type: 'toggle', key: 'formatOnSave', label: 'Format on Save', description: 'Auto-format C# code on save', defaultValue: false },
+          ],
+        },
+        {
+          title: 'NuGet',
+          items: [
+            { type: 'text', key: 'nuget.defaultSource', label: 'Default Source', description: 'NuGet package source URL', placeholder: 'https://api.nuget.org/v3/index.json', defaultValue: 'https://api.nuget.org/v3/index.json' },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

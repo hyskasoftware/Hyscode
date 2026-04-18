@@ -246,6 +246,13 @@
         "priority": 43
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "java-support.settings",
+        "label": "Java",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "Java",
       "properties": {

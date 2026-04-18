@@ -230,6 +230,13 @@
         "priority": 41
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "orm-support.settings",
+        "label": "ORM Support",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "ORM Support",
       "properties": {

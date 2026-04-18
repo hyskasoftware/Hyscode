@@ -35,6 +35,14 @@
       }
     ],
 
+    "settingsTabs": [
+      {
+        "id": "project-manager.settings",
+        "label": "Project Manager",
+        "icon": "code"
+      }
+    ],
+
     "configuration": {
       "title": "Project Manager",
       "properties": {

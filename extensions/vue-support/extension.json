@@ -133,6 +133,13 @@
         "priority": 50
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "vue-support.settings",
+        "label": "Vue",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "Vue Support",
       "properties": {

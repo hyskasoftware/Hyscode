@@ -139,6 +139,13 @@
         "priority": 45
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "yaml-support.settings",
+        "label": "YAML",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "YAML",
       "properties": {

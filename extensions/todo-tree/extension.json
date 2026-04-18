@@ -37,6 +37,14 @@
       }
     ],
 
+    "settingsTabs": [
+      {
+        "id": "todo-tree.settings",
+        "label": "Todo Tree",
+        "icon": "code"
+      }
+    ],
+
     "configuration": {
       "title": "Todo Tree",
       "properties": {

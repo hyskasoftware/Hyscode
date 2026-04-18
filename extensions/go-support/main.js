@@ -266,13 +266,40 @@ export function activate(context) {
   } catch {
     // Status bar API não disponível nesta versão — ignora silenciosamente
   }
+
+  // Settings tab
+  if (api.settings?.updateTabContent) {
+    api.settings.updateTabContent('go-support.settings', {
+      sections: [
+        {
+          title: 'On Save',
+          items: [
+            { type: 'toggle', key: 'formatOnSave', label: 'Format on Save', description: 'Run gofmt automatically on save', defaultValue: true },
+            { type: 'toggle', key: 'vetOnSave', label: 'Vet on Save', description: 'Run go vet on save', defaultValue: true },
+            { type: 'toggle', key: 'buildOnSave', label: 'Build on Save', description: 'Detect compile errors on save', defaultValue: false },
+            { type: 'toggle', key: 'lintOnSave', label: 'Lint on Save', description: 'Run staticcheck on save', defaultValue: false },
+          ],
+        },
+        {
+          title: 'gopls',
+          items: [
+            { type: 'toggle', key: 'goplsEnabled', label: 'Enable gopls', description: 'Use gopls as the Go language server', defaultValue: true },
+            { type: 'text', key: 'goplsPath', label: 'gopls Path', description: 'Path to gopls binary', placeholder: 'gopls', defaultValue: 'gopls' },
+            { type: 'toggle', key: 'staticcheckEnabled', label: 'Enable Staticcheck', description: 'Enable staticcheck analysis via gopls', defaultValue: true },
+          ],
+        },
+        {
+          title: 'Environment',
+          items: [
+            { type: 'text', key: 'gopath', label: 'GOPATH', description: 'Custom GOPATH (empty = system default)', placeholder: '', defaultValue: '' },
+            { type: 'text', key: 'goroot', label: 'GOROOT', description: 'Custom GOROOT (empty = system default)', placeholder: '', defaultValue: '' },
+            { type: 'text', key: 'testTimeout', label: 'Test Timeout', description: 'Default timeout for go test', placeholder: '30s', defaultValue: '30s' },
+          ],
+        },
+      ],
+    });
+  }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Deactivate
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function deactivate() {
   disposables.forEach(d => {
     if (typeof d === 'function') d();
     else if (d && typeof d.dispose === 'function') d.dispose();

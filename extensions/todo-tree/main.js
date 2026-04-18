@@ -265,13 +265,27 @@ export function activate(context) {
   setTimeout(() => {
     api.commands?.execute?.('todoTree.refresh');
   }, 2000);
+
+  // Settings tab
+  if (api.settings?.updateTabContent) {
+    api.settings.updateTabContent('todo-tree.settings', {
+      sections: [
+        {
+          title: 'Scanning',
+          items: [
+            { type: 'select', key: 'scanMode', label: 'Scan Mode', description: 'Scope of TODO scanning', defaultValue: 'workspace', options: [{ value: 'workspace', label: 'Workspace' }, { value: 'openFiles', label: 'Open Files' }, { value: 'currentFile', label: 'Current File' }] },
+          ],
+        },
+        {
+          title: 'Editor Highlights',
+          items: [
+            { type: 'toggle', key: 'highlightEnabled', label: 'Enable Highlights', description: 'Highlight TODO tags directly in the editor', defaultValue: true },
+          ],
+        },
+      ],
+    });
+  }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Deactivate
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function deactivate() {
   disposables.forEach(d => {
     if (typeof d === 'function') d();
     else if (d && typeof d.dispose === 'function') d.dispose();

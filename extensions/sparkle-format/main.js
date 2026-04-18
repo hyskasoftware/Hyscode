@@ -626,6 +626,30 @@ export function activate(context, hyscode) {
     context.subscriptions.push(cmd);
   }
 
+  // Register settings tab
+  if (api.settings?.updateTabContent) {
+    api.settings.updateTabContent('sparkle-format.settings', {
+      sections: [
+        {
+          title: 'Indentation',
+          items: [
+            { type: 'toggle', key: 'useTabs', label: 'Use Tabs', description: 'Use tabs instead of spaces', defaultValue: false },
+            { type: 'number', key: 'tabSize', label: 'Tab Size', description: 'Spaces per indentation level', defaultValue: 2, min: 1, max: 8 },
+            { type: 'number', key: 'printWidth', label: 'Print Width', description: 'Line length before wrapping', defaultValue: 80, min: 40, max: 200 },
+          ],
+        },
+        {
+          title: 'JavaScript / TypeScript',
+          items: [
+            { type: 'toggle', key: 'singleQuote', label: 'Single Quotes', description: 'Use single quotes instead of double', defaultValue: true },
+            { type: 'toggle', key: 'trailingComma', label: 'Trailing Commas', description: 'Add trailing commas where valid', defaultValue: true },
+            { type: 'toggle', key: 'semicolons', label: 'Semicolons', description: 'Add semicolons at end of statements', defaultValue: true },
+          ],
+        },
+      ],
+    });
+  }
+
   console.log('[Sparkle Format] ✨ Ready! Supporting', ALL_LANGUAGE_IDS.length, 'languages');
 }
 

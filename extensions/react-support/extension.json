@@ -87,6 +87,13 @@
         "priority": 50
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "react-support.settings",
+        "label": "React",
+        "icon": "code"
+      }
+    ],
     "configuration": {
       "title": "React Support",
       "properties": {

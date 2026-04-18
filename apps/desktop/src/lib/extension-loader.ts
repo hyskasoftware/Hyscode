@@ -26,12 +26,14 @@ import type {
   QuickPickOptions,
   InputBoxOptions,
   ViewContent,
+  SettingsTabContent,
 } from '@hyscode/extension-api';
 import { registerExtensionTheme } from './monaco-themes';
 import { useProjectStore } from '../stores/project-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useEditorStore } from '../stores/editor-store';
 import { useExtensionUiStore } from '../stores/extension-ui-store';
+import { useExtensionSettingsStore } from '../stores/extension-settings-store';
 import { useCommandStore } from '../stores/command-store';
 import { useKeybindingStore } from '../stores/keybinding-store';
 import { useViewRegistryStore } from '../stores/view-registry-store';
@@ -40,6 +42,19 @@ import type { InstalledExtension } from '../stores/extension-store';
 // ── Singleton sandbox ────────────────────────────────────────────────────────
 
 const _sandbox = new ExtensionSandbox();
+
+// ── Tab visibility listener map ───────────────────────────────────────────────
+// Maps tabId → Set of handlers to call when the user opens that settings tab.
+
+const _tabVisibilityListeners = new Map<string, Set<() => void>>();
+
+/**
+ * Called by the Settings modal when the user activates an extension tab.
+ * Notifies all `onTabVisible` subscribers for that tabId.
+ */
+export function notifyTabVisible(tabId: string): void {
+  _tabVisibilityListeners.get(tabId)?.forEach((fn) => fn());
+}
 
 // ── Source hash cache (detects code changes on disk) ─────────────────────────
 
@@ -186,6 +201,10 @@ const _api: HyscodeAPI = {
     onDidChange(_key: string): Disposable {
       return noop();
     },
+    updateTabContent(_tabId: string, _content: SettingsTabContent): void {},
+    onTabVisible(_tabId: string): Disposable {
+      return noop();
+    },
   },
 
   git: {
@@ -275,12 +294,40 @@ const _api: HyscodeAPI = {
 
 // ── Per-extension API factory ────────────────────────────────────────────────
 
-/** Creates an API clone whose `ui` and `commands` calls are tagged with the extension's name */
+/** Creates an API clone whose `ui`, `commands`, and `settings` calls are scoped to the extension. */
 function createExtensionApi(extensionName: string): HyscodeAPI {
   const uiStore = useExtensionUiStore.getState;
   const cmdStore = useCommandStore.getState;
+  /** Returns the scoped storage key: `extensionName.userKey` */
+  const scopedKey = (key: string) => `${extensionName}.${key}`;
   return {
     ..._api,
+    settings: {
+      async get<T>(key: string, defaultValue?: T): Promise<T | undefined> {
+        return useExtensionSettingsStore.getState().getValue<T>(scopedKey(key), defaultValue);
+      },
+      async set(key: string, value: unknown): Promise<void> {
+        useExtensionSettingsStore.getState().setValue(scopedKey(key), value);
+      },
+      onDidChange(key: string, handler: (newValue: unknown) => void): Disposable {
+        const unsub = useExtensionSettingsStore.getState().subscribe(scopedKey(key), handler);
+        return { dispose: unsub };
+      },
+      updateTabContent(tabId: string, content: SettingsTabContent): void {
+        useExtensionUiStore.getState().setSettingsTabContent(tabId, content);
+      },
+      onTabVisible(tabId: string, handler: () => void): Disposable {
+        if (!_tabVisibilityListeners.has(tabId)) {
+          _tabVisibilityListeners.set(tabId, new Set());
+        }
+        _tabVisibilityListeners.get(tabId)!.add(handler);
+        return {
+          dispose() {
+            _tabVisibilityListeners.get(tabId)?.delete(handler);
+          },
+        };
+      },
+    },
     commands: {
       register(id: string, handler: (...args: unknown[]) => unknown): Disposable {
         const dispose = cmdStore().registerCommand(id, handler, { extensionName });

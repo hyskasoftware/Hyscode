@@ -334,6 +334,7 @@ export function activate(context) {
     }
   });
 
+  registerSettingsTab(api);
   console.log('[code-runner] Commands registered');
 }
 
@@ -376,6 +377,32 @@ function guessLanguageFromPath(filePath) {
     md: 'markdown',
   };
   return map[ext] || null;
+}
+
+// ── Settings tab ─────────────────────────────────────────────────────────────
+
+function registerSettingsTab(api) {
+  if (!api.settings?.updateTabContent) return;
+  api.settings.updateTabContent('code-runner.settings', {
+    sections: [
+      {
+        title: 'Execution',
+        items: [
+          { type: 'toggle', key: 'runInTerminal', label: 'Run in Integrated Terminal', description: 'Execute code inside the integrated terminal', defaultValue: true },
+          { type: 'toggle', key: 'saveFileBeforeRun', label: 'Save Before Run', description: 'Auto-save the file before execution', defaultValue: true },
+          { type: 'toggle', key: 'clearPreviousOutput', label: 'Clear Previous Output', description: 'Clear the previous output before each run', defaultValue: true },
+          { type: 'toggle', key: 'showExecutionTime', label: 'Show Execution Time', description: 'Show elapsed time after a run finishes', defaultValue: true },
+        ],
+      },
+      {
+        title: 'Customization',
+        items: [
+          { type: 'text', key: 'cwd', label: 'Working Directory', description: 'Custom CWD (empty = file\'s directory)', placeholder: '/path/to/dir', defaultValue: '' },
+          { type: 'text', key: 'defaultProjectRunner', label: 'Default Project Runner', description: 'Custom command for Run Project', placeholder: 'npm start', defaultValue: '' },
+        ],
+      },
+    ],
+  });
 }
 
 export function deactivate() {

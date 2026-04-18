@@ -428,6 +428,29 @@ ${assignments}
   });
 
   console.log('[java-support] Commands registered');
+
+  // Settings tab
+  if (api && api.settings?.updateTabContent) {
+    api.settings.updateTabContent('java-support.settings', {
+      sections: [
+        {
+          title: 'JDK',
+          items: [
+            { type: 'text', key: 'home', label: 'JAVA_HOME', description: 'Path to JAVA_HOME (empty = use env variable)', placeholder: '/usr/lib/jvm/java-21', defaultValue: '' },
+            { type: 'text', key: 'defaultJdkVersion', label: 'JDK Version', description: 'Default JDK version for new projects', placeholder: '21', defaultValue: '21' },
+          ],
+        },
+        {
+          title: 'Build',
+          items: [
+            { type: 'select', key: 'buildTool', label: 'Build Tool', description: 'Default build tool for new projects', defaultValue: 'maven', options: [{ value: 'maven', label: 'Maven' }, { value: 'gradle', label: 'Gradle' }] },
+            { type: 'text', key: 'maven.executable', label: 'Maven Executable', description: 'Maven command (mvn or mvnw)', placeholder: 'mvn', defaultValue: 'mvn' },
+            { type: 'text', key: 'gradle.executable', label: 'Gradle Executable', description: 'Gradle command (gradle or gradlew)', placeholder: 'gradle', defaultValue: 'gradle' },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

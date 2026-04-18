@@ -360,6 +360,34 @@ export function activate(context) {
     }
     api.notifications?.info?.('Default ORM set to ' + choice);
   });
+
+  // Settings tab
+  if (api.settings?.updateTabContent) {
+    api.settings.updateTabContent('orm-support.settings', {
+      sections: [
+        {
+          title: 'General',
+          items: [
+            { type: 'select', key: 'defaultORM', label: 'Default ORM', description: 'ORM used for scaffolding commands', defaultValue: 'prisma', options: [{ value: 'prisma', label: 'Prisma' }, { value: 'drizzle', label: 'Drizzle' }] },
+          ],
+        },
+        {
+          title: 'Prisma',
+          items: [
+            { type: 'text', key: 'prisma.binaryPath', label: 'Prisma CLI', description: 'Command to invoke the Prisma CLI', placeholder: 'npx prisma', defaultValue: 'npx prisma' },
+            { type: 'select', key: 'prisma.defaultProvider', label: 'Database Provider', description: 'Default provider for prisma init', defaultValue: 'postgresql', options: [{ value: 'postgresql', label: 'PostgreSQL' }, { value: 'mysql', label: 'MySQL' }, { value: 'sqlite', label: 'SQLite' }, { value: 'sqlserver', label: 'SQL Server' }, { value: 'mongodb', label: 'MongoDB' }] },
+          ],
+        },
+        {
+          title: 'Drizzle',
+          items: [
+            { type: 'text', key: 'drizzle.binaryPath', label: 'Drizzle Kit CLI', description: 'Command to invoke Drizzle Kit', placeholder: 'npx drizzle-kit', defaultValue: 'npx drizzle-kit' },
+            { type: 'text', key: 'drizzle.schemaDir', label: 'Schema Directory', description: 'Directory for Drizzle schema files', placeholder: 'src/db/schema', defaultValue: 'src/db/schema' },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

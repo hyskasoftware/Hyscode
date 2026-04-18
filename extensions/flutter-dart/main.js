@@ -122,6 +122,28 @@ class _${name}State extends State<${name}> {
   }
 
   console.log('[flutter-dart] Commands registered');
+
+  // Settings tab
+  if (api && api.settings?.updateTabContent) {
+    api.settings.updateTabContent('flutter-dart.settings', {
+      sections: [
+        {
+          title: 'Flutter',
+          items: [
+            { type: 'text', key: 'sdkPath', label: 'Flutter SDK Path', description: 'Path to Flutter SDK (empty = use $PATH)', placeholder: '/path/to/flutter', defaultValue: '' },
+            { type: 'toggle', key: 'enableHotReloadOnSave', label: 'Hot Reload on Save', description: 'Automatically trigger hot reload on .dart file save', defaultValue: true },
+          ],
+        },
+        {
+          title: 'Dart',
+          items: [
+            { type: 'number', key: 'lineLength', label: 'Line Length', description: 'Max line length for Dart formatting', defaultValue: 80, min: 40, max: 200 },
+            { type: 'toggle', key: 'enableLinting', label: 'Enable Linting', description: 'Enable Dart lint analysis', defaultValue: true },
+          ],
+        },
+      ],
+    });
+  }
 }
 
 export function deactivate() {

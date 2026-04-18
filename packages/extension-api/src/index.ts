@@ -38,6 +38,8 @@ export interface ContributionPoints {
   menus?: MenuContributions;
   snippets?: SnippetContribution[];
   iconThemes?: IconThemeContribution[];
+  /** Dedicated settings tabs registered in the Settings modal. */
+  settingsTabs?: SettingsTabContribution[];
 }
 
 // ── Theme Contribution ───────────────────────────────────────────────────────
@@ -176,6 +178,124 @@ export interface IconThemeContribution {
   id: string;
   label: string;
   path: string;
+}
+
+// ── Settings Tab Contribution ─────────────────────────────────────────────────
+
+/**
+ * Contributes a dedicated tab to the Settings modal.
+ * The tab content is pushed at runtime via `api.settings.updateTabContent()`.
+ */
+export interface SettingsTabContribution {
+  /** Unique id — must be unique across all extensions. Use `publisher.name` format. */
+  id: string;
+  /** Human-readable tab label shown in the Settings nav. */
+  label: string;
+  /**
+   * Icon ID from the app icon set (e.g. `'settings'`, `'blocks'`, `'code'`).
+   * Falls back to a generic blocks icon when omitted.
+   */
+  icon?: string;
+}
+
+// ── Settings Tab Content (pushed at runtime) ──────────────────────────────────
+
+/**
+ * Full content of an extension settings tab, pushed via
+ * `api.settings.updateTabContent(tabId, content)`.
+ */
+export interface SettingsTabContent {
+  sections: SettingsSection[];
+}
+
+/** A named section grouping related settings items. */
+export interface SettingsSection {
+  id: string;
+  title?: string;
+  description?: string;
+  items: SettingsItem[];
+}
+
+/**
+ * A single item inside a settings section.
+ * The `type` discriminant controls rendering and which extra fields apply.
+ */
+export type SettingsItem =
+  | SettingsHeadingItem
+  | SettingsSeparatorItem
+  | SettingsToggleItem
+  | SettingsTextItem
+  | SettingsNumberItem
+  | SettingsSelectItem
+  | SettingsButtonItem
+  | SettingsColorItem;
+
+interface SettingsItemBase {
+  id: string;
+  label?: string;
+  description?: string;
+}
+
+/** A bold heading line with no interactive control. */
+export interface SettingsHeadingItem extends SettingsItemBase {
+  type: 'heading';
+}
+
+/** A visual divider between item groups. */
+export interface SettingsSeparatorItem extends SettingsItemBase {
+  type: 'separator';
+}
+
+/** Boolean toggle (pill switch). Reads/writes `settingKey` via the settings API. */
+export interface SettingsToggleItem extends SettingsItemBase {
+  type: 'toggle';
+  settingKey: string;
+  default?: boolean;
+}
+
+/** Single-line or multi-line text input. */
+export interface SettingsTextItem extends SettingsItemBase {
+  type: 'text';
+  settingKey: string;
+  default?: string;
+  placeholder?: string;
+  multiline?: boolean;
+}
+
+/** Numeric slider + number input. */
+export interface SettingsNumberItem extends SettingsItemBase {
+  type: 'number';
+  settingKey: string;
+  default?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+/** Dropdown selector from a fixed set of options. */
+export interface SettingsSelectItem extends SettingsItemBase {
+  type: 'select';
+  settingKey: string;
+  default?: string;
+  options: Array<{ value: string; label: string }>;
+}
+
+/** Action button that dispatches a command registered by the extension. */
+export interface SettingsButtonItem extends SettingsItemBase {
+  type: 'button';
+  /** Text on the button face. Defaults to `label`. */
+  buttonLabel?: string;
+  command: string;
+  commandArgs?: unknown[];
+  /** `'danger'` renders the button in destructive (red) styling. */
+  variant?: 'default' | 'danger';
+}
+
+/** Color picker input. */
+export interface SettingsColorItem extends SettingsItemBase {
+  type: 'color';
+  settingKey: string;
+  default?: string;
 }
 
 // ── Extension Context (received by extension in activate()) ─────────────────
@@ -415,6 +535,17 @@ export interface SettingsAPI {
   get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
   set(key: string, value: unknown): Promise<void>;
   onDidChange(key: string, handler: (newValue: unknown) => void): Disposable;
+  /**
+   * Push declarative content to a settings tab contributed by this extension.
+   * `tabId` must match an entry in `contributes.settingsTabs[].id`.
+   * Calling this again replaces the previous content.
+   */
+  updateTabContent(tabId: string, content: SettingsTabContent): void;
+  /**
+   * Subscribe to the moment the user navigates to this extension's settings tab.
+   * Useful for lazy-loading data before rendering.
+   */
+  onTabVisible(tabId: string, handler: () => void): Disposable;
 }
 
 // ── Git API ──────────────────────────────────────────────────────────────────

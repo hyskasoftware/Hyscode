@@ -116,6 +116,13 @@
         "priority": 99
       }
     ],
+    "settingsTabs": [
+      {
+        "id": "code-runner.settings",
+        "label": "Code Runner",
+        "icon": "terminal"
+      }
+    ],
     "configuration": {
       "title": "Code Runner",
       "properties": {
