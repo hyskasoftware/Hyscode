@@ -6,7 +6,7 @@ import { ExtensionOverlays } from './components/editor/extension-overlays';
 import { CommandPalette, openCommandPalette } from './components/editor/command-palette';
 import { TooltipProvider } from './components/ui/tooltip';
 import { DialogProvider } from './components/ui/dialogs';
-import { EditorLayout, AgentLayout, ReviewLayout } from './components/layouts';
+import { EditorLayout, AgentLayout } from './components/layouts';
 import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
 import { useLayoutStore } from './stores/layout-store';
 import { useSkillsStore } from './stores/skills-store';
