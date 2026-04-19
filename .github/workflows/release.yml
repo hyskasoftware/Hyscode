@@ -26,11 +26,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "apps/desktop/src-tauri/tauri.conf.json"
-      - "apps/desktop/src/**"
-      - "apps/desktop/src-tauri/src/**"
-      - "packages/**"
   workflow_dispatch:
     inputs:
       version:
