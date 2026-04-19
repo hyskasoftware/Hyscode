@@ -85,10 +85,11 @@ jobs:
               IS_PRERELEASE=false
             fi
           else
-            # Push trigger: read current version from tauri.conf.json
-            VERSION=$(python3 -c "import json; print(json.load(open('apps/desktop/src-tauri/tauri.conf.json'))['version'])")
-            # Infer prerelease from semver pre-identifier (e.g. 1.0.0-beta.1)
-            if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-.+'; then
+            # Push trigger: read version from root package.json
+            BASE=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+            VERSION="${BASE}-build.${{ github.run_number }}"
+            # If base version has a pre-release identifier (e.g. 0.1.0-preview) → pre-release
+            if echo "$BASE" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-.+'; then
               IS_PRERELEASE=true
             else
               IS_PRERELEASE=false
@@ -189,17 +190,32 @@ jobs:
               `See commit history for full list of changes.`,
             ].join('\n')
 
-            const { data } = await github.rest.repos.createRelease({
-              owner:      context.repo.owner,
-              repo:       context.repo.repo,
-              tag_name:   tag,
-              name:       `HysCode ${tag}`,
-              body:       body,
-              draft:      true,
-              prerelease: prerelease,
-            })
-            console.log(`✓ Draft release created: ${data.html_url}`)
-            return data.id
+            // Check if a release already exists for this tag
+            let releaseData
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                tag:   tag,
+              })
+              console.log(`Release for ${tag} already exists (id=${existing.data.id}) — reusing it`)
+              releaseData = existing.data
+            } catch (e) {
+              if (e.status !== 404) throw e
+              // No release yet — create a fresh draft
+              const created = await github.rest.repos.createRelease({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                tag_name:   tag,
+                name:       `HysCode ${tag}`,
+                body:       body,
+                draft:      true,
+                prerelease: prerelease,
+              })
+              console.log(`✓ Draft release created: ${created.data.html_url}`)
+              releaseData = created.data
+            }
+            return releaseData.id
 
 # ─────────────────────────────────────────────────────────────────────────────
 # JOB 2 — Build Windows
@@ -333,12 +349,20 @@ jobs:
           script: |
             const releaseId  = ${{ needs.create-release.outputs.release_id }}
             const prerelease = "${{ needs.create-release.outputs.prerelease }}" === "true"
-            const { data } = await github.rest.repos.updateRelease({
-              owner:      context.repo.owner,
-              repo:       context.repo.repo,
-              release_id: releaseId,
-              draft:      false,
-              prerelease: prerelease,
-            })
             const label = prerelease ? "Pre-release" : "Stable release"
-            console.log(`✓ ${label} published: ${data.html_url}`)
+            try {
+              const { data } = await github.rest.repos.updateRelease({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                release_id: releaseId,
+                draft:      false,
+                prerelease: prerelease,
+              })
+              console.log(`✓ ${label} published: ${data.html_url}`)
+            } catch (e) {
+              if (e.status === 422 && JSON.stringify(e.response?.data?.errors ?? []).includes('already_exists')) {
+                console.log(`Release already published — skipping (${e.message})`)
+              } else {
+                throw e
+              }
+            }

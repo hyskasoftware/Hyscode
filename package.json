@@ -1,6 +1,6 @@
 {
   "name": "hyscode",
-  "version": "0.1.0",
+  "version": "0.1.1-preview",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
