@@ -122,6 +122,11 @@ interface TauriCommands {
   docker_compose_down: { args: { composePath: string }; ret: string };
   docker_watch_start: { args: { intervalMs: number }; ret: string };
   docker_watch_stop: { args: { watchId: string }; ret: void };
+
+  // Updater
+  updater_check: { args: { channel?: string }; ret: { version: string; body: string; publishedAt: string; assetUrl: string; assetName: string; assetSize: number; currentVersion: string } | null };
+  updater_download: { args: { assetUrl: string; assetName: string }; ret: string };
+  updater_install: { args: { installerPath: string }; ret: void };
 }
 
 // ─── Typed invoke ───────────────────────────────────────────────────────────

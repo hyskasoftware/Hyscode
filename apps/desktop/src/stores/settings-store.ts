@@ -6,6 +6,7 @@ import type { AgentType, ToolCategory } from '@hyscode/agent-harness';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type ApprovalMode = 'manual' | 'yolo' | 'smart' | 'notify' | 'session-trust' | 'custom';
+export type UpdateChannel = 'stable' | 'pre-release';
 export type WordWrap = 'on' | 'off' | 'wordWrapColumn';
 export type LineNumbers = 'on' | 'off' | 'relative';
 export type CursorStyle = 'line' | 'block' | 'underline';
@@ -101,6 +102,11 @@ interface SettingsState {
   confirmOnClose: boolean;
   showWelcomeOnStartup: boolean;
   reducedMotion: boolean;
+
+  // ─ Updates ─
+  updateChannel: UpdateChannel;
+  checkForUpdatesOnStartup: boolean;
+  autoDownload: boolean;
 
   // ─ Agent / Provider ─
   activeProviderId: string | null;
@@ -207,6 +213,11 @@ export const useSettingsStore = create<SettingsState>()(
       confirmOnClose: false,
       showWelcomeOnStartup: true,
       reducedMotion: false,
+
+      // Updates
+      updateChannel: 'stable' as UpdateChannel,
+      checkForUpdatesOnStartup: true,
+      autoDownload: false,
 
       // Agent / Provider
       activeProviderId: null,

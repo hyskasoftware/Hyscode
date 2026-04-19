@@ -1,13 +1,19 @@
-import { ExternalLink, Github, Heart } from 'lucide-react';
+import { ExternalLink, Github, Heart, RefreshCw, Loader2, CheckCircle, ArrowUpCircle } from 'lucide-react';
+import { useUpdateStore } from '../../../stores/update-store';
 
 const APP_NAME = 'HysCode';
 const APP_VERSION = '0.1.0';
 const APP_IDENTIFIER = 'com.hyscode.app';
 const APP_DESCRIPTION =
   'A modern, AI-powered code editor built with Tauri, React, and Monaco. Designed for developers who want an intelligent, fast, and extensible coding experience.';
-const REPO_URL = 'https://github.com/Estevaobonatto/Hyscode';
+const REPO_URL = 'https://github.com/hyskasoftware/Hyscode';
 
 export function AboutTab() {
+  const updateStatus = useUpdateStore((s) => s.status);
+  const releaseInfo = useUpdateStore((s) => s.releaseInfo);
+  const checkForUpdates = useUpdateStore((s) => s.checkForUpdates);
+  const openDialog = useUpdateStore((s) => s.openDialog);
+
   return (
     <div className="flex flex-col gap-6">
       {/* Hero */}
@@ -31,6 +37,49 @@ export function AboutTab() {
         <p className="max-w-sm text-center text-[11px] leading-relaxed text-muted-foreground">
           {APP_DESCRIPTION}
         </p>
+
+        {/* Update check button */}
+        <div className="mt-2 flex flex-col items-center gap-1.5">
+          {updateStatus === 'checking' && (
+            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Checking for updates...
+            </span>
+          )}
+
+          {updateStatus === 'up-to-date' && (
+            <span className="flex items-center gap-1.5 text-[11px] text-green-400">
+              <CheckCircle className="h-3 w-3" />
+              You're up to date
+            </span>
+          )}
+
+          {(updateStatus === 'available' || updateStatus === 'downloading' || updateStatus === 'ready') && releaseInfo && (
+            <button
+              onClick={openDialog}
+              className="flex items-center gap-1.5 rounded-md bg-accent/10 px-3 py-1.5 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
+            >
+              <ArrowUpCircle className="h-3.5 w-3.5" />
+              {updateStatus === 'ready' ? 'Restart to update' : `${releaseInfo.version} available`}
+            </button>
+          )}
+
+          {(updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'error') && (
+            <button
+              onClick={() => void checkForUpdates()}
+              className="flex items-center gap-1.5 rounded-md bg-surface px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-muted transition-colors border border-border"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Check for Updates
+            </button>
+          )}
+
+          {updateStatus === 'error' && (
+            <span className="text-[10px] text-red-400">
+              Failed to check — click to retry
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Details */}

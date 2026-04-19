@@ -156,6 +156,10 @@ pub fn run() {
             commands::docker::docker_compose_down,
             commands::docker::docker_watch_start,
             commands::docker::docker_watch_stop,
+            // Updater commands
+            commands::updater::updater_check,
+            commands::updater::updater_download,
+            commands::updater::updater_install,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

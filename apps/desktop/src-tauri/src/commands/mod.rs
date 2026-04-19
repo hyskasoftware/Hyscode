@@ -10,4 +10,5 @@ pub mod github_oauth;
 pub mod keychain;
 pub mod lsp;
 pub mod pty;
+pub mod updater;
 pub mod utils;

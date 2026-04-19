@@ -1,8 +1,14 @@
 import { useSettingsStore } from '../../../stores';
-import type { ApprovalMode } from '../../../stores/settings-store';
+import type { ApprovalMode, UpdateChannel } from '../../../stores/settings-store';
+import { useUpdateStore } from '../../../stores/update-store';
+import { Loader2, CheckCircle, ArrowUpCircle, RefreshCw } from 'lucide-react';
 
 export function GeneralTab() {
   const store = useSettingsStore();
+  const updateStatus = useUpdateStore((s) => s.status);
+  const releaseInfo = useUpdateStore((s) => s.releaseInfo);
+  const checkForUpdates = useUpdateStore((s) => s.checkForUpdates);
+  const openDialog = useUpdateStore((s) => s.openDialog);
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,6 +40,85 @@ export function GeneralTab() {
             onChange={(v) => store.set('reducedMotion', v)}
           />
         </Row>
+      </Section>
+
+      <Section title="Updates">
+        <Row
+          label="Update Channel"
+          description="Stable receives tested releases; Pre-release gets latest builds"
+        >
+          <SelectInput<UpdateChannel>
+            value={store.updateChannel}
+            onChange={(v) => store.set('updateChannel', v)}
+            options={[
+              { value: 'stable', label: 'Stable' },
+              { value: 'pre-release', label: 'Pre-release' },
+            ]}
+          />
+        </Row>
+        <Row
+          label="Check on Startup"
+          description="Automatically check for updates when the app launches"
+        >
+          <Toggle
+            checked={store.checkForUpdatesOnStartup}
+            onChange={(v) => store.set('checkForUpdatesOnStartup', v)}
+          />
+        </Row>
+        <Row
+          label="Auto-download"
+          description="Download available updates automatically in the background"
+        >
+          <Toggle
+            checked={store.autoDownload}
+            onChange={(v) => store.set('autoDownload', v)}
+          />
+        </Row>
+        <div className="flex items-center justify-between rounded-lg bg-surface-raised px-3 py-2.5">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[12px] text-foreground">Current status</span>
+            {updateStatus === 'idle' && (
+              <span className="text-[10px] text-muted-foreground">Not checked yet</span>
+            )}
+            {updateStatus === 'checking' && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Checking...
+              </span>
+            )}
+            {updateStatus === 'up-to-date' && (
+              <span className="flex items-center gap-1 text-[10px] text-green-400">
+                <CheckCircle className="h-3 w-3" /> Up to date
+              </span>
+            )}
+            {(updateStatus === 'available' || updateStatus === 'downloading' || updateStatus === 'ready') && releaseInfo && (
+              <span className="flex items-center gap-1 text-[10px] text-accent">
+                <ArrowUpCircle className="h-3 w-3" />
+                {updateStatus === 'ready' ? 'Ready to install' : `${releaseInfo.version} available`}
+              </span>
+            )}
+            {updateStatus === 'error' && (
+              <span className="text-[10px] text-red-400">Check failed</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {(updateStatus === 'available' || updateStatus === 'downloading' || updateStatus === 'ready') && (
+              <button
+                onClick={openDialog}
+                className="flex items-center gap-1.5 rounded-md bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
+              >
+                {updateStatus === 'ready' ? 'Install' : 'View'}
+              </button>
+            )}
+            <button
+              onClick={() => void checkForUpdates()}
+              disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+              className="flex items-center gap-1.5 rounded-md bg-surface px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-muted transition-colors border border-border disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`h-3 w-3 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+              Check Now
+            </button>
+          </div>
+        </div>
       </Section>
 
       <Section title="Agent">

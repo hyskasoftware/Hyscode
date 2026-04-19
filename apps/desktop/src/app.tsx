@@ -15,6 +15,7 @@ import { useCommandStore } from './stores/command-store';
 import { useKeybindingStore } from './stores/keybinding-store';
 import { useGitStore } from './stores/git-store';
 import { useTerminalStore } from './stores/terminal-store';
+import { useUpdateStore } from './stores/update-store';
 import { useEffect, useRef, useCallback } from 'react';
 import { pickFolder, pickFile } from './lib/tauri-dialog';
 import { initProviders } from './lib/init-providers';
@@ -22,6 +23,8 @@ import { HarnessBridge } from './lib/harness-bridge';
 import { LspBridge } from './lib/lsp-bridge';
 import { startExtensionLspSync } from './lib/extension-lsp-bridge';
 import { getViewerType } from './lib/utils';
+import { UpdateBanner } from './components/updater/update-banner';
+import { UpdateDialog } from './components/updater/update-dialog';
 import { saveProjectState, switchProject, closeCurrentProject } from './lib/project-persistence';
 
 import { isLightTheme } from './lib/monaco-themes';
@@ -144,13 +147,14 @@ function IDE() {
       <div className="flex flex-1 overflow-hidden p-1.5 pt-0">
         {workspaceMode === 'editor' && <EditorLayout />}
         {workspaceMode === 'agent' && <AgentLayout />}
-        {workspaceMode === 'review' && <ReviewLayout />}
       </div>
 
+      <UpdateBanner />
       <StatusBar />
       <SettingsModal />
       <ExtensionOverlays />
       <CommandPalette />
+      <UpdateDialog />
     </div>
   );
 }
@@ -188,6 +192,15 @@ export function App() {
     initProviders().catch(console.error);
   }, []);
 
+
+  // Check for updates silently after a short delay (non-blocking)
+  useEffect(() => {
+    if (!useSettingsStore.getState().checkForUpdatesOnStartup) return;
+    const timer = setTimeout(() => {
+      useUpdateStore.getState().checkForUpdates().catch(console.error);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
   // Load extensions on startup (once) so contributions + activation run
   // regardless of whether the user ever opens the Extensions panel
   useEffect(() => {

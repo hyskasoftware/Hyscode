@@ -33,3 +33,4 @@ notify = { version = "6", features = ["macos_fsevent"] }
 notify-debouncer-mini = "0.4"
 regex = "1"
 zip = "2"
+semver = "1"
