@@ -19,6 +19,13 @@ export function EditorTabs() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragCounterRef = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!scrollRef.current) return;
+    e.preventDefault();
+    scrollRef.current.scrollLeft += e.deltaY || e.deltaX;
+  }, []);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, tab: Tab) => {
     e.preventDefault();
@@ -92,7 +99,7 @@ export function EditorTabs() {
   if (tabs.length === 0) return null;
 
   return (
-    <div className="flex h-8 items-center gap-0.5 bg-surface-raised px-2 overflow-x-auto shrink-0">
+    <div ref={scrollRef} onWheel={handleWheel} className="flex h-8 items-center gap-0.5 bg-surface-raised px-2 overflow-x-auto shrink-0">
       {tabs.map((tab, index) => {
         const isActive = activeTabId === tab.id;
         const isDiff = tab.type === 'diff';
