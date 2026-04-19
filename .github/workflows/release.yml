@@ -266,22 +266,31 @@ jobs:
           if (-not (Test-Path $iscc)) {
             choco install innosetup --no-progress -y
           }
-          & $iscc /DMyAppVersion=$env:VERSION `
-            apps/desktop/src-tauri/installer/windows/hyscode.iss
+          # Pass version as preprocessor define; also override OutputBaseFilename
+          # so the produced file is always named with the Actions version.
+          $innoOutDir = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/inno"
+          & $iscc `
+            "/DMyAppVersion=$env:VERSION" `
+            "/FHysCode-Setup-$env:VERSION-x64" `
+            "/O$innoOutDir" `
+            "apps/desktop/src-tauri/installer/windows/hyscode.iss"
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          $out = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/inno/HysCode-Setup-$env:VERSION-x64.exe"
-          if (-not (Test-Path $out)) { Write-Error "Inno installer not found at: $out"; exit 1 }
+          # Find the produced .exe (fallback: any .exe in the inno dir)
+          $out = Join-Path $innoOutDir "HysCode-Setup-$env:VERSION-x64.exe"
+          if (-not (Test-Path $out)) {
+            $out = Get-ChildItem $innoOutDir -Filter "*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $out -or -not (Test-Path $out)) { Write-Error "Inno installer not found in $innoOutDir"; exit 1 }
           Write-Host "Inno installer: $out"
+          "INNO_INSTALLER=$out" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Upload Inno Setup installer to release
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.create-release.outputs.version }}
           TAG: ${{ needs.create-release.outputs.tag_name }}
         run: |
-          $installer = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/inno/HysCode-Setup-$env:VERSION-x64.exe"
-          gh release upload $env:TAG $installer --clobber
+          gh release upload $env:TAG "$env:INNO_INSTALLER" --clobber
 
 # ─────────────────────────────────────────────────────────────────────────────
 # JOB 3 — Build Linux
