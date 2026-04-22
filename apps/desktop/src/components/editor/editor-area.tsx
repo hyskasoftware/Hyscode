@@ -214,6 +214,20 @@ export function EditorArea() {
   // Track previous active tab for LSP close notifications
   const prevTabRef = useRef<{ filePath: string; language: string } | null>(null);
 
+  // Track closed tabs to notify LSP even when they aren't the active tab
+  const prevTabsRef = useRef<typeof tabs>([]);
+  useEffect(() => {
+    const prevTabs = prevTabsRef.current;
+    const closedTabs = prevTabs.filter((pt) => !tabs.some((t) => t.id === pt.id));
+    for (const tab of closedTabs) {
+      if (tab.type === 'file' || tab.type === 'diff') {
+        const lang = detectLanguage(tab.filePath) ?? tab.language ?? 'plaintext';
+        LspBridge.onFileClosed(tab.filePath, lang).catch(() => {});
+      }
+    }
+    prevTabsRef.current = tabs;
+  }, [tabs]);
+
   // Notify LSP when a text file is opened / closed
   useEffect(() => {
     // Close previous document
@@ -271,6 +285,8 @@ export function EditorArea() {
         try {
           await tauriFs.writeFile(activeTab.filePath, currentContent);
           markDirty(activeTab.id, false);
+          const lang = detectLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
+          LspBridge.onFileSaved(activeTab.filePath, lang, currentContent);
         } catch (err) {
           console.error('Failed to save file:', err);
         }
@@ -338,7 +354,6 @@ export function EditorArea() {
           <div className="flex-1 overflow-hidden">
           <Suspense fallback={<EditorLoading />}>
             <MonacoEditor
-              key={activeTab.filePath}
               language={detectLanguage(activeTab.filePath)}
               value={content ?? ''}
               onChange={handleEditorChange}

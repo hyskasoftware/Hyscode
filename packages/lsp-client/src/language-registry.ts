@@ -3,19 +3,21 @@
 // Covers 40+ languages with proper extension mappings, bracket/comment configs,
 // and Monarch tokenizers for languages Monaco doesn't support natively.
 
+import { REACT_SNIPPETS } from './snippets/react-snippets';
+
 type MonacoInstance = typeof import('monaco-editor');
 
 // ── Extension → Language ID Mapping ──────────────────────────────────────────
 
 const EXTENSION_MAP: Record<string, string> = {
   // TypeScript / JavaScript
-  // tsx/jsx map to typescript/javascript so Monaco's built-in tokenizer provides
-  // full syntax highlighting. The TypeScript language service is configured below
-  // to understand JSX syntax.
+  // Monaco's built-in tokenizer handles tsx/jsx under the base typescript/javascript IDs
+  // for syntax highlighting, but the LSP languageId must be typescriptreact/javascriptreact
+  // for the language server to parse JSX correctly.
   ts: 'typescript',
-  tsx: 'typescript',
+  tsx: 'typescriptreact',
   js: 'javascript',
-  jsx: 'javascript',
+  jsx: 'javascriptreact',
   mjs: 'javascript',
   cjs: 'javascript',
   mts: 'typescript',
@@ -277,6 +279,36 @@ export function getAllLanguageIds(): string[] {
  *
  * We register additional languages with Monarch tokenizers.
  */
+export function disableNativeTypeScriptValidation(monaco: MonacoInstance) {
+  const tsLang = (monaco.languages as any).typescript;
+  if (!tsLang) return;
+  tsLang.typescriptDefaults?.setDiagnosticsOptions({
+    ...tsLang.typescriptDefaults.getDiagnosticsOptions(),
+    noSemanticValidation: true,
+    noSyntaxValidation: true,
+  });
+  tsLang.javascriptDefaults?.setDiagnosticsOptions({
+    ...tsLang.javascriptDefaults.getDiagnosticsOptions(),
+    noSemanticValidation: true,
+    noSyntaxValidation: true,
+  });
+}
+
+export function enableNativeTypeScriptValidation(monaco: MonacoInstance) {
+  const tsLang = (monaco.languages as any).typescript;
+  if (!tsLang) return;
+  tsLang.typescriptDefaults?.setDiagnosticsOptions({
+    ...tsLang.typescriptDefaults.getDiagnosticsOptions(),
+    noSemanticValidation: false,
+    noSyntaxValidation: false,
+  });
+  tsLang.javascriptDefaults?.setDiagnosticsOptions({
+    ...tsLang.javascriptDefaults.getDiagnosticsOptions(),
+    noSemanticValidation: false,
+    noSyntaxValidation: false,
+  });
+}
+
 export function registerAllLanguages(monaco: MonacoInstance): void {
   // Register languages that Monaco doesn't have built-in
   registerToml(monaco);
@@ -298,6 +330,7 @@ export function registerAllLanguages(monaco: MonacoInstance): void {
   registerWat(monaco);
   registerV(monaco);
   registerTypescriptReact(monaco);
+  registerReactSnippets(monaco);
 
   // Register language configurations for languages Monaco supports
   // but doesn't have comment/bracket configs for
@@ -306,6 +339,24 @@ export function registerAllLanguages(monaco: MonacoInstance): void {
 }
 
 // ── Individual Language Registrations ────────────────────────────────────────
+
+function registerReactSnippets(monaco: MonacoInstance) {
+  const languages = ['typescript', 'typescriptreact', 'javascript', 'javascriptreact'];
+  for (const lang of languages) {
+    monaco.languages.registerCompletionItemProvider(lang, {
+      provideCompletionItems: () => ({
+        suggestions: REACT_SNIPPETS.map((s) => ({
+          label: s.label,
+          kind: s.kind,
+          detail: s.detail,
+          insertText: s.insertText,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          range: undefined as unknown as import('monaco-editor').IRange,
+        })),
+      }),
+    });
+  }
+}
 
 function registerTypescriptReact(monaco: MonacoInstance) {
   // Configure Monaco's TypeScript language service to understand JSX/TSX syntax.
@@ -317,32 +368,54 @@ function registerTypescriptReact(monaco: MonacoInstance) {
   const tsLang = (monaco.languages as any).typescript;
   if (!tsLang) return;
 
-  const { typescriptDefaults, javascriptDefaults, JsxEmit, ScriptTarget, ModuleResolutionKind } = tsLang;
+  const {
+    typescriptDefaults,
+    javascriptDefaults,
+    JsxEmit,
+    ScriptTarget,
+    ModuleResolutionKind,
+    ModuleKind,
+  } = tsLang;
+
+  const sharedOptions = {
+    jsx: JsxEmit?.ReactJSX ?? 4,
+    jsxFactory: 'React.createElement',
+    jsxFragmentFactory: 'React.Fragment',
+    target: ScriptTarget?.ESNext ?? 99,
+    module: ModuleKind?.ESNext ?? 99,
+    moduleResolution: ModuleResolutionKind?.NodeJs ?? 2,
+    allowSyntheticDefaultImports: true,
+    esModuleInterop: true,
+    allowJs: true,
+    noEmit: true,
+    skipLibCheck: true,
+    resolveJsonModule: true,
+    isolatedModules: true,
+    strict: true,
+    lib: ['esnext', 'dom', 'dom.iterable'],
+  };
 
   if (typescriptDefaults) {
     typescriptDefaults.setCompilerOptions({
       ...typescriptDefaults.getCompilerOptions(),
-      jsx: JsxEmit?.ReactJSX ?? 4,
-      jsxFactory: 'React.createElement',
-      jsxFragmentFactory: 'React.Fragment',
-      target: ScriptTarget?.ESNext ?? 99,
-      moduleResolution: ModuleResolutionKind?.NodeJs ?? 2,
-      allowSyntheticDefaultImports: true,
-      esModuleInterop: true,
-      allowJs: true,
-      noEmit: true,
+      ...sharedOptions,
+    });
+    typescriptDefaults.setDiagnosticsOptions({
+      ...typescriptDefaults.getDiagnosticsOptions(),
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
     });
   }
 
   if (javascriptDefaults) {
     javascriptDefaults.setCompilerOptions({
       ...javascriptDefaults.getCompilerOptions(),
-      jsx: JsxEmit?.ReactJSX ?? 4,
-      jsxFactory: 'React.createElement',
-      jsxFragmentFactory: 'React.Fragment',
-      target: ScriptTarget?.ESNext ?? 99,
-      allowJs: true,
-      noEmit: true,
+      ...sharedOptions,
+    });
+    javascriptDefaults.setDiagnosticsOptions({
+      ...javascriptDefaults.getDiagnosticsOptions(),
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
     });
   }
 }

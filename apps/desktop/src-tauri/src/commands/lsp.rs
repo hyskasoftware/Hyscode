@@ -1,4 +1,3 @@
-use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Stdio};
@@ -21,9 +20,28 @@ pub async fn lsp_start(
     root_path: String,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
+    println!("[lsp_start] id={id} command={command} args={args:?} root_path={root_path}");
     // Resolve the full path to the command if it's not directly on PATH.
     let resolved = resolve_lsp_command(&command);
-    let mut child = cmd(&resolved)
+    println!("[lsp_start] resolved={resolved}");
+
+    // On Windows, .cmd/.bat wrappers must be executed via cmd.exe /C
+    // because std::process::Command cannot spawn them directly.
+    #[cfg(target_os = "windows")]
+    let (program, extra_args): (&str, Vec<String>) =
+        if resolved.to_ascii_lowercase().ends_with(".cmd")
+            || resolved.to_ascii_lowercase().ends_with(".bat")
+        {
+            ("cmd", vec!["/C".to_string(), resolved.clone()])
+        } else {
+            (&resolved, vec![])
+        };
+
+    #[cfg(not(target_os = "windows"))]
+    let (program, extra_args): (&str, Vec<String>) = (&resolved, vec![]);
+
+    let mut child = cmd(program)
+        .args(&extra_args)
         .args(&args)
         .current_dir(&root_path)
         .stdin(Stdio::piped())
@@ -250,41 +268,77 @@ pub async fn lsp_probe_server(command: String) -> Result<bool, String> {
 /// Resolve an LSP command to its full path, checking common global bin directories
 /// if the command isn't found directly on PATH.
 fn resolve_lsp_command(command: &str) -> String {
-    // First check if the command is directly available
+    // On Windows, `where` may return multiple lines (e.g. script without extension
+    // and the .cmd wrapper). We must pick an executable extension so that
+    // std::process::Command can actually spawn it.
     #[cfg(target_os = "windows")]
-    let on_path = cmd("where")
-        .arg(command)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-
-    #[cfg(not(target_os = "windows"))]
-    let on_path = cmd("which")
-        .arg(command)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-
-    if on_path {
-        return command.to_string();
+    {
+        if let Ok(output) = cmd("where")
+            .arg(command)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+        {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let candidates: Vec<&str> = stdout
+                    .lines()
+                    .map(|l| l.trim())
+                    .filter(|l| !l.is_empty())
+                    .collect();
+                // Prefer .exe, then .cmd, then .bat, then first available.
+                let preferred = candidates
+                    .iter()
+                    .find(|p| {
+                        let lower = p.to_ascii_lowercase();
+                        lower.ends_with(".exe") || lower.ends_with(".cmd") || lower.ends_with(".bat")
+                    })
+                    .or_else(|| candidates.first());
+                if let Some(path) = preferred {
+                    return path.to_string();
+                }
+            }
+        }
     }
 
-    // Fallback: check common package-manager global bin directories
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(output) = cmd("which")
+            .arg(command)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .output()
+        {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if let Some(first) = stdout.lines().next() {
+                    let trimmed = first.trim();
+                    if !trimmed.is_empty() {
+                        return trimmed.to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: check common package-manager global bin directories.
+    // On Windows, prefer .exe / .cmd / .bat because std::process::Command
+    // cannot execute extension-less shims.
     #[cfg(target_os = "windows")]
     {
         let mut candidates: Vec<std::path::PathBuf> = vec![];
         if let Ok(appdata) = std::env::var("APPDATA") {
             let base = std::path::PathBuf::from(&appdata).join("npm");
             candidates.push(base.join(format!("{}.cmd", command)));
+            candidates.push(base.join(format!("{}.bat", command)));
+            candidates.push(base.join(format!("{}.exe", command)));
             candidates.push(base.join(command));
         }
         if let Ok(local) = std::env::var("LOCALAPPDATA") {
             let base = std::path::PathBuf::from(&local).join("pnpm");
             candidates.push(base.join(format!("{}.cmd", command)));
+            candidates.push(base.join(format!("{}.bat", command)));
+            candidates.push(base.join(format!("{}.exe", command)));
             candidates.push(base.join(command));
         }
         for p in &candidates {

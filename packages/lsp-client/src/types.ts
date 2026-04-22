@@ -49,6 +49,9 @@ export interface ServerCapabilities {
   documentSymbolProvider?: boolean;
   workspaceSymbolProvider?: boolean;
   renameProvider?: boolean;
+  documentHighlightProvider?: boolean;
+  selectionRangeProvider?: boolean;
+  inlayHintProvider?: boolean;
   diagnosticProvider?: { interFileDependencies?: boolean; workspaceDiagnostics?: boolean };
   textDocumentSync?: number | { openClose?: boolean; change?: number; save?: boolean | { includeText?: boolean } };
 }
@@ -88,6 +91,7 @@ export interface CompletionItem {
   insertText?: string;
   insertTextFormat?: number;
   textEdit?: { range: LspRange; newText: string };
+  additionalTextEdits?: Array<{ range: LspRange; newText: string }>;
   sortText?: string;
   filterText?: string;
 }
@@ -109,4 +113,51 @@ export interface Hover {
 export interface Location {
   uri: string;
   range: LspRange;
+}
+
+// ── Code Action ──────────────────────────────────────────────────────────────
+
+export interface LspWorkspaceEdit {
+  changes?: Record<string, Array<{ range: LspRange; newText: string }>>;
+  documentChanges?: unknown[];
+}
+
+export interface CodeAction {
+  title: string;
+  kind?: string;
+  edit?: LspWorkspaceEdit;
+  command?: { title: string; command: string; arguments?: unknown[] };
+  isPreferred?: boolean;
+  diagnostics?: LspDiagnostic[];
+}
+
+// ── Document Symbol ──────────────────────────────────────────────────────────
+
+export interface DocumentSymbol {
+  name: string;
+  detail?: string;
+  kind: number;
+  range: LspRange;
+  selectionRange: LspRange;
+  children?: DocumentSymbol[];
+}
+
+// ── Inlay Hint ───────────────────────────────────────────────────────────────
+
+export interface InlayHint {
+  position: LspPosition;
+  label: string | { value: string; tooltip?: string }[];
+  kind?: number;
+  tooltip?: string | { kind: string; value: string };
+  paddingLeft?: boolean;
+  paddingRight?: boolean;
+}
+
+// ── Workspace Symbol ─────────────────────────────────────────────────────────
+
+export interface WorkspaceSymbol {
+  name: string;
+  kind: number;
+  location: Location;
+  containerName?: string;
 }

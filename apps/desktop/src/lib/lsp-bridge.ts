@@ -58,7 +58,9 @@ class LspBridgeImpl {
     if (this.initialized) return;
 
     this.invoke = invoke;
-    this.rootUri = `file://${rootPath.replace(/\\/g, '/')}`;
+    const normalized = rootPath.replace(/\\/g, '/');
+    this.rootUri = normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`;
+    console.log('[LspBridge] init rootPath=', rootPath, 'rootUri=', this.rootUri);
 
     this.manager = new LspManager(invoke, listen);
     this.manager.setRootUri(this.rootUri);
@@ -224,10 +226,11 @@ class LspBridgeImpl {
     await this.manager.stopServer(languageId);
     useLspStore.getState().removeServer(languageId);
 
-    // Re-open if there are documents for this language
+    // Re-open if there are documents for this language (including variants like tsx → typescriptreact)
     const hasOpenDocs = Array.from(this.openDocuments).some((uri) => {
       const path = this.uriToFilePath(uri);
-      return detectLanguage(path) === languageId;
+      const docLang = detectLanguage(path);
+      return docLang === languageId;
     });
 
     if (hasOpenDocs) {

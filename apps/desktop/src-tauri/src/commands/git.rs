@@ -249,7 +249,7 @@ pub fn git_diff_hunks(
     let mut opts = DiffOptions::new();
     opts.pathspec(&file_path);
 
-    let mut diff = if staged {
+    let diff = if staged {
         let head_tree = repo
             .head()
             .ok()

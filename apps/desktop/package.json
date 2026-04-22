@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tauri dev",
+    "frontend:dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
