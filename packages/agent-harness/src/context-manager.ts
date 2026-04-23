@@ -139,6 +139,7 @@ export class ContextManager {
     maxInputTokens: number,
     maxOutputTokens: number,
   ): ContextSnapshot {
+    console.log('[ContextManager] buildSnapshot history roles:', JSON.stringify(this.conversationHistory.map(m => m.role)));
     const systemPrompt = this.buildSystemPrompt();
     const systemTokens = estimateSystemPromptTokens(systemPrompt);
     const toolTokens = estimateToolDefinitionTokens(tools);
@@ -311,6 +312,7 @@ export class ContextManager {
     // causes OpenAI/OpenRouter to reject with:
     // "An assistant message with 'tool_calls' must be followed by tool messages"
     const combined = [...gatheredMessages, ...contextMessages, ...includedOlder, ...mustInclude];
+    console.log('[ContextManager] buildMessages combined roles:', JSON.stringify(combined.map(m => m.role)));
 
     // Ensure the first message has role 'user'. Anthropic (and others) reject
     // conversations that start with an assistant message. This can happen when

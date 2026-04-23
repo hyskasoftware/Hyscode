@@ -27,7 +27,13 @@ export interface ToolResultContent {
   isError?: boolean;
 }
 
-export type MessageContent = TextContent | ImageContent | ToolCallContent | ToolResultContent;
+/** Extended thinking / reasoning text from models that support it (Kimi, MiMo, Claude). */
+export interface ThinkingContent {
+  type: 'thinking';
+  thinking: string;
+}
+
+export type MessageContent = TextContent | ImageContent | ToolCallContent | ToolResultContent | ThinkingContent;
 
 export interface Message {
   role: MessageRole;

@@ -1193,6 +1193,10 @@ export class HarnessBridge {
         const msg = messages[i];
         if (msg.role === 'assistant') {
           const blocks: MessageContent[] = [];
+          // Preserve thinking block so Kimi/MiMo models get reasoning_content round-tripped
+          if (msg.thinking) {
+            blocks.push({ type: 'thinking', thinking: msg.thinking });
+          }
           if (msg.content) {
             blocks.push({ type: 'text', text: msg.content });
           }
@@ -1237,6 +1241,7 @@ export class HarnessBridge {
    */
   private buildHistory(messages: Array<import('@/stores/agent-store').ChatMessage>): Message[] {
     const result: Message[] = [];
+    console.log('[HarnessBridge] buildHistory input messages:', messages.length, JSON.stringify(messages.map(m => ({ role: m.role, hasBlocks: !!m.blocks, blockTypes: m.blocks?.map(b => b.type), hasThinking: !!m.thinking }))));
     for (const msg of messages) {
       if (msg.blocks && msg.blocks.length > 0) {
         // Determine the correct role: if all blocks are tool_result, the role
@@ -1245,9 +1250,15 @@ export class HarnessBridge {
         // stored as role='user' cause empty content in toOpenAIMessages → 400.
         const hasToolResult = msg.blocks.some(b => b.type === 'tool_result');
         const role = hasToolResult ? 'tool' : (msg.role as 'user' | 'assistant');
+        const blocks = [...msg.blocks];
+        // Re-inject thinking block if it was stored separately but missing from blocks
+        // (Kimi/MiMo require reasoning_content on every assistant message with tool_calls)
+        if (msg.role === 'assistant' && msg.thinking && !blocks.some(b => b.type === 'thinking')) {
+          blocks.unshift({ type: 'thinking', thinking: msg.thinking });
+        }
         result.push({
           role,
-          content: msg.blocks,
+          content: blocks,
         });
       } else if (msg.content) {
         result.push({
@@ -1257,6 +1268,7 @@ export class HarnessBridge {
       }
       // Skip messages with no content and no blocks (e.g. empty tool_result placeholders)
     }
+    console.log('[HarnessBridge] buildHistory output:', JSON.stringify(result.map(m => ({ role: m.role, blockTypes: m.content.map(c => c.type) }))));
     return result;
   }
 

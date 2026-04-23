@@ -31,6 +31,8 @@ export { OpenRouterProvider } from './providers/openrouter';
 export { ClaudeAgentProvider } from './providers/claude-agent';
 export type { ClaudeAgentInvoke } from './providers/claude-agent';
 export { GitHubCopilotProvider } from './providers/github-copilot';
+export { OpenCodeZenProvider } from './providers/opencode-zen';
+export { OpenCodeGoProvider } from './providers/opencode-go';
 
 // ─── Registry ───────────────────────────────────────────────────────────────
 export { ProviderRegistry, getProviderRegistry } from './registry';

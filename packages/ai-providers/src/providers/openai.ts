@@ -18,6 +18,8 @@ interface OpenAIMessage {
   content?: string | OpenAIContentPart[] | null;
   tool_calls?: OpenAIToolCall[];
   tool_call_id?: string;
+  /** Kimi / MiMo extended thinking — must be round-tripped in assistant messages with tool calls */
+  reasoning_content?: string;
 }
 
 type OpenAIContentPart =
@@ -35,7 +37,7 @@ interface OpenAITool {
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }
 
-function toOpenAIMessages(messages: Message[], systemPrompt?: string): OpenAIMessage[] {
+function toOpenAIMessages(messages: Message[], systemPrompt?: string, alwaysReasoningContent = false): OpenAIMessage[] {
   const result: OpenAIMessage[] = [];
 
   if (systemPrompt) {
@@ -59,10 +61,12 @@ function toOpenAIMessages(messages: Message[], systemPrompt?: string): OpenAIMes
 
     if (msg.role === 'assistant') {
       const textParts: string[] = [];
+      const thinkingParts: string[] = [];
       const toolCalls: OpenAIToolCall[] = [];
 
       for (const c of msg.content) {
         if (c.type === 'text') textParts.push(c.text);
+        if (c.type === 'thinking') thinkingParts.push(c.thinking);
         if (c.type === 'tool_call') {
           toolCalls.push({
             id: c.id,
@@ -75,6 +79,16 @@ function toOpenAIMessages(messages: Message[], systemPrompt?: string): OpenAIMes
       const assistantMsg: OpenAIMessage = { role: 'assistant' };
       if (textParts.length) assistantMsg.content = textParts.join('');
       if (toolCalls.length) assistantMsg.tool_calls = toolCalls;
+      // Always include reasoning_content for Kimi/MiMo providers — even empty string
+      // prevents "reasoning_content is missing" 400 errors on multi-turn tool calls
+      const reasoningContent = thinkingParts.join('');
+      const shouldAddReasoning = reasoningContent || (alwaysReasoningContent && toolCalls.length);
+      if (shouldAddReasoning) {
+        // Moonshot API rejects empty string for reasoning_content when thinking is enabled.
+        // Use a single space as minimal non-empty placeholder to satisfy validation.
+        assistantMsg.reasoning_content = reasoningContent || ' ';
+      }
+      console.log('[toOpenAIMessages] assistant msg:', { textLen: textParts.join('').length, toolCount: toolCalls.length, thinkingLen: reasoningContent.length, alwaysReasoningContent, shouldAddReasoning, hasReasoning: 'reasoning_content' in assistantMsg });
       if (!textParts.length && !toolCalls.length) assistantMsg.content = '';
       result.push(assistantMsg);
       continue;
@@ -151,6 +165,10 @@ function parseOpenAIChunk(data: string): StreamChunk | null {
     return { type: 'done', stopReason: reasonMap[finishReason] ?? 'end_turn' };
   }
 
+  if (delta?.reasoning_content) {
+    return { type: 'thinking_delta', text: delta.reasoning_content };
+  }
+
   if (delta?.content) {
     return { type: 'text_delta', text: delta.content };
   }
@@ -219,6 +237,9 @@ export class OpenAIProvider implements AIProvider {
   protected baseUrl: string;
   protected defaultHeaders: Record<string, string>;
   protected fetchImpl: FetchImpl;
+  /** Set to true for providers routing Kimi/MiMo models — forces reasoning_content
+   *  on every assistant+tool_calls message even when the proxy strips thinking deltas. */
+  protected requiresReasoningContent = false;
 
   constructor(apiKey: string, baseUrl = 'https://api.openai.com/v1', extraHeaders: Record<string, string> = {}, fetchImpl?: FetchImpl) {
     this.apiKey = apiKey;
@@ -236,7 +257,9 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async *chat(params: ChatParams): AsyncIterable<StreamChunk> {
-    const messages = toOpenAIMessages(params.messages, params.systemPrompt);
+    const messages = toOpenAIMessages(params.messages, params.systemPrompt, this.requiresReasoningContent);
+    console.log('[OpenAIProvider] requiresReasoningContent=', this.requiresReasoningContent, 'model=', params.model);
+    console.log('[OpenAIProvider] toOpenAIMessages output:', JSON.stringify(messages.map(m => ({ role: m.role, hasToolCalls: !!m.tool_calls, hasReasoning: 'reasoning_content' in m, reasoningLength: m.reasoning_content?.length }))));
 
     const body: Record<string, unknown> = {
       model: params.model,
@@ -251,6 +274,13 @@ export class OpenAIProvider implements AIProvider {
     if (params.stopSequences?.length) body.stop = params.stopSequences;
     if (params.tools?.length) body.tools = toOpenAITools(params.tools);
 
+    const requestBody = JSON.stringify(body);
+    const bodyMessages = body.messages as Array<{ role?: string; tool_calls?: unknown[]; reasoning_content?: string }> | undefined;
+    const assistantMsgIdx = bodyMessages?.findIndex(m => m.role === 'assistant' && m.tool_calls);
+    if (assistantMsgIdx !== undefined && assistantMsgIdx >= 0) {
+      const am = bodyMessages![assistantMsgIdx];
+      console.log('[OpenAIProvider] request body assistant msg raw:', JSON.stringify({ role: am.role, tool_calls: am.tool_calls, reasoning_content: am.reasoning_content }));
+    }
     const response = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -258,7 +288,7 @@ export class OpenAIProvider implements AIProvider {
         Authorization: `Bearer ${this.apiKey}`,
         ...this.defaultHeaders,
       },
-      body: JSON.stringify(body),
+      body: requestBody,
       signal: params.signal,
     });
 

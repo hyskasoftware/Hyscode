@@ -27,6 +27,8 @@ function detectProvider(url: string): string {
   if (url.includes('generativelanguage.googleapis.com')) return 'gemini';
   if (url.includes('openrouter.ai')) return 'openrouter';
   if (url.includes('api.githubcopilot.com')) return 'github-copilot';
+  if (url.includes('opencode.ai/zen/go')) return 'opencode-go';
+  if (url.includes('opencode.ai/zen')) return 'opencode-zen';
   return 'ollama';
 }
 

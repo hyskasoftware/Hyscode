@@ -389,6 +389,7 @@ export class Harness {
       };
 
       let assistantText = '';
+      let thinkingText = '';
       let toolCalls: Array<{ id: string; name: string; input: Record<string, unknown>; _rawInput?: string }> = [];
 
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -399,6 +400,7 @@ export class Harness {
       });
 
       try {
+        console.log('[Harness] snapshot.messages roles:', JSON.stringify(snapshot.messages.map(m => m.role)));
         await Promise.race([
           (async () => {
             for await (const chunk of registry.chat({
@@ -412,7 +414,8 @@ export class Harness {
               assistantText += chunk.text;
               break;
             case 'thinking_delta':
-              // Thinking text is emitted for UI display only — not added to assistantText
+              // Accumulate for history round-trip (Kimi/MiMo require reasoning_content back)
+              thinkingText += chunk.text;
               break;
             case 'tool_call_start':
               toolCalls.push({
@@ -465,6 +468,8 @@ export class Harness {
       const assistantMsg: Message = {
         role: 'assistant',
         content: [
+          // Thinking must come first so the provider can round-trip it in the next turn
+          ...(thinkingText ? [{ type: 'thinking' as const, thinking: thinkingText }] : []),
           ...(assistantText ? [{ type: 'text' as const, text: assistantText }] : []),
           ...toolCalls.map((tc) => ({
             type: 'tool_call' as const,
@@ -474,6 +479,8 @@ export class Harness {
           })),
         ],
       };
+      console.log('[Harness] assistantMsg content blocks:', JSON.stringify(assistantMsg.content.map(c => c.type)));
+      console.log('[Harness] assistantMsg full:', JSON.stringify(assistantMsg));
       this.contextManager.addMessage(assistantMsg);
 
       // If no tool calls, we're done — the LLM gave a final text response.

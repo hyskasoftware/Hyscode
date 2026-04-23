@@ -8,6 +8,8 @@ import { OpenRouterProvider } from './providers/openrouter';
 import { ClaudeAgentProvider } from './providers/claude-agent';
 import type { ClaudeAgentInvoke } from './providers/claude-agent';
 import { GitHubCopilotProvider } from './providers/github-copilot';
+import { OpenCodeZenProvider } from './providers/opencode-zen';
+import { OpenCodeGoProvider } from './providers/opencode-go';
 import { withRetry } from './retry';
 
 // ─── Key Store Interface ────────────────────────────────────────────────────
@@ -199,6 +201,18 @@ export class ProviderRegistry {
       this.register(new GitHubCopilotProvider(copilotToken, fetchImpl));
     }
 
+    // OpenCode Zen
+    const opencodeZenKey = await keyStore.get('opencode-zen_api_key');
+    if (opencodeZenKey) {
+      this.register(new OpenCodeZenProvider(opencodeZenKey, fetchImpl));
+    }
+
+    // OpenCode Go
+    const opencodeGoKey = await keyStore.get('opencode-go_api_key');
+    if (opencodeGoKey) {
+      this.register(new OpenCodeGoProvider(opencodeGoKey, fetchImpl));
+    }
+
     // Set default to first configured provider
     const configured = this.listConfigured();
     if (configured.length) {
@@ -252,6 +266,16 @@ export class ProviderRegistry {
       case 'github-copilot': {
         const key = await keyStore.get('github_copilot_token');
         if (key) this.register(new GitHubCopilotProvider(key, fetchImpl));
+        break;
+      }
+      case 'opencode-zen': {
+        const key = await keyStore.get('opencode-zen_api_key');
+        if (key) this.register(new OpenCodeZenProvider(key, fetchImpl));
+        break;
+      }
+      case 'opencode-go': {
+        const key = await keyStore.get('opencode-go_api_key');
+        if (key) this.register(new OpenCodeGoProvider(key, fetchImpl));
         break;
       }
     }
