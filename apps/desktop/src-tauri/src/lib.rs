@@ -77,6 +77,8 @@ pub fn run() {
             commands::git::git_pull,
             commands::git::git_fetch,
             commands::git::git_merge,
+            commands::git::git_reset,
+            commands::git::git_blame,
             commands::git::git_tag_create,
             // PTY commands
             commands::pty::pty_spawn,

@@ -201,6 +201,32 @@ export class Harness {
     return this.traceRecorder;
   }
 
+  /** Get the tool router for external callers (bridge). */
+  getToolRouter(): ToolRouter {
+    return this.toolRouter;
+  }
+
+  /** Get the context manager for external callers (bridge). */
+  getContextManager(): ContextManager {
+    return this.contextManager;
+  }
+
+  /** Get active skills for external callers (bridge). */
+  getActiveSkills(): Skill[] {
+    return this.activeSkills;
+  }
+
+  /** Set active skills for external callers (bridge). */
+  setActiveSkills(skills: Skill[]): void {
+    this.activeSkills = skills;
+    this.contextManager.setActiveSkills(skills);
+  }
+
+  /** Get the workspace path for external callers (bridge). */
+  getWorkspacePath(): string {
+    return this.workspacePath;
+  }
+
   /**
    * Compute the effective policy for the current mode + model.
    * Merges the base mode policy with model-specific adjustments.

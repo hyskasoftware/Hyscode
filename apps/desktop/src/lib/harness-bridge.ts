@@ -577,8 +577,7 @@ export class HarnessBridge {
   /** Mark a tool as trusted for the current session (session-trust mode) */
   trustToolForSession(toolName: string): void {
     if (this.harness) {
-      // Access the tool router through the harness to trust the tool
-      (this.harness as any).toolRouter?.trustToolForSession?.(toolName);
+      this.harness.getToolRouter()?.trustToolForSession?.(toolName);
       this.debug(`🔓 Tool trusted for session: ${toolName}`);
     }
   }
@@ -586,7 +585,7 @@ export class HarnessBridge {
   /** Clear all session-trusted tools (called on new session) */
   clearSessionTrust(): void {
     if (this.harness) {
-      (this.harness as any).toolRouter?.clearSessionTrust?.();
+      this.harness.getToolRouter()?.clearSessionTrust?.();
       this.debug('🔒 Session trust cleared');
     }
   }
@@ -733,9 +732,8 @@ export class HarnessBridge {
     }
     // Update context manager
     const active = loader.getActive();
-    this.harness['activeSkills'] = active;
-    this.harness['contextManager'].setActiveSkills(active);
-    this.harness['contextManager'].setAllSkills(loader.getAll());
+    this.harness.setActiveSkills(active);
+    this.harness.getContextManager().setAllSkills(loader.getAll());
   }
 
   /** Register all tools from connected MCP servers as native tool handlers */
@@ -1092,7 +1090,7 @@ export class HarnessBridge {
 
     // Session-trust: auto-approve if tool was previously trusted
     if (mode === 'session-trust') {
-      const trustedTools = (this.harness as any)?.toolRouter?.getSessionTrustedTools?.() as Set<string> | undefined;
+      const trustedTools = this.harness.getToolRouter()?.getSessionTrustedTools?.() as Set<string> | undefined;
       if (trustedTools?.has(pending.toolName)) {
         this.debug(`✅ Session-trust auto-approved: ${pending.toolName}`);
         return true;
@@ -1281,7 +1279,7 @@ export class HarnessBridge {
    */
   private async injectEnvironmentContext(): Promise<void> {
     const env: EnvironmentContext = {
-      workspacePath: this.harness['workspacePath'] as string,
+      workspacePath: this.harness.getWorkspacePath() as string,
     };
 
     // Active file from editor + file store
@@ -1366,7 +1364,7 @@ export class HarnessBridge {
    */
   private async injectContextHints(userMessage: string): Promise<void> {
     try {
-      const workspacePath = this.harness['workspacePath'] as string;
+      const workspacePath = this.harness.getWorkspacePath() as string;
       const hints: string[] = [];
 
       // Extract explicit file paths from user message (e.g., "edit src/app.tsx")
@@ -1609,7 +1607,7 @@ ${hints.map(h => `- ${h}`).join('\n')}
   private async ensureAgentTerminal(): Promise<void> {
     try {
       const termStore = useTerminalStore.getState();
-      const workspacePath = this.harness['workspacePath'] as string;
+      const workspacePath = this.harness.getWorkspacePath() as string;
 
       // ensureAgentSession finds existing agent session or creates a new one
       const sessionId = termStore.ensureAgentSession();

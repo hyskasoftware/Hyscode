@@ -33,46 +33,113 @@ function parseFrontmatter(content: string): { frontmatter: Record<string, unknow
 
   const fmRaw = fmMatch[1];
   const body = fmMatch[2];
+
+  // Try native YAML parsing if available (frontmatter is valid YAML)
+  try {
+    const yaml = parseYaml(fmRaw);
+    if (yaml && typeof yaml === 'object') {
+      return { frontmatter: yaml as Record<string, unknown>, body };
+    }
+  } catch {
+    // Fall through to manual parser
+  }
+
   const frontmatter: Record<string, unknown> = {};
 
   let currentKey = '';
-  let currentArray: string[] | null = null;
+  let currentArray: unknown[] | null = null;
 
-  for (const line of fmRaw.split('\n')) {
+  for (const rawLine of fmRaw.split('\n')) {
+    const line = rawLine.replace(/\r$/, '');
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
 
     // Array item
-    if (trimmed.startsWith('- ') && currentKey) {
-      if (!currentArray) currentArray = [];
-      currentArray.push(trimmed.slice(2).trim().replace(/^["']|["']$/g, ''));
-      frontmatter[currentKey] = currentArray;
+    if (trimmed.startsWith('- ')) {
+      const itemValue = trimmed.slice(2).trim();
+      if (currentArray) {
+        // Object inside array: "- key: value"
+        const objKv = itemValue.match(/^(\w+)\s*:\s*(.*)$/);
+        if (objKv && currentArray.length > 0 && typeof currentArray[currentArray.length - 1] === 'object') {
+          const obj = currentArray[currentArray.length - 1] as Record<string, unknown>;
+          obj[objKv[1]] = parseYamlValue(objKv[2].trim());
+        } else if (objKv && !itemValue.includes(': ') && itemValue.includes(':')) {
+          // Simple key:value as array item
+          currentArray.push({ [objKv[1]]: parseYamlValue(objKv[2].trim()) });
+        } else {
+          currentArray.push(parseYamlValue(itemValue));
+        }
+      }
       continue;
     }
 
     // Key: value
     const kvMatch = trimmed.match(/^(\w+)\s*:\s*(.*)$/);
     if (kvMatch) {
-      // Save previous array if any
       currentArray = null;
       currentKey = kvMatch[1];
-      const value = kvMatch[2].trim().replace(/^["']|["']$/g, '');
+      const value = kvMatch[2].trim();
 
       if (value === '') {
         // Might be followed by array items
         frontmatter[currentKey] = [];
-        currentArray = frontmatter[currentKey] as string[];
-      } else if (value === 'true') {
-        frontmatter[currentKey] = true;
-      } else if (value === 'false') {
-        frontmatter[currentKey] = false;
+        currentArray = frontmatter[currentKey] as unknown[];
       } else {
-        frontmatter[currentKey] = value;
+        frontmatter[currentKey] = parseYamlValue(value);
       }
     }
   }
 
   return { frontmatter, body };
+}
+
+/** Parse a simple YAML scalar value */
+function parseYamlValue(value: string): unknown {
+  const unquoted = value.replace(/^["']|["']$/g, '');
+  if (unquoted === 'true') return true;
+  if (unquoted === 'false') return false;
+  if (unquoted === 'null' || unquoted === '~') return null;
+  if (/^\d+$/.test(unquoted)) return parseInt(unquoted, 10);
+  if (/^\d+\.\d+$/.test(unquoted)) return parseFloat(unquoted);
+  return unquoted;
+}
+
+/** Minimal YAML object parser for flat objects */
+function parseYaml(yaml: string): unknown {
+  // Best-effort: try to parse as JSON-like object by wrapping keys in quotes
+  // This handles simple YAML frontmatter without external deps
+  const lines = yaml.split('\n');
+  const result: Record<string, unknown> = {};
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const idx = line.indexOf(':');
+    if (idx === -1) continue;
+
+    const key = line.slice(0, idx).trim();
+    let value = line.slice(idx + 1).trim();
+
+    if (value.startsWith('[') && value.endsWith(']')) {
+      try {
+        result[key] = JSON.parse(value.replace(/'/g, '"'));
+      } catch {
+        result[key] = value;
+      }
+    } else if (value.startsWith('{') && value.endsWith('}')) {
+      try {
+        result[key] = JSON.parse(value.replace(/'/g, '"'));
+      } catch {
+        result[key] = value;
+      }
+    } else {
+      result[key] = parseYamlValue(value);
+    }
+  }
+
+  return result;
 }
 
 function validateFrontmatter(fm: Record<string, unknown>, filePath: string): SkillFrontmatter {

@@ -24,13 +24,77 @@ function defineTool(
   return { definition, category, requiresApproval, execute };
 }
 
+function normalizePath(path: string): string {
+  // Normalize Windows backslashes to forward slashes for consistency
+  return path.replace(/\\/g, '/');
+}
+
 function resolvePath(path: string, workspacePath: string): string {
-  // If already absolute, return as-is
-  if (path.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(path)) {
-    return path;
+  const normalizedPath = normalizePath(path);
+  const normalizedWorkspace = normalizePath(workspacePath);
+
+  // If already absolute, return normalized as-is
+  if (normalizedPath.startsWith('/') || /^[a-zA-Z]:\//.test(normalizedPath)) {
+    return normalizedPath;
   }
-  // Otherwise, resolve relative to workspace
-  return `${workspacePath}/${path}`;
+
+  // Prevent path traversal: resolve .. segments and ensure result stays within workspace
+  const combined = `${normalizedWorkspace}/${normalizedPath}`;
+  const segments = combined.split('/');
+  const resolved: string[] = [];
+  let drivePrefix = '';
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (i === 0 && /^[a-zA-Z]:$/.test(seg)) {
+      drivePrefix = seg + '/';
+      continue;
+    }
+    if (seg === '..') {
+      resolved.pop();
+    } else if (seg !== '.' && seg !== '') {
+      resolved.push(seg);
+    }
+  }
+
+  // Ensure resolved path does not escape workspace root
+  const workspaceSegments = normalizedWorkspace.split('/').filter((s) => s !== '' && s !== '.');
+  if (resolved.length < workspaceSegments.length) {
+    // Path traversal attempted — clamp to workspace root
+    return drivePrefix + workspaceSegments.join('/');
+  }
+
+  return drivePrefix + resolved.join('/');
+}
+
+/** SSRF protection: check if a hostname resolves to a private/internal address. */
+function isPrivateHost(hostname: string): boolean {
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '::1' ||
+    hostname === '[::1]'
+  ) {
+    return true;
+  }
+
+  // IPv4 private ranges (RFC1918 + loopback + link-local)
+  if (hostname.startsWith('127.')) return true;
+  if (hostname.startsWith('10.')) return true;
+  if (hostname.startsWith('192.168.')) return true;
+  if (hostname.startsWith('169.254.')) return true;
+  if (hostname.startsWith('172.')) {
+    const secondOctet = parseInt(hostname.split('.')[1] || '0', 10);
+    if (secondOctet >= 16 && secondOctet <= 31) return true;
+  }
+
+  // IPv6 unique local addresses (fc00::/7)
+  if (hostname.toLowerCase().startsWith('fc') || hostname.toLowerCase().startsWith('fd')) {
+    return true;
+  }
+
+  return false;
 }
 
 // ─── Filesystem Tools ───────────────────────────────────────────────────────
@@ -207,7 +271,7 @@ export const createFileTool = defineTool(
 
 export const listDirectoryTool = defineTool(
   'list_directory',
-  'List the contents of a directory. Returns file and folder names. Folders end with /.',
+  'List the contents of a directory. Returns file and folder names. Folders end with /. Supports recursive listing.',
   {
     path: { type: 'string', description: 'Absolute or workspace-relative path to the directory' },
     recursive: { type: 'boolean', description: 'If true, list all files recursively (default: false)' },
@@ -219,14 +283,37 @@ export const listDirectoryTool = defineTool(
   async (input, ctx) => {
     try {
       const dirPath = resolvePath(input.path as string, ctx.workspacePath);
-      const entries = await ctx.invoke<Array<{ name: string; is_dir: boolean }>>(
-        'list_dir',
-        { path: dirPath },
-      );
-      const formatted = entries
-        .map((e) => (e.is_dir ? `${e.name}/` : e.name))
-        .join('\n');
-      return { success: true, output: formatted };
+      const recursive = (input.recursive as boolean) ?? false;
+      const maxDepth = Math.min((input.max_depth as number) || 3, 10);
+
+      if (!recursive) {
+        const entries = await ctx.invoke<Array<{ name: string; is_dir: boolean }>>(
+          'list_dir',
+          { path: dirPath },
+        );
+        const formatted = entries
+          .map((e) => (e.is_dir ? `${e.name}/` : e.name))
+          .join('\n');
+        return { success: true, output: formatted };
+      }
+
+      // Recursive listing
+      const lines: string[] = [];
+      async function walk(currentPath: string, depth: number, prefix: string) {
+        if (depth > maxDepth) return;
+        const entries = await ctx.invoke<Array<{ name: string; is_dir: boolean }>>(
+          'list_dir',
+          { path: currentPath },
+        );
+        for (const e of entries) {
+          lines.push(`${prefix}${e.name}${e.is_dir ? '/' : ''}`);
+          if (e.is_dir && depth < maxDepth) {
+            await walk(`${currentPath}/${e.name}`, depth + 1, `${prefix}  `);
+          }
+        }
+      }
+      await walk(dirPath, 1, '');
+      return { success: true, output: lines.join('\n') || '(empty directory)' };
     } catch (err) {
       return { success: false, output: '', error: String(err) };
     }
@@ -237,7 +324,7 @@ export const searchCodeTool = defineTool(
   'search_code',
   'Search for text or regex patterns across files in the workspace. Returns matching lines with file paths and line numbers.',
   {
-    pattern: { type: 'string', description: 'Text or regex pattern to search for (case-insensitive)' },
+    pattern: { type: 'string', description: 'Text or regex pattern to search for (case-insensitive by default)' },
     include_pattern: { type: 'string', description: "Glob pattern to filter files (e.g., '**/*.ts')" },
     is_regex: { type: 'boolean', description: 'Whether pattern is a regex (default: false)' },
     max_results: { type: 'integer', description: 'Maximum number of matches to return (default: 50)' },
@@ -310,6 +397,7 @@ export const runTerminalCommandTool = defineTool(
       let output = '';
       let exited = false;
       let exitCode: number | null = null;
+      let markerFound = false;
 
       const unlisten = await ctx.listen('pty:data', (payload: unknown) => {
         const data = payload as { pty_id: string; data: string };
@@ -338,21 +426,26 @@ export const runTerminalCommandTool = defineTool(
       }
 
       // Write command followed by an exit marker
-      const exitMarker = `__HYSCODE_EXIT_${Date.now()}__`;
+      // Use a marker that is extremely unlikely to appear in normal output
+      const exitMarker = `__HYSCODE_EXIT_${crypto.randomUUID()}__`;
+      const exitCodeVar = isWin ? '$LASTEXITCODE' : '$?';
+
+      // On Windows/PowerShell, wrap in a script block to avoid ; conflicts in the user's command
       const wrappedCommand = isWin
-        ? `${command}; echo ${exitMarker}; echo EXIT_CODE:$LASTEXITCODE\r\n`
-        : `${command}; echo "${exitMarker}"; echo "EXIT_CODE:$?"\n`;
+        ? `& { ${command} }; Write-Output '${exitMarker}'; Write-Output "EXIT_CODE:$${exitCodeVar}"\r\n`
+        : `${command}; echo '${exitMarker}'; echo "EXIT_CODE:${exitCodeVar}"\n`;
       await ctx.invoke('pty_write', { ptyId, data: wrappedCommand });
 
       // Wait for exit marker or timeout
       const startTime = Date.now();
-      while (Date.now() - startTime < timeoutMs && !exited) {
+      while (Date.now() - startTime < timeoutMs && !exited && !markerFound) {
         // Check if we've received the exit marker
         if (output.includes(exitMarker)) {
-          const exitMatch = output.match(/EXIT_CODE:(\d+)/);
+          const exitMatch = output.match(/EXIT_CODE:(-?\d+)/);
           exitCode = exitMatch ? parseInt(exitMatch[1], 10) : 0;
           const markerIdx = output.indexOf(exitMarker);
           output = output.slice(0, markerIdx).trim();
+          markerFound = true;
           break;
         }
         await new Promise((r) => setTimeout(r, 100));
@@ -384,7 +477,7 @@ export const runTerminalCommandTool = defineTool(
         output = lines.slice(cmdIdx + 1).join('\n').trim();
       }
 
-      const timedOut = !exited && !output.includes(exitMarker) && exitCode === null;
+      const timedOut = !markerFound && !exited && Date.now() - startTime >= timeoutMs;
       if (timedOut) {
         ctx.onTerminalCommand?.(command, output || '', null);
         return {
@@ -736,18 +829,9 @@ export const webFetchTool = defineTool(
         return { success: false, output: '', error: 'Only http and https URLs are allowed.' };
       }
 
-      // Block internal/private IPs
+      // Block internal/private IPs (SSRF protection)
       const hostname = parsed.hostname;
-      if (
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname === '0.0.0.0' ||
-        hostname.startsWith('192.168.') ||
-        hostname.startsWith('10.') ||
-        hostname.startsWith('172.') ||
-        hostname === '::1' ||
-        hostname === '[::1]'
-      ) {
+      if (isPrivateHost(hostname)) {
         return { success: false, output: '', error: 'Fetching internal/private addresses is not allowed.' };
       }
 
@@ -1253,6 +1337,360 @@ export const dockerRunTool = defineTool(
   },
 );
 
+// ─── Additional Filesystem Tools ────────────────────────────────────────────
+
+export const deleteFileTool = defineTool(
+  'delete_file',
+  'Delete a file or directory. Use with caution — this action is destructive.',
+  {
+    path: { type: 'string', description: 'Absolute or workspace-relative path to delete' },
+  },
+  ['path'],
+  'filesystem',
+  true,
+  async (input, ctx) => {
+    try {
+      const filePath = resolvePath(input.path as string, ctx.workspacePath);
+      await ctx.invoke('delete_path', { path: filePath });
+      return { success: true, output: `Deleted: ${input.path}` };
+    } catch (err) {
+      return { success: false, output: '', error: `Failed to delete: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const renameFileTool = defineTool(
+  'rename_file',
+  'Rename or move a file or directory.',
+  {
+    from: { type: 'string', description: 'Source path (absolute or workspace-relative)' },
+    to: { type: 'string', description: 'Destination path (absolute or workspace-relative)' },
+  },
+  ['from', 'to'],
+  'filesystem',
+  true,
+  async (input, ctx) => {
+    try {
+      const fromPath = resolvePath(input.from as string, ctx.workspacePath);
+      const toPath = resolvePath(input.to as string, ctx.workspacePath);
+      await ctx.invoke('rename_path', { from: fromPath, to: toPath });
+      return { success: true, output: `Renamed: ${input.from} → ${input.to}` };
+    } catch (err) {
+      return { success: false, output: '', error: `Failed to rename: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const copyFileTool = defineTool(
+  'copy_file',
+  'Copy a file or directory.',
+  {
+    from: { type: 'string', description: 'Source path (absolute or workspace-relative)' },
+    to: { type: 'string', description: 'Destination path (absolute or workspace-relative)' },
+  },
+  ['from', 'to'],
+  'filesystem',
+  true,
+  async (input, ctx) => {
+    try {
+      const fromPath = resolvePath(input.from as string, ctx.workspacePath);
+      const toPath = resolvePath(input.to as string, ctx.workspacePath);
+      await ctx.invoke('copy_path', { from: fromPath, to: toPath });
+      return { success: true, output: `Copied: ${input.from} → ${input.to}` };
+    } catch (err) {
+      return { success: false, output: '', error: `Failed to copy: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const getFileInfoTool = defineTool(
+  'get_file_info',
+  'Get metadata about a file or directory (size, type, modification time).',
+  {
+    path: { type: 'string', description: 'Absolute or workspace-relative path' },
+  },
+  ['path'],
+  'filesystem',
+  false,
+  async (input, ctx) => {
+    try {
+      const filePath = resolvePath(input.path as string, ctx.workspacePath);
+      const info = await ctx.invoke<{ path: string; is_dir: boolean; is_file: boolean; size: number; modified?: number }>(
+        'stat_path',
+        { path: filePath },
+      );
+      const modified = info.modified
+        ? new Date(info.modified * 1000).toISOString()
+        : 'unknown';
+      return {
+        success: true,
+        output: `${info.path}\nType: ${info.is_dir ? 'directory' : info.is_file ? 'file' : 'other'}\nSize: ${info.size} bytes\nModified: ${modified}`,
+        metadata: info,
+      };
+    } catch (err) {
+      return { success: false, output: '', error: `Failed to stat: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+// ─── Additional Git Tools ───────────────────────────────────────────────────
+
+export const gitPushTool = defineTool(
+  'git_push',
+  'Push commits to a remote repository.',
+  {
+    remote: { type: 'string', description: 'Remote name (default: origin)' },
+    branch: { type: 'string', description: 'Branch to push (default: current branch)' },
+  },
+  [],
+  'git',
+  true,
+  async (input, ctx) => {
+    try {
+      const result = await ctx.invoke<string>('git_push', {
+        repoPath: ctx.workspacePath,
+        remote: (input.remote as string) || undefined,
+        branch: (input.branch as string) || undefined,
+      });
+      return { success: true, output: result || 'Push completed.' };
+    } catch (err) {
+      return { success: false, output: '', error: `Push failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const gitPullTool = defineTool(
+  'git_pull',
+  'Pull changes from a remote repository.',
+  {
+    remote: { type: 'string', description: 'Remote name (default: origin)' },
+  },
+  [],
+  'git',
+  true,
+  async (input, ctx) => {
+    try {
+      const result = await ctx.invoke<string>('git_pull', {
+        repoPath: ctx.workspacePath,
+        remote: (input.remote as string) || undefined,
+      });
+      return { success: true, output: result || 'Pull completed.' };
+    } catch (err) {
+      return { success: false, output: '', error: `Pull failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const gitFetchTool = defineTool(
+  'git_fetch',
+  'Fetch changes from a remote repository without merging.',
+  {
+    remote: { type: 'string', description: 'Remote name (default: origin)' },
+  },
+  [],
+  'git',
+  false,
+  async (input, ctx) => {
+    try {
+      const result = await ctx.invoke<string>('git_fetch', {
+        repoPath: ctx.workspacePath,
+        remote: (input.remote as string) || undefined,
+      });
+      return { success: true, output: result || 'Fetch completed.' };
+    } catch (err) {
+      return { success: false, output: '', error: `Fetch failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const gitStashTool = defineTool(
+  'git_stash',
+  'Stash current changes.',
+  {
+    message: { type: 'string', description: 'Optional stash message' },
+    pop: { type: 'boolean', description: 'If true, pop the most recent stash instead of creating one' },
+    index: { type: 'integer', description: 'Stash index to pop (default: 0, most recent)' },
+  },
+  [],
+  'git',
+  true,
+  async (input, ctx) => {
+    try {
+      if (input.pop) {
+        const idx = (input.index as number) || 0;
+        await ctx.invoke('git_stash_pop', { repoPath: ctx.workspacePath, index: idx });
+        return { success: true, output: `Stash popped (index: ${idx}).` };
+      }
+      await ctx.invoke('git_stash', {
+        repoPath: ctx.workspacePath,
+        message: (input.message as string) || undefined,
+      });
+      return { success: true, output: `Changes stashed.${input.message ? ` Message: ${input.message}` : ''}` };
+    } catch (err) {
+      return { success: false, output: '', error: `Stash failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const gitMergeTool = defineTool(
+  'git_merge',
+  'Merge a branch into the current branch.',
+  {
+    branch: { type: 'string', description: 'Branch to merge' },
+  },
+  ['branch'],
+  'git',
+  true,
+  async (input, ctx) => {
+    try {
+      const result = await ctx.invoke<string>('git_merge', {
+        repoPath: ctx.workspacePath,
+        branch: input.branch as string,
+      });
+      return { success: true, output: result || `Merged branch: ${input.branch}` };
+    } catch (err) {
+      return { success: false, output: '', error: `Merge failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const gitResetTool = defineTool(
+  'git_reset',
+  'Reset current HEAD to a specific state. This is destructive — use with caution.',
+  {
+    mode: { type: 'string', description: 'Reset mode: soft, mixed, hard (default: mixed)' },
+    target: { type: 'string', description: 'Commit hash, branch, or HEAD~N to reset to (default: HEAD)' },
+  },
+  [],
+  'git',
+  true,
+  async (input, ctx) => {
+    try {
+      const mode = (input.mode as string) || 'mixed';
+      const target = (input.target as string) || 'HEAD';
+      const result = await ctx.invoke<string>('git_reset', {
+        repoPath: ctx.workspacePath,
+        mode,
+        target,
+      });
+      return { success: true, output: result || `Reset completed: ${mode} → ${target}` };
+    } catch (err) {
+      return { success: false, output: '', error: `Reset failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const gitBlameTool = defineTool(
+  'git_blame',
+  'Show who last modified each line of a file.',
+  {
+    path: { type: 'string', description: 'File path' },
+    line: { type: 'integer', description: 'Optional: blame only a specific line number' },
+  },
+  ['path'],
+  'git',
+  false,
+  async (input, ctx) => {
+    try {
+      const filePath = resolvePath(input.path as string, ctx.workspacePath);
+      const result = await ctx.invoke<string>('git_blame', {
+        repoPath: ctx.workspacePath,
+        filePath,
+        line: (input.line as number) || undefined,
+      });
+      return { success: true, output: result };
+    } catch (err) {
+      return { success: false, output: '', error: `Blame failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+export const gitShowTool = defineTool(
+  'git_show',
+  'Show details about a specific commit (diff, files changed, stats).',
+  {
+    hash: { type: 'string', description: 'Commit hash (default: HEAD)' },
+  },
+  [],
+  'git',
+  false,
+  async (input, ctx) => {
+    try {
+      const hash = (input.hash as string) || 'HEAD';
+      const detail = await ctx.invoke<{
+        hash: string;
+        short_hash: string;
+        message: string;
+        author: string;
+        timestamp: number;
+        files: Array<{ path: string; status: string; insertions: number; deletions: number }>;
+        total_insertions: number;
+        total_deletions: number;
+      }>('git_commit_detail', { repoPath: ctx.workspacePath, hash });
+
+      const lines = [
+        `${detail.short_hash} — ${detail.message}`,
+        `Author: ${detail.author}`,
+        `Date: ${new Date(detail.timestamp * 1000).toISOString()}`,
+        `Files changed: ${detail.files.length} (+${detail.total_insertions} / -${detail.total_deletions})`,
+        ...detail.files.map((f) => `  ${f.status} ${f.path} (+${f.insertions}/-${f.deletions})`),
+      ];
+      return { success: true, output: lines.join('\n'), metadata: detail };
+    } catch (err) {
+      return { success: false, output: '', error: `git show failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
+// ─── Project Tools ──────────────────────────────────────────────────────────
+
+export const detectProjectTypeTool = defineTool(
+  'detect_project_type',
+  'Detect the type of project in the workspace and list available scripts/dependencies.',
+  {},
+  [],
+  'meta',
+  false,
+  async (_input, ctx) => {
+    try {
+      const files = await ctx.invoke<Array<{ name: string; is_dir: boolean }>>('list_dir', { path: ctx.workspacePath });
+      const names = new Set(files.map((f) => f.name));
+
+      let type = 'unknown';
+      let scripts: string[] = [];
+
+      if (names.has('package.json')) {
+        type = 'node';
+        try {
+          const content = await ctx.invoke<string>('read_file', { path: `${ctx.workspacePath}/package.json` });
+          const pkg = JSON.parse(content);
+          scripts = Object.keys(pkg.scripts || {});
+        } catch {
+          // ignore parse errors
+        }
+      } else if (names.has('Cargo.toml')) {
+        type = 'rust';
+      } else if (names.has('pyproject.toml') || names.has('requirements.txt') || names.has('setup.py')) {
+        type = 'python';
+      } else if (names.has('go.mod')) {
+        type = 'go';
+      } else if (names.has('pom.xml') || names.has('build.gradle')) {
+        type = 'java';
+      } else if (names.has('composer.json')) {
+        type = 'php';
+      }
+
+      return {
+        success: true,
+        output: `Project type: ${type}${scripts.length > 0 ? `\nScripts: ${scripts.join(', ')}` : ''}`,
+        metadata: { type, scripts },
+      };
+    } catch (err) {
+      return { success: false, output: '', error: `Detection failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
+);
+
 // ─── Export All Tools ───────────────────────────────────────────────────────
 
 export function getAllBuiltinTools(): ToolHandler[] {
@@ -1262,9 +1700,13 @@ export function getAllBuiltinTools(): ToolHandler[] {
     writeFileTool,
     editFileTool,
     createFileTool,
+    deleteFileTool,
+    renameFileTool,
+    copyFileTool,
     listDirectoryTool,
     searchCodeTool,
     findFilesTool,
+    getFileInfoTool,
     // Context gathering
     gatherContextTool,
     dropContextTool,
@@ -1278,6 +1720,14 @@ export function getAllBuiltinTools(): ToolHandler[] {
     gitAddTool,
     gitLogTool,
     gitCheckoutTool,
+    gitPushTool,
+    gitPullTool,
+    gitFetchTool,
+    gitStashTool,
+    gitMergeTool,
+    gitResetTool,
+    gitBlameTool,
+    gitShowTool,
     // Code
     getDiagnosticsTool,
     // Browser
@@ -1289,6 +1739,7 @@ export function getAllBuiltinTools(): ToolHandler[] {
     manageTasksTool,
     requestModeSwitchTool,
     askUserTool,
+    detectProjectTypeTool,
     // Docker
     dockerListContainersTool,
     dockerListImagesTool,

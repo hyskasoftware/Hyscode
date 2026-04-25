@@ -4,6 +4,7 @@
 import { McpClientManager } from '@hyscode/mcp-client';
 import type { McpToolDefinition, McpServerConfig as McpCoreConfig } from '@hyscode/mcp-client';
 import { tauriInvokeRaw } from './tauri-invoke';
+import { listen as tauriListen } from '@tauri-apps/api/event';
 import { useSettingsStore } from '@/stores/settings-store';
 import type { McpServerConfig } from '@/stores/settings-store';
 
@@ -13,7 +14,13 @@ export class McpBridge {
   private manager: McpClientManager;
 
   private constructor() {
-    this.manager = new McpClientManager(tauriInvokeRaw);
+    this.manager = new McpClientManager(
+      tauriInvokeRaw,
+      async (event: string, handler: (payload: unknown) => void) => {
+        const unlisten = await tauriListen(event, (e) => handler(e.payload));
+        return unlisten;
+      },
+    );
   }
 
   static init(): McpBridge {

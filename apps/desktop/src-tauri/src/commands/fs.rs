@@ -159,19 +159,30 @@ fn is_binary_file(name: &str) -> bool {
 }
 
 #[tauri::command]
-pub fn search_files(root: String, query: String, max_results: Option<usize>) -> Result<Vec<SearchResult>, String> {
+pub fn search_files(root: String, query: String, is_regex: Option<bool>, max_results: Option<usize>) -> Result<Vec<SearchResult>, String> {
     let root_path = PathBuf::from(&root);
     if !root_path.is_dir() {
         return Err(format!("Not a directory: {}", root));
     }
 
-    let query_lower = query.to_lowercase();
+    let use_regex = is_regex.unwrap_or(false);
     let limit = max_results.unwrap_or(200);
     let mut results = Vec::new();
+
+    // Pre-compile regex if requested
+    let regex_opt = if use_regex {
+        match regex::Regex::new(&query) {
+            Ok(re) => Some(re),
+            Err(e) => return Err(format!("Invalid regex: {}", e)),
+        }
+    } else {
+        None
+    };
 
     fn walk(
         dir: &PathBuf,
         query: &str,
+        regex_opt: &Option<regex::Regex>,
         results: &mut Vec<SearchResult>,
         limit: usize,
     ) -> std::io::Result<()> {
@@ -195,14 +206,19 @@ pub fn search_files(root: String, query: String, max_results: Option<usize>) -> 
             let ft = entry.file_type()?;
 
             if ft.is_dir() {
-                walk(&path, query, results, limit)?;
+                walk(&path, query, regex_opt, results, limit)?;
             } else if ft.is_file() && !is_binary_file(&name) {
                 if let Ok(content) = fs::read_to_string(&path) {
                     for (i, line) in content.lines().enumerate() {
                         if results.len() >= limit {
                             break;
                         }
-                        if line.to_lowercase().contains(query) {
+                        let matched = if let Some(ref re) = regex_opt {
+                            re.is_match(line)
+                        } else {
+                            line.to_lowercase().contains(&query.to_lowercase())
+                        };
+                        if matched {
                             results.push(SearchResult {
                                 path: path.to_string_lossy().to_string(),
                                 line_number: i + 1,
@@ -216,7 +232,7 @@ pub fn search_files(root: String, query: String, max_results: Option<usize>) -> 
         Ok(())
     }
 
-    walk(&root_path, &query_lower, &mut results, limit)
+    walk(&root_path, &query, &regex_opt, &mut results, limit)
         .map_err(|e| format!("Search error: {}", e))?;
 
     Ok(results)

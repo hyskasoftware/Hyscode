@@ -286,6 +286,8 @@ export function activate(context) {
     });
   }
 }
+
+export function deactivate() {
   disposables.forEach(d => {
     if (typeof d === 'function') d();
     else if (d && typeof d.dispose === 'function') d.dispose();

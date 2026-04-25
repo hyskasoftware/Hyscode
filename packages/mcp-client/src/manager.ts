@@ -52,6 +52,7 @@ export interface McpTransport {
 export class StdioTransport implements McpTransport {
   private config: McpServerConfig;
   private invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  private listen: ((event: string, handler: (payload: unknown) => void) => Promise<() => void>) | undefined;
   private ptyId: string | null = null;
   private pendingRequests = new Map<number, {
     resolve: (value: JsonRpcResponse) => void;
@@ -59,13 +60,16 @@ export class StdioTransport implements McpTransport {
   }>();
   private notificationHandler: ((n: JsonRpcNotification) => void) | null = null;
   private buffer = '';
+  private unlistenPtyData: (() => void) | null = null;
 
   constructor(
     config: McpServerConfig,
     invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
+    listen?: (event: string, handler: (payload: unknown) => void) => Promise<() => void>,
   ) {
     this.config = config;
     this.invoke = invoke;
+    this.listen = listen;
   }
 
   async connect(): Promise<void> {
@@ -81,9 +85,23 @@ export class StdioTransport implements McpTransport {
       rows: 24,
       env: this.config.env,
     });
+
+    // Wire up PTY data listener so JSON-RPC responses are received
+    if (this.listen) {
+      this.unlistenPtyData = await this.listen('pty:data', (payload: unknown) => {
+        const data = payload as { pty_id: string; data: string };
+        if (data.pty_id === this.ptyId) {
+          this.handleData(data.data);
+        }
+      });
+    }
   }
 
   async disconnect(): Promise<void> {
+    if (this.unlistenPtyData) {
+      this.unlistenPtyData();
+      this.unlistenPtyData = null;
+    }
     if (this.ptyId) {
       try {
         await this.invoke('pty_kill', { id: this.ptyId });
@@ -391,9 +409,14 @@ export class WebSocketTransport implements McpTransport {
 export class McpClientManager {
   private connections = new Map<string, McpConnection & { transport: McpTransport }>();
   private invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  private listen: ((event: string, handler: (payload: unknown) => void) => Promise<() => void>) | undefined;
 
-  constructor(invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>) {
+  constructor(
+    invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
+    listen?: (event: string, handler: (payload: unknown) => void) => Promise<() => void>,
+  ) {
     this.invoke = invoke;
+    this.listen = listen;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────
@@ -403,7 +426,7 @@ export class McpClientManager {
     let transport: McpTransport;
     switch (config.transport) {
       case 'stdio':
-        transport = new StdioTransport(config, this.invoke);
+        transport = new StdioTransport(config, this.invoke, this.listen);
         break;
       case 'sse':
         transport = new SseTransport(config);

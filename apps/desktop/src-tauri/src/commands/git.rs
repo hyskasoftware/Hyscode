@@ -1023,6 +1023,64 @@ pub fn git_merge(repo_path: String, branch: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn git_reset(repo_path: String, mode: String, target: String) -> Result<String, String> {
+    let repo = open_repo(&repo_path)?;
+    let obj = repo
+        .revparse_single(&target)
+        .map_err(|e| format!("Invalid target: {}", e))?;
+
+    let kind = match mode.as_str() {
+        "soft" => git2::ResetType::Soft,
+        "mixed" => git2::ResetType::Mixed,
+        "hard" => git2::ResetType::Hard,
+        _ => git2::ResetType::Mixed,
+    };
+
+    repo.reset(&obj, kind, None)
+        .map_err(|e| format!("Reset error: {}", e))?;
+
+    Ok(format!("Reset {} to {}", mode, target))
+}
+
+#[tauri::command]
+pub fn git_blame(repo_path: String, file_path: String, line: Option<u32>) -> Result<String, String> {
+    let repo = open_repo(&repo_path)?;
+    let workdir = repo.workdir().ok_or("No working directory")?;
+    let _full_path = workdir.join(&file_path);
+
+    let mut opts = git2::BlameOptions::new();
+    if let Some(l) = line {
+        let min_line = std::num::NonZeroU32::new(l).unwrap_or_else(|| std::num::NonZeroU32::new(1).unwrap());
+        opts.min_line(min_line.get() as usize);
+        opts.max_line(min_line.get() as usize);
+    }
+
+    let blame = repo.blame_file(std::path::Path::new(&file_path), Some(&mut opts))
+        .map_err(|e| format!("Blame error: {}", e))?;
+
+    let mut output = String::new();
+    for hunk in blame.iter() {
+        let sig = hunk.final_signature();
+        let name = sig.name().unwrap_or("");
+        let when = sig.when();
+        let time = chrono::DateTime::from_timestamp(when.seconds(), 0)
+            .map(|d| d.format("%Y-%m-%d").to_string())
+            .unwrap_or_default();
+        let commit_id = &hunk.final_commit_id().to_string()[..8];
+        let lines_in_hunk = hunk.lines_in_hunk();
+        output.push_str(&format!(
+            "{} {:<20} ({:<15}) lines:{}\n",
+            commit_id,
+            name,
+            time,
+            lines_in_hunk,
+        ));
+    }
+
+    Ok(output)
+}
+
+#[tauri::command]
 pub fn git_tag_create(
     repo_path: String,
     name: String,
