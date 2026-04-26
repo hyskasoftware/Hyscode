@@ -20,14 +20,19 @@ import {
   GitFork,
   CheckCircle,
   XCircle,
+  Sparkles,
+  Settings2,
 } from 'lucide-react';
 import { useGitStore, useEditorStore } from '../../../stores';
+import { useSettingsStore } from '../../../stores/settings-store';
 import { getViewerType } from '../../../lib/utils';
 import { detectLanguage } from '../../../lib/lsp-bridge';
 import { GitFileItem } from '../../git/git-file-item';
 import { GitLogView } from '../../git/git-log-view';
 import { promptInput, promptConfirm } from '../../ui/dialogs';
 import type { GitFile } from '../../../stores/git-store';
+import { generateCommitMessage } from '../../../lib/commit-message-ai';
+import { PROVIDERS, getAllEnabledModelsGrouped } from '../../../lib/provider-catalog';
 
 type PanelMode = 'changes' | 'log';
 
@@ -65,6 +70,15 @@ export function GitView() {
   const checkoutBranch = useGitStore((s) => s.checkoutBranch);
   const deleteBranch = useGitStore((s) => s.deleteBranch);
   const fetchBranches = useGitStore((s) => s.fetchBranches);
+  const getStagedDiff = useGitStore((s) => s.getStagedDiff);
+
+  const commitAiProviderId = useSettingsStore((s) => s.commitAiProviderId);
+  const commitAiModelId = useSettingsStore((s) => s.commitAiModelId);
+  const activeProviderId = useSettingsStore((s) => s.activeProviderId);
+  const activeModelId = useSettingsStore((s) => s.activeModelId);
+  const enabledModels = useSettingsStore((s) => s.enabledModels);
+  const customModels = useSettingsStore((s) => s.customModels);
+  const setSettings = useSettingsStore((s) => s.set);
 
   const openTab = useEditorStore((s) => s.openTab);
 
@@ -73,7 +87,12 @@ export function GitView() {
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [opStatus, setOpStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [showAiSettings, setShowAiSettings] = useState(false);
+  const generateAbortRef = useRef<AbortController | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const aiSettingsRef = useRef<HTMLDivElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
 
   // Merge untracked into changes (unstaged + untracked = "Changes")
@@ -91,6 +110,18 @@ export function GitView() {
     return () => document.removeEventListener('mousedown', handler);
   }, [showMenu]);
 
+  // Close AI settings popover on outside click
+  useEffect(() => {
+    if (!showAiSettings) return;
+    const handler = (e: MouseEvent) => {
+      if (aiSettingsRef.current && !aiSettingsRef.current.contains(e.target as Node)) {
+        setShowAiSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showAiSettings]);
+
   // Refresh on mount
   useEffect(() => {
     refresh();
@@ -102,6 +133,49 @@ export function GitView() {
     const t = setTimeout(() => setOpStatus(null), 3000);
     return () => clearTimeout(t);
   }, [opStatus]);
+
+  const handleGenerateMessage = useCallback(async () => {
+    if (staged.length === 0) {
+      setGenerateError('Stage some files first');
+      return;
+    }
+    // Resolve which provider/model to use: commit-specific first, then active
+    const resolvedProviderId = commitAiProviderId ?? activeProviderId;
+    const resolvedModelId = commitAiModelId ?? activeModelId;
+    if (!resolvedProviderId || !resolvedModelId) {
+      setGenerateError('Configure an AI provider in Settings → AI');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerateError(null);
+    const abort = new AbortController();
+    generateAbortRef.current = abort;
+
+    try {
+      const diff = await getStagedDiff();
+      if (!diff.trim()) {
+        setGenerateError('No staged diff available');
+        return;
+      }
+      const message = await generateCommitMessage({
+        providerId: resolvedProviderId,
+        modelId: resolvedModelId,
+        diff,
+        signal: abort.signal,
+      });
+      if (!abort.signal.aborted && message) {
+        setCommitMessage(message);
+      }
+    } catch (err: any) {
+      if (!abort.signal.aborted) {
+        setGenerateError(err.message ?? String(err));
+      }
+    } finally {
+      setIsGenerating(false);
+      generateAbortRef.current = null;
+    }
+  }, [staged.length, commitAiProviderId, commitAiModelId, activeProviderId, activeModelId, getStagedDiff, setCommitMessage]);
 
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim() || staged.length === 0) return;
@@ -382,21 +456,66 @@ export function GitView() {
 
       {/* Commit Input */}
       <div className="border-b border-border px-2 py-1.5">
-        <textarea
-          ref={messageRef}
-          value={commitMessage}
-          onChange={(e) => setCommitMessage(e.target.value)}
-          placeholder="Commit message..."
-          rows={2}
-          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:border-accent/40 transition-colors"
-          onKeyDown={(e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-              handleCommit();
-            }
-          }}
-        />
-        {commitError && (
-          <p className="mt-0.5 text-[10px] text-red-400">{commitError}</p>
+        {/* Textarea with AI generate button */}
+        <div className="relative">
+          <textarea
+            ref={messageRef}
+            value={commitMessage}
+            onChange={(e) => setCommitMessage(e.target.value)}
+            placeholder="Commit message..."
+            rows={2}
+            className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 pr-16 text-[11px] text-foreground placeholder:text-muted-foreground outline-none focus:border-accent/40 transition-colors"
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                handleCommit();
+              }
+            }}
+          />
+          {/* AI generate + AI settings buttons (top-right of textarea) */}
+          <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
+            <button
+              onClick={handleGenerateMessage}
+              disabled={isGenerating || staged.length === 0}
+              className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-accent hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title={isGenerating ? 'Generating…' : 'Generate commit message with AI'}
+            >
+              {isGenerating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+            </button>
+            {/* AI model settings popover */}
+            <div className="relative" ref={aiSettingsRef}>
+              <button
+                onClick={() => setShowAiSettings((v) => !v)}
+                className={`flex h-5 w-5 items-center justify-center rounded-sm transition-colors ${
+                  showAiSettings
+                    ? 'text-accent bg-accent/10'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+                title="AI commit model settings"
+              >
+                <Settings2 className="h-3 w-3" />
+              </button>
+
+              {showAiSettings && (
+                <AiModelPopover
+                  commitAiProviderId={commitAiProviderId}
+                  commitAiModelId={commitAiModelId}
+                  enabledModels={enabledModels}
+                  customModels={customModels}
+                  onProviderChange={(pid) => setSettings('commitAiProviderId', pid)}
+                  onModelChange={(mid) => setSettings('commitAiModelId', mid)}
+                  onClose={() => setShowAiSettings(false)}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {(commitError || generateError) && (
+          <p className="mt-0.5 text-[10px] text-red-400">{commitError ?? generateError}</p>
         )}
         <button
           onClick={handleCommit}
@@ -495,6 +614,90 @@ export function GitView() {
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
+
+interface AiModelPopoverProps {
+  commitAiProviderId: string | null;
+  commitAiModelId: string | null;
+  enabledModels: Record<string, string[]>;
+  customModels: Array<{ providerId: string; modelId: string; name: string }>;
+  onProviderChange: (pid: string | null) => void;
+  onModelChange: (mid: string | null) => void;
+  onClose: () => void;
+}
+
+function AiModelPopover({
+  commitAiProviderId,
+  commitAiModelId,
+  enabledModels,
+  customModels,
+  onProviderChange,
+  onModelChange,
+}: AiModelPopoverProps) {
+  const grouped = getAllEnabledModelsGrouped(enabledModels, customModels);
+  const hasModels = grouped.some((g) => g.models.length > 0);
+
+  const currentValue =
+    commitAiProviderId && commitAiModelId
+      ? `${commitAiProviderId}::${commitAiModelId}`
+      : '';
+
+  const handleChange = (value: string) => {
+    if (!value) {
+      onProviderChange(null);
+      onModelChange(null);
+      return;
+    }
+    const sep = value.indexOf('::');
+    if (sep === -1) return;
+    const pid = value.slice(0, sep);
+    const mid = value.slice(sep + 2);
+    onProviderChange(pid);
+    onModelChange(mid);
+  };
+
+  return (
+    <div className="absolute right-0 top-6 z-50 w-64 rounded-lg border border-border bg-background p-3 shadow-xl">
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        AI Commit Model
+      </div>
+      <p className="mb-2 text-[10px] text-muted-foreground leading-relaxed">
+        Model used to generate commit messages. Leave empty to use the active agent model.
+      </p>
+      {!hasModels ? (
+        <p className="text-[10px] text-yellow-400">
+          No enabled models found. Configure providers in Settings → AI.
+        </p>
+      ) : (
+        <select
+          value={currentValue}
+          onChange={(e) => handleChange(e.target.value)}
+          className="w-full rounded-md bg-muted px-2 py-1 text-[11px] text-foreground outline-none"
+        >
+          <option value="">Use active agent model</option>
+          {grouped.map(({ provider, models }) => (
+            <optgroup key={provider.id} label={provider.name}>
+              {models.map((m) => (
+                <option key={m.id} value={`${provider.id}::${m.id}`}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      )}
+
+      {commitAiProviderId && (
+        <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="truncate">
+            {PROVIDERS.find((p) => p.id === commitAiProviderId)?.name ?? commitAiProviderId}
+          </span>
+          <ChevronRight className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate text-foreground">{commitAiModelId}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FileSection({
   title,

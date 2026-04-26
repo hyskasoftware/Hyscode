@@ -1,7 +1,26 @@
 import { useSettingsStore } from '../../../stores';
+import { getAllEnabledModelsGrouped, PROVIDERS } from '../../../lib/provider-catalog';
 
 export function GitTab() {
   const store = useSettingsStore();
+  const grouped = getAllEnabledModelsGrouped(store.enabledModels, store.customModels);
+
+  const currentAiValue =
+    store.commitAiProviderId && store.commitAiModelId
+      ? `${store.commitAiProviderId}::${store.commitAiModelId}`
+      : '';
+
+  const handleAiModelChange = (value: string) => {
+    if (!value) {
+      store.set('commitAiProviderId', null);
+      store.set('commitAiModelId', null);
+      return;
+    }
+    const sep = value.indexOf('::');
+    if (sep === -1) return;
+    store.set('commitAiProviderId', value.slice(0, sep));
+    store.set('commitAiModelId', value.slice(sep + 2));
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,6 +74,46 @@ export function GitTab() {
             onChange={(v) => store.set('gitConfirmDiscard', v)}
           />
         </Row>
+      </Section>
+
+      <Section title="AI Commit Message">
+        <p className="text-[10px] text-muted-foreground -mt-1 mb-1 leading-relaxed">
+          Model used by the <span className="text-foreground">✦ Generate</span> button in the Git panel.
+          Leave empty to use the active agent model.
+        </p>
+        <Row label="Model">
+          {grouped.length === 0 ? (
+            <span className="text-[11px] text-muted-foreground">
+              No providers configured — add an API key in the AI tab.
+            </span>
+          ) : (
+            <select
+              value={currentAiValue}
+              onChange={(e) => handleAiModelChange(e.target.value)}
+              className="h-7 rounded-md bg-muted px-2 text-[11px] text-foreground outline-none"
+            >
+              <option value="">Use active agent model</option>
+              {grouped.map(({ provider, models }) => (
+                <optgroup key={provider.id} label={provider.name}>
+                  {models.map((m) => (
+                    <option key={m.id} value={`${provider.id}::${m.id}`}>
+                      {m.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          )}
+        </Row>
+        {store.commitAiProviderId && (
+          <Row label="Selected">
+            <span className="text-[11px] text-muted-foreground">
+              {PROVIDERS.find((p) => p.id === store.commitAiProviderId)?.name ?? store.commitAiProviderId}
+              {' / '}
+              <span className="text-foreground">{store.commitAiModelId}</span>
+            </span>
+          </Row>
+        )}
       </Section>
     </div>
   );

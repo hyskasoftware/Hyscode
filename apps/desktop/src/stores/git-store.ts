@@ -115,6 +115,8 @@ interface GitState {
   initRepo: () => Promise<void>;
   getFileContent: (filePath: string) => Promise<GitFileContent>;
   getDiff: (filePath: string, staged: boolean) => Promise<string>;
+  /** Returns the full unified diff of all staged changes (for AI commit message generation) */
+  getStagedDiff: () => Promise<string>;
 
   // New operations
   push: (remote?: string, branch?: string) => Promise<string>;
@@ -337,6 +339,12 @@ export const useGitStore = create<GitState>()(
       const rootPath = getRootPath();
       if (!rootPath) throw new Error('No project open');
       return invoke<string>('git_diff_file', { repoPath: rootPath, filePath, staged });
+    },
+
+    getStagedDiff: async () => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      return invoke<string>('git_diff_staged_all', { repoPath: rootPath });
     },
 
     push: async (remote, branch) => {

@@ -97,6 +97,10 @@ interface SettingsState {
   gitAutoFetch: boolean;
   gitAutoFetchInterval: number;
   gitConfirmDiscard: boolean;
+  /** Provider used for AI commit message generation (null = use active provider) */
+  commitAiProviderId: string | null;
+  /** Model used for AI commit message generation (null = use active model) */
+  commitAiModelId: string | null;
 
   // ─ General ─
   confirmOnClose: boolean;
@@ -211,6 +215,8 @@ export const useSettingsStore = create<SettingsState>()(
       gitAutoFetch: false,
       gitAutoFetchInterval: 5,
       gitConfirmDiscard: true,
+      commitAiProviderId: null,
+      commitAiModelId: null,
 
       // General
       confirmOnClose: false,

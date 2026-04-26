@@ -280,6 +280,43 @@ pub fn git_diff_hunks(
     Ok(hunks)
 }
 
+/// Returns the full unified diff of ALL staged changes (index vs HEAD).
+/// Used by the AI commit message generator. Output is truncated at 32 KB to
+/// avoid overwhelming the model context.
+#[tauri::command]
+pub fn git_diff_staged_all(repo_path: String) -> Result<String, String> {
+    let repo = open_repo(&repo_path)?;
+    let head_tree = repo
+        .head()
+        .ok()
+        .and_then(|h| h.peel_to_tree().ok());
+    let diff = repo
+        .diff_tree_to_index(head_tree.as_ref(), None, None)
+        .map_err(|e| format!("Diff error: {}", e))?;
+
+    let mut output = String::new();
+    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+        let origin = line.origin();
+        if matches!(origin, '+' | '-' | ' ' | 'F' | 'H') {
+            output.push(origin);
+        }
+        if let Ok(content) = std::str::from_utf8(line.content()) {
+            output.push_str(content);
+        }
+        true
+    })
+    .map_err(|e| format!("Diff print error: {}", e))?;
+
+    // Truncate at 32 KB to keep within model context limits
+    const MAX_BYTES: usize = 32 * 1024;
+    if output.len() > MAX_BYTES {
+        output.truncate(MAX_BYTES);
+        output.push_str("\n... (diff truncated)");
+    }
+
+    Ok(output)
+}
+
 #[tauri::command]
 pub fn git_diff_file(
     repo_path: String,
