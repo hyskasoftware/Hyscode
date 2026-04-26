@@ -293,8 +293,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop
-          # No releaseId — we upload the Inno Setup installer manually below
-          args: --target x86_64-pc-windows-msvc --bundles msi
+          # --no-bundle: skip MSI/NSIS bundle. MSI rejects semver pre-release
+          # identifiers (e.g. "0.1.2-preview-build.21"). We only need the
+          # compiled binary; Inno Setup step below creates the actual installer.
+          args: --target x86_64-pc-windows-msvc --no-bundle
 
       - name: Build Inno Setup installer
         shell: pwsh
