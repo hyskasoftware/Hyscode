@@ -7,11 +7,28 @@ import {
   Command,
   ChevronRight,
   Sparkles,
+  Navigation,
+  ArrowRight,
+  FileSearch,
+  FileCode,
+  Search,
+  Type,
+  Lightbulb,
+  AlignLeft,
+  FolderOpen,
+  Terminal,
+  Link,
+  History,
   type LucideIcon,
 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useExtensionUiStore } from '../../stores/extension-ui-store';
 import { useEditorStore, useSettingsStore } from '../../stores';
+import { useLayoutStore } from '../../stores/layout-store';
+import { useTerminalStore } from '../../stores/terminal-store';
+import { useFileStore } from '../../stores/file-store';
 import { detectLanguage } from '../../lib/lsp-bridge';
+import { writeClipboard } from '../../lib/utils';
 import type { MenuActionContext } from '@hyscode/extension-api';
 
 // ── Icon map for extension-contributed icons ─────────────────────────────────
@@ -34,7 +51,7 @@ function getIcon(name?: string): LucideIcon {
 interface EditorContextMenuProps {
   x: number;
   y: number;
-  editorInstance: { getPosition: () => { lineNumber: number; column: number } | null; getSelection: () => { startLineNumber: number; endLineNumber: number } | null; getModel: () => { getValueInRange: (range: unknown) => string } | null; trigger: (source: string, handlerId: string, payload?: unknown) => void; focus: () => void } | null;
+  editorInstance: { getPosition: () => { lineNumber: number; column: number } | null; getSelection: () => { startLineNumber: number; endLineNumber: number; startColumn: number; endColumn: number } | null; getModel: () => { getValueInRange: (range: unknown) => string } | null; trigger: (source: string, handlerId: string, payload?: unknown) => void; focus: () => void } | null;
   onClose: () => void;
 }
 
@@ -77,7 +94,6 @@ function Separator() {
   return <div className="my-1 h-px bg-border" />;
 }
 
-
 // ── Format sub-menu ──────────────────────────────────────────────────────────
 
 function FormatSubmenu({
@@ -106,11 +122,61 @@ function FormatSubmenu({
   );
 }
 
+// ── Git history sub-menu ─────────────────────────────────────────────────────
+
+interface GitCommitInfo {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  email: string;
+  timestamp: number;
+}
+
+function HistorySubmenu({
+  commits,
+  onClose,
+}: {
+  commits: GitCommitInfo[];
+  onClose: () => void;
+}) {
+  if (commits.length === 0) {
+    return (
+      <div className="ml-1 mt-1 rounded-lg border border-border bg-surface p-2 shadow-lg">
+        <span className="text-[11px] text-muted-foreground">No history found</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ml-1 mt-1 max-h-[240px] overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-lg">
+      {commits.map((c) => (
+        <button
+          key={c.hash}
+          onClick={() => {
+            onClose();
+            // Could open diff view in the future
+          }}
+          className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-[11px] text-foreground hover:bg-surface-raised transition-colors"
+        >
+          <span className="truncate font-medium">{c.message.split('\n')[0]}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {c.short_hash} — {c.author}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export function EditorContextMenu({ x, y, editorInstance, onClose }: EditorContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [showFormatSubmenu, setShowFormatSubmenu] = useState(false);
+  const [showHistorySubmenu, setShowHistorySubmenu] = useState(false);
+  const [historyCommits, setHistoryCommits] = useState<GitCommitInfo[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const contextMenuItems = useExtensionUiStore((s) => s.contextMenuItems);
   const formatters = useExtensionUiStore((s) => s.formatters);
@@ -119,11 +185,14 @@ export function EditorContextMenu({ x, y, editorInstance, onClose }: EditorConte
   const tabs = useEditorStore((s) => s.tabs);
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const tabSize = useSettingsStore((s) => s.tabSize);
+  const rootPath = useFileStore((s) => s.rootPath);
 
   const languageId = activeTab?.filePath ? (detectLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext') : 'plaintext';
   const availableFormatters = formatters.filter(
     (f) => f.item.languageIds.includes(languageId) || f.item.languageIds.includes('*'),
   );
+
+  const isUntitled = activeTab?.filePath?.startsWith('untitled:') ?? true;
 
   // Build the menu action context
   const getMenuContext = useCallback((): MenuActionContext => {
@@ -173,11 +242,39 @@ export function EditorContextMenu({ x, y, editorInstance, onClose }: EditorConte
     }
   }, [x, y]);
 
-  // Built-in actions
+  // ── Navigation actions ────────────────────────────────────────────────────
+  const handleGoToDefinition = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.revealDefinition'); };
+  const handleGoToDeclaration = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.revealDeclaration'); };
+  const handleGoToTypeDefinition = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.goToTypeDefinition'); };
+  const handleGoToImplementation = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.goToImplementation'); };
+  const handleFindAllReferences = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.goToReferences'); };
+
+  // ── Refactoring actions ───────────────────────────────────────────────────
+  const handleRenameSymbol = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.rename'); };
+
+  // ── Code actions ──────────────────────────────────────────────────────────
+  const handleShowCodeActions = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.quickFix'); };
+
+  // ── Clipboard actions ─────────────────────────────────────────────────────
   const handleCut = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.clipboardCutAction'); };
   const handleCopy = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.clipboardCopyAction'); };
   const handlePaste = () => { onClose(); editorInstance?.trigger('contextMenu', 'editor.action.clipboardPasteAction'); };
 
+  const handleCopyAndTrim = () => {
+    onClose();
+    const sel = editorInstance?.getSelection?.();
+    const model = editorInstance?.getModel?.();
+    if (!sel || !model) return;
+    try {
+      const text = model.getValueInRange(sel);
+      const trimmed = text.split('\n').map((line: string) => line.trimEnd()).join('\n').trim();
+      writeClipboard(trimmed).catch(console.error);
+    } catch (err) {
+      console.error('[EditorContextMenu] Copy and trim error:', err);
+    }
+  };
+
+  // ── Format action ─────────────────────────────────────────────────────────
   const handleFormat = async (formatterId: string) => {
     onClose();
     const formatter = formatters.find((f) => f.item.id === formatterId);
@@ -208,6 +305,65 @@ export function EditorContextMenu({ x, y, editorInstance, onClose }: EditorConte
     }
   };
 
+  // ── File actions ──────────────────────────────────────────────────────────
+  const handleRevealInFileExplorer = async () => {
+    onClose();
+    if (isUntitled || !activeTab?.filePath) return;
+    try {
+      await invoke('reveal_path', { path: activeTab.filePath });
+    } catch (err) {
+      console.error('Failed to reveal in file explorer:', err);
+    }
+  };
+
+  const handleOpenInTerminal = () => {
+    onClose();
+    if (!activeTab?.filePath) return;
+    const dir = activeTab.filePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+    if (!dir) return;
+
+    const { createSession } = useTerminalStore.getState();
+    const { setTerminalVisible } = useLayoutStore.getState();
+    createSession(undefined, false, dir);
+    setTerminalVisible(true);
+  };
+
+  const handleCopyPermalink = async () => {
+    onClose();
+    if (!activeTab?.filePath) return;
+    const pos = editorInstance?.getPosition?.();
+    const line = pos?.lineNumber ?? 1;
+    const permalink = `${activeTab.filePath}:${line}`;
+    try {
+      await writeClipboard(permalink);
+    } catch (err) {
+      console.error('Failed to copy permalink:', err);
+    }
+  };
+
+  const handleViewFileHistory = async () => {
+    if (!rootPath || !activeTab?.filePath || isUntitled) return;
+    const relPath = activeTab.filePath.replace(/\\/g, '/').replace(rootPath.replace(/\\/g, '/') + '/', '');
+
+    if (!showHistorySubmenu) {
+      setHistoryLoading(true);
+      try {
+        const log = await invoke<GitCommitInfo[]>('git_log_file', {
+          repoPath: rootPath,
+          filePath: relPath,
+          limit: 20,
+        });
+        setHistoryCommits(log);
+      } catch (err) {
+        console.error('Failed to load file history:', err);
+        setHistoryCommits([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+    setShowHistorySubmenu(!showHistorySubmenu);
+  };
+
   // Group extension items
   const sortedExtItems = [...contextMenuItems].sort((a, b) => (a.item.order ?? 50) - (b.item.order ?? 50));
 
@@ -215,17 +371,23 @@ export function EditorContextMenu({ x, y, editorInstance, onClose }: EditorConte
     <div
       ref={menuRef}
       style={{ position: 'fixed', left: x, top: y, zIndex: 9999 }}
-      className="min-w-[240px] max-w-[300px] rounded-lg border border-border bg-surface p-1 shadow-lg"
+      className="min-w-[240px] max-w-[320px] rounded-lg border border-border bg-surface p-1 shadow-lg"
     >
-      {/* Built-in editor actions */}
-      <ContextItem icon={Scissors} label="Cut" shortcut="Ctrl+X" onClick={handleCut} />
-      <ContextItem icon={Copy} label="Copy" shortcut="Ctrl+C" onClick={handleCopy} />
-      <ContextItem icon={ClipboardPaste} label="Paste" shortcut="Ctrl+V" onClick={handlePaste} />
+      {/* Navigation */}
+      <ContextItem icon={Navigation} label="Go to Definition" shortcut="F12" onClick={handleGoToDefinition} />
+      <ContextItem icon={ArrowRight} label="Go to Declaration" onClick={handleGoToDeclaration} />
+      <ContextItem icon={FileCode} label="Go to Type Definition" onClick={handleGoToTypeDefinition} />
+      <ContextItem icon={FileSearch} label="Go to Implementation" shortcut="Ctrl+F12" onClick={handleGoToImplementation} />
+      <ContextItem icon={Search} label="Find All References" shortcut="Alt+Shift+F12" onClick={handleFindAllReferences} />
 
-      {/* Format section */}
+      <Separator />
+
+      {/* Refactoring */}
+      <ContextItem icon={Type} label="Rename Symbol" shortcut="F2" onClick={handleRenameSymbol} />
+
+      {/* Format */}
       {availableFormatters.length > 0 && (
         <>
-          <Separator />
           {availableFormatters.length === 1 ? (
             <ContextItem
               icon={Sparkles}
@@ -254,6 +416,59 @@ export function EditorContextMenu({ x, y, editorInstance, onClose }: EditorConte
           )}
         </>
       )}
+
+      <ContextItem icon={Lightbulb} label="Show Code Actions" shortcut="Ctrl+." onClick={handleShowCodeActions} />
+
+      <Separator />
+
+      {/* Clipboard */}
+      <ContextItem icon={Scissors} label="Cut" shortcut="Ctrl+X" onClick={handleCut} />
+      <ContextItem icon={Copy} label="Copy" shortcut="Ctrl+C" onClick={handleCopy} />
+      <ContextItem icon={AlignLeft} label="Copy and Trim" onClick={handleCopyAndTrim} />
+      <ContextItem icon={ClipboardPaste} label="Paste" shortcut="Ctrl+V" onClick={handlePaste} />
+
+      <Separator />
+
+      {/* File actions */}
+      <ContextItem
+        icon={FolderOpen}
+        label="Reveal in File Explorer"
+        shortcut="Ctrl+K R"
+        onClick={handleRevealInFileExplorer}
+        disabled={isUntitled}
+      />
+      <ContextItem
+        icon={Terminal}
+        label="Open in Terminal"
+        onClick={handleOpenInTerminal}
+        disabled={isUntitled}
+      />
+      <ContextItem
+        icon={Link}
+        label="Copy Permalink"
+        onClick={handleCopyPermalink}
+        disabled={isUntitled}
+      />
+      <div className="relative">
+        <ContextItem
+          icon={History}
+          label="View File History"
+          onClick={handleViewFileHistory}
+          disabled={isUntitled || !rootPath}
+          submenu
+        />
+        {showHistorySubmenu && (
+          <div className="absolute left-full top-0 ml-1 min-w-[220px]">
+            {historyLoading ? (
+              <div className="rounded-lg border border-border bg-surface p-2 shadow-lg">
+                <span className="text-[11px] text-muted-foreground">Loading...</span>
+              </div>
+            ) : (
+              <HistorySubmenu commits={historyCommits} onClose={onClose} />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Extension-contributed items */}
       {sortedExtItems.length > 0 && (

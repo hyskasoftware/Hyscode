@@ -10,13 +10,15 @@ export interface Tab {
   isDirty: boolean;
   isPinned: boolean;
   isPreview: boolean;
-  type: 'file' | 'diff';
+  type: 'file' | 'diff' | 'terminal';
   viewerType: ViewerType;
   markdownMode?: 'preview' | 'code';
   diffProps?: {
     filePath: string;
     staged: boolean;
   };
+  /** Terminal session id when type === 'terminal' */
+  terminalSessionId?: string;
 }
 
 let untitledCounter = 0;
@@ -26,6 +28,7 @@ interface EditorState {
   activeTabId: string | null;
   openTab: (tab: Omit<Tab, 'isDirty' | 'isPinned' | 'isPreview' | 'type' | 'diffProps' | 'viewerType' | 'markdownMode'> & { type?: Tab['type']; diffProps?: Tab['diffProps']; viewerType?: ViewerType; markdownMode?: Tab['markdownMode'] }) => void;
   openUntitled: () => void;
+  openTerminalTab: (sessionId: string, name: string) => void;
   closeTab: (id: string) => void;
   closeOtherTabs: (id: string) => void;
   closeTabsToTheRight: (id: string) => void;
@@ -91,13 +94,44 @@ export const useEditorStore = create<EditorState>()(
         state.activeTabId = id;
       }),
 
+    openTerminalTab: (sessionId: string, name: string) =>
+      set((state) => {
+        const id = `terminal:${sessionId}`;
+        const existing = state.tabs.find((t) => t.id === id);
+        if (existing) {
+          state.activeTabId = existing.id;
+          return;
+        }
+        const newTab: Tab = {
+          id,
+          filePath: id,
+          fileName: name,
+          language: 'plaintext',
+          isDirty: false,
+          isPinned: false,
+          isPreview: false,
+          type: 'terminal',
+          viewerType: 'code',
+          terminalSessionId: sessionId,
+        };
+        state.tabs.push(newTab);
+        state.activeTabId = id;
+      }),
+
     closeTab: (id) =>
       set((state) => {
         const idx = state.tabs.findIndex((t) => t.id === id);
         if (idx < 0) return;
+        const tab = state.tabs[idx];
         state.tabs.splice(idx, 1);
         if (state.activeTabId === id) {
           state.activeTabId = state.tabs[Math.min(idx, state.tabs.length - 1)]?.id ?? null;
+        }
+        // If closing a terminal tab, also remove the underlying terminal session
+        if (tab.type === 'terminal' && tab.terminalSessionId) {
+          import('./terminal-store').then((m) => {
+            m.useTerminalStore.getState().closeSession(tab.terminalSessionId!);
+          });
         }
       }),
 

@@ -22,10 +22,12 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
   /** Tracks what the user is typing so we can log commands on Enter */
   const inputBufferRef = useRef<string>('');
 
-  const setPtyId = useTerminalStore((s) => s.setPtyId);
-  const setLastCommand = useTerminalStore((s) => s.setLastCommand);
-  const appendCommandHistory = useTerminalStore((s) => s.appendCommandHistory);
-  const rootPath = useProjectStore((s) => s.rootPath);
+    const setPtyId = useTerminalStore((s) => s.setPtyId);
+    const setLastCommand = useTerminalStore((s) => s.setLastCommand);
+    const appendCommandHistory = useTerminalStore((s) => s.appendCommandHistory);
+    const rootPath = useProjectStore((s) => s.rootPath);
+    const session = useTerminalStore.getState().sessions.find(s => s.id === sessionId);
+    const sessionCwd = session?.cwd ?? rootPath;
   const themeId = useSettingsStore((s) => s.themeId);
   const extensionThemesVersion = useExtensionStore((s) => s.extensionThemesVersion);
   // Keep a ref so the one-time init effect always reads the latest themeId
@@ -136,7 +138,7 @@ export function TerminalInstance({ sessionId, isActive }: TerminalInstanceProps)
         } else {
           ptyId = await invoke<string>('pty_spawn', {
             shell: null,
-            cwd: rootPath ?? null,
+            cwd: sessionCwd ?? null,
             env: null,
           });
 
