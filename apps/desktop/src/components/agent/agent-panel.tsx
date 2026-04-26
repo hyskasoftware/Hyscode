@@ -1,4 +1,4 @@
-import { Trash2, History, Bot, BookText } from 'lucide-react';
+import { Trash2, History, Bot, BookText, Terminal, MessageSquare } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { AgentMessages } from './agent-messages';
 import { AgentInput } from './agent-input';
@@ -24,6 +24,7 @@ import {
 import type { TokenUsage } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { getProviderRegistry } from '@hyscode/ai-providers';
+import { TerminalPanel } from '@/components/terminal';
 import type { AIModel } from '@hyscode/ai-providers';
 
 // ─── Context Window Pie Popup ─────────────────────────────────────────────────
@@ -193,6 +194,7 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
   const setHistoryOpen = useAgentStore((s) => s.setHistoryOpen);
   const rulesOpen = useLayoutStore((s) => s.rulesPanelOpen);
   const setRulesOpen = useLayoutStore((s) => s.setRulesPanelOpen);
+  const agentCenterPanelMode = useSettingsStore((s) => s.agentCenterPanelMode);
 
   const handleSpecApprove = async () => {
     try {
@@ -237,6 +239,25 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
             </Tooltip>
             <RulesPanelDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
           </div>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() =>
+                    useSettingsStore.getState().set('agentCenterPanelMode', agentCenterPanelMode === 'terminal' ? 'chat' : 'terminal')
+                  }
+                  className="text-muted-foreground hover:text-foreground"
+                />
+              }
+            >
+              {agentCenterPanelMode === 'terminal' ? <MessageSquare className="h-3 w-3" /> : <Terminal className="h-3 w-3" />}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {agentCenterPanelMode === 'terminal' ? 'Show Chat' : 'Show Terminal'}
+            </TooltipContent>
+          </Tooltip>
           <ContextPieButton usage={tokenUsage} messageCount={messageCount} />
           <Tooltip>
             <TooltipTrigger
@@ -276,6 +297,10 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
       {/* Session History overlay */}
       {historyOpen ? (
         <SessionHistory />
+      ) : agentCenterPanelMode === 'terminal' ? (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <TerminalPanel />
+        </div>
       ) : (
         <>
           {/* SDD Stepper (only visible in active SDD session) */}

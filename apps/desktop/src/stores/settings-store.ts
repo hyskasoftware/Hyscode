@@ -167,6 +167,7 @@ interface SettingsState {
   showAgentTab: boolean;
   showReviewTab: boolean;
   showAgentChatPanel: boolean;
+  agentCenterPanelMode: 'chat' | 'terminal';
 
   // ─ Settings modal ─
   settingsOpen: boolean;
@@ -290,6 +291,7 @@ export const useSettingsStore = create<SettingsState>()(
       showAgentTab: true,
       showReviewTab: true,
       showAgentChatPanel: true,
+      agentCenterPanelMode: 'chat' as const,
 
       // Settings modal
       settingsOpen: false,

@@ -192,6 +192,15 @@ export function GeneralTab() {
             onChange={(v) => store.set('showAgentChatPanel', v)}
           />
         </Row>
+        <Row
+          label="Terminal in Agent Center"
+          description="Replace chat with terminal tabs in the agent layout center panel"
+        >
+          <Toggle
+            checked={store.agentCenterPanelMode === 'terminal'}
+            onChange={(v) => store.set('agentCenterPanelMode', v ? 'terminal' : 'chat')}
+          />
+        </Row>
       </Section>
     </div>
   );
