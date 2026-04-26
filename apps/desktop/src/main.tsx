@@ -30,6 +30,22 @@ self.MonacoEnvironment = {
 // Use locally bundled monaco-editor instead of fetching from CDN.
 loader.config({ monaco });
 
+// Disable Monaco's built-in TS semantic validation — LSP provides real diagnostics.
+// We keep syntax validation (parsing errors) but disable module/type checking.
+// Cast to any because monaco.languages.typescript is marked deprecated in v0.55+ types
+// but the runtime API still exists and works.
+const tsLang = (monaco.languages as any).typescript;
+if (tsLang) {
+  tsLang.typescriptDefaults?.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSuggestionDiagnostics: true,
+  });
+  tsLang.javascriptDefaults?.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSuggestionDiagnostics: true,
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

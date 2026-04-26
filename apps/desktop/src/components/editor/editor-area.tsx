@@ -24,8 +24,8 @@ import { useGitDecorations } from '../../hooks/use-git-decorations';
 import { useAgentDecorations } from '../../hooks/use-agent-decorations';
 import { useDiagnosticsSync } from '../../hooks/use-diagnostics-sync';
 import { defineAllMonacoThemes, getMonacoThemeName } from '../../lib/monaco-themes';
-import { LspBridge, detectLanguage } from '../../lib/lsp-bridge';
-import { registerAllLanguages } from '@hyscode/lsp-client';
+import { LspBridge, detectLanguage, detectLspLanguage } from '../../lib/lsp-bridge';
+import { registerAllLanguages, disableNativeTypeScriptValidation } from '@hyscode/lsp-client';
 import type * as monacoEditor from 'monaco-editor';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -99,11 +99,15 @@ export function EditorArea() {
   const editorInstanceRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const monacoInstanceRef = useRef<typeof monacoEditor | null>(null);
 
+  // Track when editor mounts so decoration hooks re-run
+  const [editorVersion, setEditorVersion] = useState(0);
+
   // Apply git diff decorations to gutter + minimap
   useGitDecorations(
     editorInstanceRef,
     monacoInstanceRef,
     activeTab?.type === 'file' ? (activeTab?.filePath ?? null) : null,
+    editorVersion,
   );
 
   // Apply agent edit decorations (glow, gutter markers, minimap)
@@ -111,6 +115,7 @@ export function EditorArea() {
     editorInstanceRef,
     monacoInstanceRef,
     activeTab?.type === 'file' ? (activeTab?.filePath ?? null) : null,
+    editorVersion,
   );
 
   // Sync Monaco diagnostics to the file tree
@@ -225,7 +230,7 @@ export function EditorArea() {
     const closedTabs = prevTabs.filter((pt) => !tabs.some((t) => t.id === pt.id));
     for (const tab of closedTabs) {
       if (tab.type === 'file' || tab.type === 'diff') {
-        const lang = detectLanguage(tab.filePath) ?? tab.language ?? 'plaintext';
+        const lang = detectLspLanguage(tab.filePath) ?? tab.language ?? 'plaintext';
         LspBridge.onFileClosed(tab.filePath, lang).catch(() => {});
       }
     }
@@ -242,7 +247,7 @@ export function EditorArea() {
 
     // Open new document
     if (activeTab && isTextViewer && content !== null) {
-      const lang = detectLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
+      const lang = detectLspLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
       LspBridge.onFileOpened(activeTab.filePath, lang, content).catch(() => {});
       prevTabRef.current = { filePath: activeTab.filePath, language: lang };
     } else {
@@ -258,7 +263,7 @@ export function EditorArea() {
       markDirty(activeTab.id, true);
 
       // Notify LSP of content change (debounced inside bridge)
-      const lang = detectLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
+      const lang = detectLspLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
       LspBridge.onFileChanged(activeTab.filePath, lang, value);
     },
     [activeTab?.id, activeTab?.filePath, activeTab?.language, markDirty, setFileContent],
@@ -289,7 +294,7 @@ export function EditorArea() {
         try {
           await tauriFs.writeFile(activeTab.filePath, currentContent);
           markDirty(activeTab.id, false);
-          const lang = detectLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
+          const lang = detectLspLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
           LspBridge.onFileSaved(activeTab.filePath, lang, currentContent);
         } catch (err) {
           console.error('Failed to save file:', err);
@@ -358,6 +363,7 @@ export function EditorArea() {
           <div className="flex-1 overflow-hidden">
           <Suspense fallback={<EditorLoading />}>
             <MonacoEditor
+              path={activeTab.filePath}
               language={detectLanguage(activeTab.filePath)}
               value={content ?? ''}
               onChange={handleEditorChange}
@@ -365,6 +371,7 @@ export function EditorArea() {
               onMount={(editor, monaco) => {
                 editorInstanceRef.current = editor;
                 monacoInstanceRef.current = monaco;
+                setEditorVersion((v) => v + 1);
 
                 // Disable Monaco's built-in context menu so we show our own
                 editor.updateOptions({ contextmenu: false });
@@ -382,6 +389,7 @@ export function EditorArea() {
               beforeMount={(monaco) => {
                 defineAllMonacoThemes(monaco);
                 registerAllLanguages(monaco);
+                disableNativeTypeScriptValidation(monaco);
                 LspBridge.setMonaco(monaco);
               }}
               options={{
@@ -404,7 +412,8 @@ export function EditorArea() {
                 padding: { top: 8 },
                 overviewRulerLanes: 3,
                 overviewRulerBorder: false,
-                lineDecorationsWidth: 8,
+                lineDecorationsWidth: 12,
+                glyphMargin: true,
               }}
             />
           </Suspense>

@@ -11,13 +11,12 @@ type MonacoInstance = typeof import('monaco-editor');
 
 const EXTENSION_MAP: Record<string, string> = {
   // TypeScript / JavaScript
-  // Monaco's built-in tokenizer handles tsx/jsx under the base typescript/javascript IDs
-  // for syntax highlighting, but the LSP languageId must be typescriptreact/javascriptreact
-  // for the language server to parse JSX correctly.
+  // Monaco's built-in tokenizer handles tsx/jsx under the base typescript/javascript IDs.
+  // The LSP languageId must be typescriptreact/javascriptreact for the server to parse JSX.
   ts: 'typescript',
-  tsx: 'typescriptreact',
+  tsx: 'typescript',
   js: 'javascript',
-  jsx: 'javascriptreact',
+  jsx: 'javascript',
   mjs: 'javascript',
   cjs: 'javascript',
   mts: 'typescript',
@@ -242,22 +241,45 @@ const FILENAME_MAP: Record<string, string> = {
   Procfile: 'plaintext',
 };
 
+function getExtension(filePath: string): { filename: string; ext: string } {
+  const segments = filePath.replace(/\\/g, '/').split('/');
+  const filename = segments[segments.length - 1] ?? '';
+  const ext = filename.includes('.') ? filename.split('.').pop()?.toLowerCase() ?? '' : '';
+  return { filename, ext };
+}
+
 /**
- * Detect language ID from a file path.
+ * Detect Monaco language ID from a file path (for syntax highlighting).
  * Returns 'plaintext' if no match found.
  */
 export function detectLanguage(filePath: string): string {
-  const segments = filePath.replace(/\\/g, '/').split('/');
-  const filename = segments[segments.length - 1] ?? '';
+  const { filename, ext } = getExtension(filePath);
 
   // Check filename first
   if (FILENAME_MAP[filename]) return FILENAME_MAP[filename];
 
   // Check extension
-  const ext = filename.includes('.') ? filename.split('.').pop()?.toLowerCase() ?? '' : '';
   if (ext && EXTENSION_MAP[ext]) return EXTENSION_MAP[ext];
 
-  // Shebang detection would require file content — handled elsewhere
+  return 'plaintext';
+}
+
+/**
+ * Detect LSP language ID from a file path (for language servers).
+ * Differs from detectLanguage for JSX/TSX files.
+ */
+export function detectLspLanguage(filePath: string): string {
+  const { filename, ext } = getExtension(filePath);
+
+  // Check filename first
+  if (FILENAME_MAP[filename]) return FILENAME_MAP[filename];
+
+  // JSX/TSX need distinct LSP language IDs
+  if (ext === 'tsx') return 'typescriptreact';
+  if (ext === 'jsx') return 'javascriptreact';
+
+  if (ext && EXTENSION_MAP[ext]) return EXTENSION_MAP[ext];
+
   return 'plaintext';
 }
 
@@ -285,13 +307,22 @@ export function disableNativeTypeScriptValidation(monaco: MonacoInstance) {
   tsLang.typescriptDefaults?.setDiagnosticsOptions({
     ...tsLang.typescriptDefaults.getDiagnosticsOptions(),
     noSemanticValidation: true,
-    noSyntaxValidation: true,
+    noSuggestionDiagnostics: true,
   });
   tsLang.javascriptDefaults?.setDiagnosticsOptions({
     ...tsLang.javascriptDefaults.getDiagnosticsOptions(),
     noSemanticValidation: true,
-    noSyntaxValidation: true,
+    noSuggestionDiagnostics: true,
   });
+
+  // Wipe any existing markers from the built-in TS worker so stale errors disappear immediately.
+  for (const model of monaco.editor.getModels()) {
+    const path = model.uri.path;
+    if (/\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/i.test(path)) {
+      monaco.editor.setModelMarkers(model, 'typescript', []);
+      monaco.editor.setModelMarkers(model, 'javascript', []);
+    }
+  }
 }
 
 export function enableNativeTypeScriptValidation(monaco: MonacoInstance) {
@@ -300,12 +331,12 @@ export function enableNativeTypeScriptValidation(monaco: MonacoInstance) {
   tsLang.typescriptDefaults?.setDiagnosticsOptions({
     ...tsLang.typescriptDefaults.getDiagnosticsOptions(),
     noSemanticValidation: false,
-    noSyntaxValidation: false,
+    noSuggestionDiagnostics: false,
   });
   tsLang.javascriptDefaults?.setDiagnosticsOptions({
     ...tsLang.javascriptDefaults.getDiagnosticsOptions(),
     noSemanticValidation: false,
-    noSyntaxValidation: false,
+    noSuggestionDiagnostics: false,
   });
 }
 
@@ -400,22 +431,12 @@ function registerTypescriptReact(monaco: MonacoInstance) {
       ...typescriptDefaults.getCompilerOptions(),
       ...sharedOptions,
     });
-    typescriptDefaults.setDiagnosticsOptions({
-      ...typescriptDefaults.getDiagnosticsOptions(),
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-    });
   }
 
   if (javascriptDefaults) {
     javascriptDefaults.setCompilerOptions({
       ...javascriptDefaults.getCompilerOptions(),
       ...sharedOptions,
-    });
-    javascriptDefaults.setDiagnosticsOptions({
-      ...javascriptDefaults.getDiagnosticsOptions(),
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
     });
   }
 }

@@ -47,7 +47,7 @@ export function initDiagnosticsTracker(monaco: typeof import('monaco-editor')) {
   };
 
   // Listen for model disposal to clear diagnostics immediately
-  monaco.editor.onDidDisposeModel((model) => {
+  monaco.editor.onWillDisposeModel((model: import('monaco-editor').editor.ITextModel) => {
     const rawUri = model.uri.toString();
     const path = uriToPath(rawUri);
     useDiagnosticsStore.getState().clearDiagnostics(path);

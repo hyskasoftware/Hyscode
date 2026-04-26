@@ -82,6 +82,7 @@ export function useAgentDecorations(
   editorRef: React.MutableRefObject<IEditor | null>,
   monacoRef: React.MutableRefObject<IMonaco | null>,
   filePath: string | null,
+  editorVersion: number,
 ) {
   const reducedMotion = useSettingsStore((s) => s.reducedMotion);
   const collectionRef = useRef<IDecorationsCollection | null>(null);
@@ -128,7 +129,7 @@ export function useAgentDecorations(
     } else {
       collectionRef.current.set(decorations);
     }
-  }, [session, reducedMotion]);
+  }, [session, reducedMotion, editorVersion]);
 
   // Cleanup on unmount
   useEffect(() => {

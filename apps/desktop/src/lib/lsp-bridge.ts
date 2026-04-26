@@ -14,7 +14,7 @@ import {
   getUniqueServerCommands,
   getBuiltinServerForLanguage,
   registerAllLanguages,
-  detectLanguage,
+  detectLspLanguage,
 } from '@hyscode/lsp-client';
 import type { LspContribution } from '@hyscode/extension-api';
 import { useLspStore } from '@/stores/lsp-store';
@@ -229,7 +229,7 @@ class LspBridgeImpl {
     // Re-open if there are documents for this language (including variants like tsx → typescriptreact)
     const hasOpenDocs = Array.from(this.openDocuments).some((uri) => {
       const path = this.uriToFilePath(uri);
-      const docLang = detectLanguage(path);
+      const docLang = detectLspLanguage(path);
       return docLang === languageId;
     });
 
@@ -346,5 +346,5 @@ class LspBridgeImpl {
 
 export const LspBridge = new LspBridgeImpl();
 
-// Re-export detectLanguage for convenience
-export { detectLanguage } from '@hyscode/lsp-client';
+// Re-export language detection for convenience
+export { detectLanguage, detectLspLanguage } from '@hyscode/lsp-client';
