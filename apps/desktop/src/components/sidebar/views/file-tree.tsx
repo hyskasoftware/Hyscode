@@ -17,7 +17,7 @@ import { useLayoutStore } from '../../../stores/layout-store';
 import { useDiagnosticsStore } from '../../../stores/diagnostics-store';
 import type { FileDiagnostics } from '../../../stores/diagnostics-store';
 import { tauriFs } from '../../../lib/tauri-fs';
-import { getViewerType } from '../../../lib/utils';
+import { getViewerType, writeClipboard } from '../../../lib/utils';
 import { detectLanguage } from '../../../lib/lsp-bridge';
 import { getFileIcon, getFolderIcon, FolderIcon as DefaultFolderIcon } from './file-icons';
 import { promptInput, promptConfirm } from '../../ui/dialogs';
@@ -321,7 +321,12 @@ function FileTreeNode({
   return (
     <div
       className="relative"
-      onDragOver={node.isDir ? (e) => { e.preventDefault(); e.stopPropagation(); onDragOver(e, node); } : undefined}
+      onDragOver={node.isDir ? (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOver(e, node);
+      } : undefined}
       onDragLeave={node.isDir ? (e) => onDragLeave(e, node) : undefined}
       onDrop={node.isDir ? (e) => { e.preventDefault(); e.stopPropagation(); onDrop(e, node); } : undefined}
     >
@@ -329,9 +334,14 @@ function FileTreeNode({
         onClick={handleClick}
         onContextMenu={(e) => onContextMenu(e, node)}
         draggable
-        onDragStart={(e) => { e.stopPropagation(); onDragStart(node); }}
+        onDragStart={(e) => {
+          e.stopPropagation();
+          e.dataTransfer.setData('text/plain', node.path);
+          e.dataTransfer.effectAllowed = 'move';
+          onDragStart(node);
+        }}
         onDragEnd={onDragEnd}
-        onDragOver={!node.isDir ? (e) => e.preventDefault() : undefined}
+        onDragOver={!node.isDir ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } : undefined}
         className={`flex w-full items-center gap-1 rounded-sm px-1 py-[3px] text-[11px] transition-colors ${
           isDragOver
             ? 'bg-accent/20 ring-1 ring-inset ring-accent/50'
@@ -737,7 +747,7 @@ export function FileTree() {
     const node = contextMenu.node;
     setContextMenu(null);
     try {
-      await navigator.clipboard.writeText(node.path);
+      await writeClipboard(node.path);
     } catch (err) {
       console.error('Failed to copy path:', err);
     }
@@ -752,7 +762,7 @@ export function FileTree() {
     if (!root.endsWith('/')) root += '/';
     const relPath = normalized.startsWith(root) ? normalized.slice(root.length) : normalized;
     try {
-      await navigator.clipboard.writeText(relPath);
+      await writeClipboard(relPath);
     } catch (err) {
       console.error('Failed to copy relative path:', err);
     }

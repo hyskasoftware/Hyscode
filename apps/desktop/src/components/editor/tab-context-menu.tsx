@@ -12,6 +12,7 @@ import {
   PinOff,
 } from 'lucide-react';
 import { useEditorStore, useFileStore } from '../../stores';
+import { writeClipboard } from '../../lib/utils';
 import type { Tab } from '../../stores/editor-store';
 
 interface TabContextMenuProps {
@@ -146,7 +147,7 @@ export function TabContextMenu({ x, y, tab, onClose }: TabContextMenuProps) {
     onClose();
     if (isUntitled) return;
     try {
-      await navigator.clipboard.writeText(tab.filePath);
+      await writeClipboard(tab.filePath);
     } catch (err) {
       console.error('Failed to copy path:', err);
     }
@@ -160,7 +161,7 @@ export function TabContextMenu({ x, y, tab, onClose }: TabContextMenuProps) {
     if (!root.endsWith('/')) root += '/';
     const relPath = normalized.startsWith(root) ? normalized.slice(root.length) : normalized;
     try {
-      await navigator.clipboard.writeText(relPath);
+      await writeClipboard(relPath);
     } catch (err) {
       console.error('Failed to copy relative path:', err);
     }

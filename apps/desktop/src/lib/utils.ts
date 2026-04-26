@@ -1,8 +1,18 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export async function writeClipboard(text: string): Promise<void> {
+  try {
+    await writeText(text);
+  } catch {
+    // Fallback to web API if Tauri plugin fails
+    await navigator.clipboard.writeText(text);
+  }
 }
 
 export type ViewerType =
