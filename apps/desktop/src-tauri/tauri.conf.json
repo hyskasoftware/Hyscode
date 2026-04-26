@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicklasbekkevold/tauri-settings/refs/heads/main/schema.json",
   "productName": "HysCode",
-  "version": "0.1.1",
+  "version": "0.1.2-preview-build.21",
   "identifier": "com.hyscode.app",
   "build": {
     "beforeDevCommand": "npm run frontend:dev",
@@ -55,7 +55,10 @@
         "installerIcon": "icons/icon.ico",
         "headerImage": "icons/icon.ico",
         "sidebarImage": null,
-        "languages": ["English", "PortugueseBR"],
+        "languages": [
+          "English",
+          "PortugueseBR"
+        ],
         "installMode": "both"
       }
     },
