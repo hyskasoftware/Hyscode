@@ -1,5 +1,5 @@
-import { Sparkles, ChevronDown, ChevronRight, Copy, Check, Brain, AlertCircle, Zap } from 'lucide-react';
-import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
+import { Sparkles, ChevronDown, ChevronRight, Copy, Check, Brain, AlertCircle, Zap, FileText, Circle } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -36,19 +36,37 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
     );
   }
 
-  const lang = className?.replace('hljs language-', '').replace('language-', '') ?? '';
+  const rawLang = className?.replace('hljs language-', '').replace('language-', '') ?? '';
+  const [lang, filePath] = rawLang.split(/:(.+)/);
+
+  // Try to extract a status line from the beginning of the code (e.g. "Edit applied successfully.")
+  let statusBadge: string | null = null;
+  let renderedChildren = children;
+  if (typeof children === 'string' && children.trimStart().startsWith('Edit applied successfully.')) {
+    statusBadge = 'Edit applied successfully.';
+    renderedChildren = children.trimStart().slice('Edit applied successfully.'.length).replace(/^\n/, '');
+  }
 
   return (
-    <div className="group/code relative my-2.5 overflow-hidden rounded-lg border border-border/30 bg-[#0d1117] shadow-sm shadow-black/10">
+    <div className="group/code relative my-2.5 overflow-hidden rounded-lg border border-border/30 bg-[var(--color-surface)] shadow-sm shadow-black/10">
       {/* Header bar */}
-      <div className="flex h-8 items-center justify-between border-b border-border/20 bg-[#161b22]/80 px-3">
-        <div className="flex items-center gap-1.5">
-          <div className="flex gap-1">
-            <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
-            <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
-            <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
-          </div>
-          <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">{lang || 'code'}</span>
+      <div className="flex h-8 items-center justify-between border-b border-border/20 bg-[var(--color-surface-raised)]/80 px-3">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {filePath ? (
+            <>
+              <FileText className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+              <span className="truncate text-[10px] font-mono text-muted-foreground/70">{filePath}</span>
+            </>
+          ) : (
+            <>
+              <div className="flex gap-1">
+                <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
+                <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
+                <span className="h-2 w-2 rounded-full bg-muted-foreground/15" />
+              </div>
+              <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">{lang || 'code'}</span>
+            </>
+          )}
         </div>
         <button
           onClick={handleCopy}
@@ -67,9 +85,18 @@ function CodeBlock({ children, className, ...props }: React.HTMLAttributes<HTMLE
           )}
         </button>
       </div>
+
+      {/* Status badge */}
+      {statusBadge && (
+        <div className="flex items-center gap-1.5 border-b border-border/10 bg-[var(--color-success)]/[0.08] px-3 py-1.5">
+          <Check className="h-3 w-3 text-[var(--color-success)]" />
+          <span className="text-[10px] font-medium text-[var(--color-success)]">{statusBadge}</span>
+        </div>
+      )}
+
       <pre className="overflow-x-auto p-3.5 text-[11.5px] leading-[1.7] select-text cursor-text">
         <code ref={codeRef} className={className} {...props}>
-          {children}
+          {renderedChildren}
         </code>
       </pre>
     </div>
@@ -135,51 +162,27 @@ const MarkdownContent = memo(function MarkdownContent({ content }: { content: st
   );
 });
 
-// ─── Thinking Block (collapsible) ─────────────────────────────────────────────
+// ─── Thinking Block (flat inline, no card) ────────────────────────────────────
 
 const ThinkingBlock = memo(function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming?: boolean }) {
-  const [expanded, setExpanded] = useState(false);
-  const lineCount = useMemo(() => content.split('\n').length, [content]);
-
   return (
-    <div className="agent-fade-in my-2 overflow-hidden rounded-lg border border-purple-500/15 bg-purple-500/[0.03]">
-      {/* Shimmer bar at top when streaming */}
-      {isStreaming && (
-        <div className="h-[2px] w-full agent-shimmer-bar opacity-40" />
-      )}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-purple-500/[0.03]"
-      >
-        {expanded ? (
-          <ChevronDown className="h-3 w-3 shrink-0 text-purple-400/60" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0 text-purple-400/60" />
-        )}
-        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-500/10">
-          <Brain className="h-3 w-3 text-purple-400" />
-        </div>
-        <span className="text-[11px] font-medium text-purple-400/80">Thinking</span>
+    <div className="agent-fade-in my-2">
+      {/* Label row */}
+      <div className="flex items-center gap-1.5 mb-1">
+        <Circle className="h-2.5 w-2.5 shrink-0 text-muted-foreground/35" />
+        <span className="text-[11px] font-medium text-muted-foreground/45">Thinking</span>
         {isStreaming && (
-          <span className="ml-1 flex items-center gap-[3px]">
-            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-purple-400/70" />
-            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-purple-400/70" style={{ animationDelay: '0.16s' }} />
-            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-purple-400/70" style={{ animationDelay: '0.32s' }} />
+          <span className="ml-0.5 flex items-center gap-[3px]">
+            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-muted-foreground/35" />
+            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-muted-foreground/35" style={{ animationDelay: '0.16s' }} />
+            <span className="agent-dot-bounce h-1 w-1 rounded-full bg-muted-foreground/35" style={{ animationDelay: '0.32s' }} />
           </span>
         )}
-        {!isStreaming && (
-          <span className="ml-auto rounded-full bg-purple-500/8 px-2 py-0.5 text-[9px] tabular-nums text-purple-400/50">
-            {lineCount} lines
-          </span>
-        )}
-      </button>
-      {expanded && (
-        <div className="border-t border-purple-500/10 px-3.5 py-2.5 max-h-[300px] overflow-y-auto">
-          <pre className="whitespace-pre-wrap text-[11px] leading-[1.65] text-muted-foreground/60 font-mono">
-            {content}
-          </pre>
-        </div>
-      )}
+      </div>
+      {/* Content — inline prose, indented to align with label text */}
+      <div className="pl-[18px] max-h-[220px] overflow-y-auto">
+        <p className="text-[12px] leading-[1.72] text-foreground/65 whitespace-pre-wrap">{content}</p>
+      </div>
     </div>
   );
 });
@@ -289,7 +292,7 @@ const MessageItem = memo(function MessageItem({
 
       {/* Assistant message */}
       {msg.role === 'assistant' && (
-        <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-2')}>
+        <div className={cn('mb-2', isConsecutiveAssistant ? '' : 'mt-3')}>
           {!isConsecutiveAssistant && (
             <div className="flex items-center gap-2 mb-1.5">
               <BrandMark className="h-5 w-5 shrink-0 rounded-md shadow-sm shadow-black/10" alt="HysCode" />
@@ -317,8 +320,10 @@ const MessageItem = memo(function MessageItem({
             ) : msg.isError ? (
               <ErrorMessage message={msg.content} />
             ) : msg.content ? (
-              /* Final response: full markdown */
-              <MarkdownContent content={msg.content} />
+              /* Final response: full markdown in an IDE-like card */
+              <div className="agent-fade-in rounded-lg border border-border/10 bg-surface-raised/20 px-3.5 py-3">
+                <MarkdownContent content={msg.content} />
+              </div>
             ) : isActivelyStreaming ? (
               <StreamingIndicator />
             ) : null}

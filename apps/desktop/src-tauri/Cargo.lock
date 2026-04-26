@@ -2021,7 +2021,7 @@ dependencies = [
 
 [[package]]
 name = "hyscode"
-version = "0.1.0"
+version = "0.1.2-preview-build.22"
 dependencies = [
  "chrono",
  "dirs 5.0.1",

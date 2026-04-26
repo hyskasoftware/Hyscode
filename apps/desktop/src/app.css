@@ -278,6 +278,16 @@ body {
 .agent-markdown > *:first-child { margin-top: 0; }
 .agent-markdown > *:last-child  { margin-bottom: 0; }
 
+/* Agent code block — theme-aware overrides */
+.agent-code-block {
+  background: var(--color-surface);
+  border-color: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+.agent-code-block-header {
+  background: var(--color-surface-raised);
+  border-color: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
 /*
  * ═══════════════════════════════════════════════════════════════════════════
  * THEME CLASSES — placed AFTER :root and .dark so they always win
