@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
 import { useLayoutStore } from '../../../stores/layout-store';
+import { useDiagnosticsStore } from '../../../stores/diagnostics-store';
+import type { FileDiagnostics } from '../../../stores/diagnostics-store';
 import { tauriFs } from '../../../lib/tauri-fs';
 import { getViewerType } from '../../../lib/utils';
 import { detectLanguage } from '../../../lib/lsp-bridge';
@@ -74,6 +76,28 @@ function getDirGitInfo(
     }
   }
   return { count, dominantStatus };
+}
+
+// ── Diagnostics helpers ──────────────────────────────────────────────────────
+
+function getDirDiagnosticsInfo(
+  relDir: string,
+  diagnosticsMap: Map<string, FileDiagnostics>,
+): { errors: number; warnings: number } {
+  let errors = 0;
+  let warnings = 0;
+  const prefix = relDir + '/';
+  for (const [path, d] of diagnosticsMap) {
+    if (path.startsWith(prefix)) {
+      errors += d.errors;
+      warnings += d.warnings;
+    }
+  }
+  return { errors, warnings };
+}
+
+function formatBadge(count: number): string {
+  return count > 9 ? '9+' : String(count);
 }
 
 // Language detection delegated to detectLanguage() from @hyscode/lsp-client
@@ -171,6 +195,7 @@ interface FileTreeNodeProps {
   onCreateSubmit: (name: string) => void;
   onCreateCancel: () => void;
   gitMap: Map<string, string>;
+  diagnosticsMap: Map<string, FileDiagnostics>;
   rootPath: string | null;
   // Drag and drop
   draggedPath: string | null;
@@ -185,7 +210,7 @@ interface FileTreeNodeProps {
 function FileTreeNode({
   node, depth, onContextMenu, renamingPath, creatingIn,
   onRenameSubmit, onRenameCancel, onCreateSubmit, onCreateCancel,
-  gitMap, rootPath,
+  gitMap, diagnosticsMap, rootPath,
   draggedPath, dragOverPath, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: FileTreeNodeProps) {
   const { expandDirectory, toggleExpand } = useFileStore();
@@ -210,11 +235,28 @@ function FileTreeNode({
     return getDirGitInfo(relPath, gitMap);
   }, [node.isDir, relPath, gitMap]);
 
-  const nameColorClass = gitStatus
-    ? GIT_NAME_COLORS[gitStatus] ?? ''
-    : dirGit && dirGit.count > 0
-      ? GIT_NAME_COLORS[dirGit.dominantStatus ?? 'M'] ?? ''
-      : '';
+  const fileDiagnostics = diagnosticsMap.get(relPath) ?? null;
+
+  const dirDiagnostics = useMemo(() => {
+    if (!node.isDir) return null;
+    return getDirDiagnosticsInfo(relPath, diagnosticsMap);
+  }, [node.isDir, relPath, diagnosticsMap]);
+
+  // Priority: errors > warnings > git
+  const nameColorClass =
+    fileDiagnostics && fileDiagnostics.errors > 0
+      ? 'text-red-400'
+      : fileDiagnostics && fileDiagnostics.warnings > 0
+        ? 'text-amber-300'
+        : gitStatus
+          ? GIT_NAME_COLORS[gitStatus] ?? ''
+          : dirDiagnostics && dirDiagnostics.errors > 0
+            ? 'text-red-400'
+            : dirDiagnostics && dirDiagnostics.warnings > 0
+              ? 'text-amber-300'
+              : dirGit && dirGit.count > 0
+                ? GIT_NAME_COLORS[dirGit.dominantStatus ?? 'M'] ?? ''
+                : '';
 
   const isActive = !node.isDir && (
     workspaceMode === 'agent'
@@ -317,13 +359,33 @@ function FileTreeNode({
         <span className={`truncate ${nameColorClass || ''} ${gitStatus === 'D' ? 'line-through opacity-70' : ''}`}>
           {node.name}
         </span>
+        {/* Diagnostics badge for files */}
+        {!node.isDir && fileDiagnostics && fileDiagnostics.errors > 0 && (
+          <span className="ml-auto shrink-0 rounded-full bg-red-500/15 px-1 py-0 text-[9px] font-bold text-red-400">
+            {formatBadge(fileDiagnostics.errors)}
+          </span>
+        )}
+        {!node.isDir && fileDiagnostics && fileDiagnostics.errors === 0 && fileDiagnostics.warnings > 0 && (
+          <span className="ml-auto shrink-0 rounded-full bg-amber-500/15 px-1 py-0 text-[9px] font-bold text-amber-300">
+            {formatBadge(fileDiagnostics.warnings)}
+          </span>
+        )}
+        {/* Git badge for files */}
         {!node.isDir && gitStatus && (
-          <span className={`ml-auto shrink-0 pr-1 text-[10px] font-mono font-medium ${GIT_BADGE_COLORS[gitStatus] ?? 'text-muted-foreground'}`}>
+          <span className={`ml-1 shrink-0 pr-1 text-[10px] font-mono font-medium ${GIT_BADGE_COLORS[gitStatus] ?? 'text-muted-foreground'}`}>
             {gitStatus === '?' ? 'U' : gitStatus}
           </span>
         )}
+        {/* Diagnostics dot for directories */}
+        {node.isDir && dirDiagnostics && dirDiagnostics.errors > 0 && (
+          <span className="ml-auto mr-1 shrink-0 h-[6px] w-[6px] rounded-full bg-red-400" />
+        )}
+        {node.isDir && dirDiagnostics && dirDiagnostics.errors === 0 && dirDiagnostics.warnings > 0 && (
+          <span className="ml-auto mr-1 shrink-0 h-[6px] w-[6px] rounded-full bg-amber-400" />
+        )}
+        {/* Git dot for directories */}
         {node.isDir && dirGit && dirGit.count > 0 && (
-          <span className={`ml-auto shrink-0 pr-1 h-[6px] w-[6px] rounded-full ${
+          <span className={`ml-1 shrink-0 pr-1 h-[6px] w-[6px] rounded-full ${
             dirGit.dominantStatus === 'M' || dirGit.dominantStatus === 'U'
               ? 'bg-amber-400'
               : dirGit.dominantStatus === 'D' ? 'bg-red-400' : 'bg-green-400'
@@ -354,6 +416,7 @@ function FileTreeNode({
               onCreateSubmit={onCreateSubmit}
               onCreateCancel={onCreateCancel}
               gitMap={gitMap}
+              diagnosticsMap={diagnosticsMap}
               rootPath={rootPath}
               draggedPath={draggedPath}
               dragOverPath={dragOverPath}
@@ -428,6 +491,22 @@ export function FileTree() {
     () => buildGitStatusMap(staged, unstaged, untracked, conflicts),
     [staged, unstaged, untracked, conflicts],
   );
+
+  // Build diagnostics map
+  const diagnosticsRaw = useDiagnosticsStore((s) => s.diagnostics);
+  const diagnosticsMap = useMemo(() => {
+    const map = new Map<string, FileDiagnostics>();
+    // Convert absolute paths in store to relative paths matching gitMap keys
+    if (!rootPath) return map;
+    const rootNormalized = rootPath.replace(/\\/g, '/');
+    const rootPrefix = rootNormalized.endsWith('/') ? rootNormalized : rootNormalized + '/';
+    for (const [absPath, counts] of diagnosticsRaw) {
+      const normalized = absPath.replace(/\\/g, '/');
+      const relPath = normalized.startsWith(rootPrefix) ? normalized.slice(rootPrefix.length) : normalized;
+      map.set(relPath, counts);
+    }
+    return map;
+  }, [diagnosticsRaw, rootPath]);
 
   // Close context menu on outside click or scroll
   useEffect(() => {
@@ -749,6 +828,7 @@ export function FileTree() {
           onCreateSubmit={handleCreateSubmit}
           onCreateCancel={() => setCreatingIn(null)}
           gitMap={gitMap}
+          diagnosticsMap={diagnosticsMap}
           rootPath={rootPath}
           draggedPath={draggedPath}
           dragOverPath={dragOverPath}

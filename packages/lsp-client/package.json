@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hyscode/extension-api": "workspace:*"
+    "@hyscode/extension-api": "*"
   },
   "devDependencies": {
     "monaco-editor": "^0.55.1",

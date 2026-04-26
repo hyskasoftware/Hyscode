@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { tauriFs } from '../lib/tauri-fs';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { useDiagnosticsStore } from './diagnostics-store';
 
 export interface FileNode {
   name: string;
@@ -106,6 +107,9 @@ export const useFileStore = create<FileState>()(
       // Stop any existing watcher
       await get().stopWatching();
 
+      // Clear diagnostics from previous workspace
+      useDiagnosticsStore.getState().clearAll();
+
       set((state) => {
         state.rootPath = path;
         state.tree = [];
@@ -122,6 +126,7 @@ export const useFileStore = create<FileState>()(
 
     closeFolder: () => {
       get().stopWatching();
+      useDiagnosticsStore.getState().clearAll();
       set((state) => {
         state.rootPath = null;
         state.tree = [];

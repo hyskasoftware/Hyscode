@@ -22,6 +22,7 @@ import { tauriFs } from '../../lib/tauri-fs';
 import { saveFileDialog } from '../../lib/tauri-dialog';
 import { useGitDecorations } from '../../hooks/use-git-decorations';
 import { useAgentDecorations } from '../../hooks/use-agent-decorations';
+import { useDiagnosticsSync } from '../../hooks/use-diagnostics-sync';
 import { defineAllMonacoThemes, getMonacoThemeName } from '../../lib/monaco-themes';
 import { LspBridge, detectLanguage } from '../../lib/lsp-bridge';
 import { registerAllLanguages } from '@hyscode/lsp-client';
@@ -111,6 +112,9 @@ export function EditorArea() {
     monacoInstanceRef,
     activeTab?.type === 'file' ? (activeTab?.filePath ?? null) : null,
   );
+
+  // Sync Monaco diagnostics to the file tree
+  useDiagnosticsSync(monacoInstanceRef);
 
   // Push agent edit content to the Monaco model without remounting
   useEffect(() => {

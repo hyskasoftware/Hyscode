@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hyscode/ai-providers": "workspace:*"
+    "@hyscode/ai-providers": "*"
   },
   "devDependencies": {
     "typescript": "^5.8.0"

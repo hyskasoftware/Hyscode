@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.hyscode.app",
   "build": {
-    "beforeDevCommand": "pnpm frontend:dev",
+    "beforeDevCommand": "npm run frontend:dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
