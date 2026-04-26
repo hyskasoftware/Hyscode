@@ -244,6 +244,9 @@ export class HarnessBridge {
     // Load mode policy overrides from the database (best-effort)
     await _instance.loadModePolicies();
 
+    // Load rules and sync with store so they're active from the first turn
+    await _instance.loadAndSyncRules();
+
     return _instance;
   }
 
@@ -794,6 +797,22 @@ export class HarnessBridge {
     // Update context manager
     const active = loader.getActive();
     this.harness.setActiveRules(active);
+  }
+
+  /** Load rules from disk and sync enabled state with the store.
+   *  Called once at bridge init so rules are active from the first turn. */
+  async loadAndSyncRules(): Promise<void> {
+    try {
+      const discovered = await this.loadRules();
+      if (discovered.length > 0) {
+        useRulesStore.getState().setDiscoveredRules(discovered);
+        const active = useRulesStore.getState().getActiveRules();
+        this.syncActiveRules(active.map((r) => r.id));
+        this.debug(`Rules synced: ${active.length}/${discovered.length} active`);
+      }
+    } catch (err) {
+      this.debug(`Rules init failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   /** Register all tools from connected MCP servers as native tool handlers */

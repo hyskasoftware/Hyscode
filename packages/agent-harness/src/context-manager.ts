@@ -191,6 +191,7 @@ export class ContextManager {
     // Active rules (injected before skills — higher precedence)
     if (this.activeRules.length > 0) {
       parts.push('\n<active_rules>');
+      parts.push('CRITICAL: Read and follow EVERY rule below before taking any action. Rules override default behavior.');
       for (const rule of this.activeRules) {
         parts.push(`<rule name="${rule.name}" scope="${rule.scope}">\n${rule.content}\n</rule>`);
       }
