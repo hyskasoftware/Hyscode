@@ -8,7 +8,6 @@ import { useAgentStore } from '@/stores/agent-store';
 import { ToolCallGroup } from './tool-call-card';
 import { ApprovalDialog } from './approval-dialog';
 import { ModeSwitchDialog } from './mode-switch-dialog';
-import { BrandMark } from '@/components/brand-mark';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/stores/agent-store';
 
@@ -268,7 +267,7 @@ const MessageItem = memo(function MessageItem({
     <div className="group/msg">
       {/* User message */}
       {msg.role === 'user' && (
-        <div className="mb-3 mt-2">
+        <div className="mb-1 mt-1">
           <div className="pl-0">
             {/* Render attached images from blocks */}
             {msg.blocks && msg.blocks.some((b) => b.type === 'image') && (
@@ -292,17 +291,13 @@ const MessageItem = memo(function MessageItem({
 
       {/* Assistant message */}
       {msg.role === 'assistant' && (
-        <div className={cn('mb-2', isConsecutiveAssistant ? '' : 'mt-3')}>
-          {!isConsecutiveAssistant && (
-            <div className="flex items-center gap-2 mb-1.5">
-              <BrandMark className="h-5 w-5 shrink-0 rounded-md shadow-sm shadow-black/10" alt="HysCode" />
-              <span className="text-[11px] font-semibold text-foreground/90">HysCode</span>
-              {isActivelyStreaming && (
-                <span className="h-1.5 w-1.5 rounded-full bg-accent agent-pulse-ring" />
-              )}
+        <div className={cn('mb-1', isConsecutiveAssistant ? '' : 'mt-2')}>
+          {!isConsecutiveAssistant && isActivelyStreaming && (
+            <div className="flex items-center gap-2 mb-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent agent-pulse-ring" />
             </div>
           )}
-          <div className="pl-7">
+          <div className="pl-0">
             {/* Thinking block (collapsible) */}
             {msg.thinking && (
               <ThinkingBlock
