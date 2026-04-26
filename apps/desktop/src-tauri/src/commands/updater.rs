@@ -98,17 +98,23 @@ fn is_safe_installer_path(path: &std::path::Path) -> bool {
 // ── Commands ─────────────────────────────────────────────────────────────────
 
 /// Check the GitHub releases API for a newer version.
-/// `channel`: "stable" uses /releases/latest; "pre-release" includes pre-releases.
+/// `channel`: "stable" uses /releases/latest; "pre-release" scans recent releases for the
+/// highest semver (stable or pre-release).
 /// Returns `None` if up to date or no releases found.
 #[tauri::command]
-pub async fn updater_check(channel: Option<String>) -> Result<Option<ReleaseInfo>, String> {
+pub async fn updater_check(app: AppHandle, channel: Option<String>) -> Result<Option<ReleaseInfo>, String> {
     let is_prerelease = channel.as_deref() == Some("pre-release");
     let client = reqwest::Client::new();
 
-    // For pre-release channel, fetch the full list (includes pre-releases).
+    // Use the Tauri bundle version (from tauri.conf.json) as the authoritative
+    // current version. This is what users see in the OS and what release tags must match.
+    let current_version = app.package_info().version.clone();
+
+    // For pre-release channel, fetch the full list (up to 20 releases) and pick the
+    // candidate with the highest semver — stable or pre-release.
     // For stable, use /releases/latest which GitHub guarantees excludes pre-releases.
     let release = if is_prerelease {
-        let url = format!("{}?per_page=1", GITHUB_RELEASES_BASE);
+        let url = format!("{}?per_page=20", GITHUB_RELEASES_BASE);
         let response = client
             .get(&url)
             .header("User-Agent", USER_AGENT)
@@ -125,7 +131,7 @@ pub async fn updater_check(channel: Option<String>) -> Result<Option<ReleaseInfo
             return Err(format!("GitHub API returned status {}", status.as_u16()));
         }
 
-        let mut releases: Vec<GitHubRelease> = response
+        let releases: Vec<GitHubRelease> = response
             .json()
             .await
             .map_err(|e| format!("Failed to parse releases JSON: {}", e))?;
@@ -133,7 +139,22 @@ pub async fn updater_check(channel: Option<String>) -> Result<Option<ReleaseInfo
         if releases.is_empty() {
             return Ok(None);
         }
-        releases.remove(0)
+
+        // Pick the release with the highest semver that also has a compatible platform asset.
+        let best = releases
+            .into_iter()
+            .filter_map(|r| {
+                let version = parse_version(&r.tag_name).ok()?;
+                // Only consider releases that have a downloadable asset for this platform.
+                select_platform_asset(&r.assets)?;
+                Some((version, r))
+            })
+            .max_by(|(a, _), (b, _)| a.cmp(b));
+
+        match best {
+            Some((_, r)) => r,
+            None => return Ok(None),
+        }
     } else {
         let url = format!("{}/latest", GITHUB_RELEASES_BASE);
         let response = client
@@ -158,7 +179,6 @@ pub async fn updater_check(channel: Option<String>) -> Result<Option<ReleaseInfo
             .map_err(|e| format!("Failed to parse release JSON: {}", e))?
     };
 
-    let current_version = parse_version(env!("CARGO_PKG_VERSION"))?;
     let remote_version = parse_version(&release.tag_name)?;
 
     if remote_version <= current_version {

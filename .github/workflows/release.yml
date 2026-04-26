@@ -2,20 +2,31 @@ name: "Build & Release"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Triggers
-# Push to main when desktop source changes → auto-release (reads version from
-# tauri.conf.json; prerelease inferred from semver pre-id, e.g. 1.0.0-beta.1).
 #
-# workflow_dispatch → manual release.
-#   • version      — the new version to publish (required)
-#   • release_type — explicit choice: stable or pre-release
-#   The workflow bumps tauri.conf.json, Cargo.toml and package.json, commits
-#   back to main with [skip ci], then tags and builds.
+# push → main (auto-build / pre-release)
+#   Version = <root package.json version>-build.<run_number>
+#   e.g. root package.json "0.1.3-preview" → tag v0.1.3-preview-build.42
+#   Pre-release is inferred: any version with a pre-release identifier → prerelease=true
 #
-# IDE Update System integration
-# ──────────────────────────────
-# The built-in updater (apps/desktop/src-tauri/src/commands/updater.rs):
-#   Stable channel  → GET /repos/hyskasoftware/Hyscode/releases/latest
-#   Pre-release ch. → GET /repos/hyskasoftware/Hyscode/releases?per_page=1
+# workflow_dispatch (manual / stable release)
+#   Developer supplies the target version (e.g. 1.0.0 or 1.0.0-beta.1).
+#   CI bumps ALL version files, commits back with [skip ci], then builds.
+#
+# In both cases the CI commits the bumped versions back to main so that
+# `git pull` always gives the developer the exact version that was shipped.
+#
+# ── Build job checkout ───────────────────────────────────────────────────────
+# Build jobs always check out the SHA produced by the version-bump commit
+# (outputs.bumped_sha), not the original trigger SHA.  This guarantees that
+# tauri.conf.json / Cargo.toml contain the correct version when the binary is
+# compiled.
+#
+# ── IDE Update System ────────────────────────────────────────────────────────
+# apps/desktop/src-tauri/src/commands/updater.rs reads app.package_info().version
+# (from tauri.conf.json) as the installed version — not CARGO_PKG_VERSION.
+#   Stable channel    → GET /repos/hyskasoftware/Hyscode/releases/latest
+#   Pre-release ch.   → GET /repos/hyskasoftware/Hyscode/releases?per_page=20
+#                        (picks the highest semver with a compatible platform asset)
 #
 # Asset selection by extension:
 #   Windows → .exe (preferred) or .msi
@@ -48,7 +59,7 @@ permissions:
   contents: write
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JOB 1 — Create tag + draft release
+# JOB 1 — Bump versions, create tag + draft release
 # ─────────────────────────────────────────────────────────────────────────────
 jobs:
   create-release:
@@ -60,15 +71,19 @@ jobs:
       tag_name:   ${{ steps.get-version.outputs.tag }}
       version:    ${{ steps.get-version.outputs.version }}
       prerelease: ${{ steps.get-version.outputs.prerelease }}
+      # SHA of the version-bump commit (or the original HEAD if nothing changed).
+      # Build jobs check out this SHA so they always compile the bumped version.
+      bumped_sha: ${{ steps.version-bump.outputs.sha }}
 
     steps:
       - uses: actions/checkout@v4
         with:
-          # Use GH_PAT so the version-bump commit is not ignored by Actions.
-          # Falls back to GITHUB_TOKEN if the secret is not set.
+          # GH_PAT lets the Actions bot push commits back to main without
+          # triggering the "same-token push ignores [skip ci]" quirk on some plans.
           token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      # ── 1. Resolve the version to ship ──────────────────────────────────────
       - name: Get version
         id: get-version
         run: |
@@ -78,17 +93,15 @@ jobs:
               echo "::error::Version input is required for manual dispatch"
               exit 1
             fi
-            # Prerelease is an explicit user choice
             if [ "${{ github.event.inputs.release_type }}" = "pre-release" ]; then
               IS_PRERELEASE=true
             else
               IS_PRERELEASE=false
             fi
           else
-            # Push trigger: read version from root package.json
+            # Push trigger: base version lives in root package.json; append build number.
             BASE=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
             VERSION="${BASE}-build.${{ github.run_number }}"
-            # If base version has a pre-release identifier (e.g. 0.1.0-preview) → pre-release
             if echo "$BASE" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-.+'; then
               IS_PRERELEASE=true
             else
@@ -100,51 +113,78 @@ jobs:
           echo "prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
           echo "Releasing: $VERSION  |  pre-release: $IS_PRERELEASE"
 
+      # ── 2. Write the version into every source file ──────────────────────────
+      # Always runs for both push and workflow_dispatch triggers.
+      # For workflow_dispatch the root package.json is also updated so the next
+      # push auto-build inherits the new base version.
       - name: Bump version in source files
-        if: github.event_name == 'workflow_dispatch'
         env:
           VERSION: ${{ steps.get-version.outputs.version }}
         run: |
-          # ── tauri.conf.json ──────────────────────────────────────────────
-          python3 -c "import json,os; p='apps/desktop/src-tauri/tauri.conf.json'; d=json.load(open(p)); d['version']=os.environ['VERSION']; open(p,'w').write(json.dumps(d,indent=2,ensure_ascii=False)+'\n')"
-          # ── Cargo.toml (only the [package] version — first match) ────────
-          sed -i "0,/^version = \"[^\"]*\"/{s/^version = \"[^\"]*\"/version = \"$VERSION\"/}" apps/desktop/src-tauri/Cargo.toml
-          # ── apps/desktop/package.json ────────────────────────────────────
-          python3 -c "import json,os; p='apps/desktop/package.json'; d=json.load(open(p)); d['version']=os.environ['VERSION']; open(p,'w').write(json.dumps(d,indent=2,ensure_ascii=False)+'\n')"
-          echo "Bumped version to $VERSION in tauri.conf.json, Cargo.toml, package.json"
+          # tauri.conf.json — authoritative runtime version (read by app.package_info())
+          python3 -c "
+          import json, os
+          p = 'apps/desktop/src-tauri/tauri.conf.json'
+          d = json.load(open(p))
+          d['version'] = os.environ['VERSION']
+          open(p, 'w').write(json.dumps(d, indent=2, ensure_ascii=False) + '\n')
+          "
+          # Cargo.toml — first [package] version field only
+          sed -i "0,/^version = \"[^\"]*\"/{s/^version = \"[^\"]*\"/version = \"$VERSION\"/}" \
+            apps/desktop/src-tauri/Cargo.toml
+          # apps/desktop/package.json
+          python3 -c "
+          import json, os
+          p = 'apps/desktop/package.json'
+          d = json.load(open(p))
+          d['version'] = os.environ['VERSION']
+          open(p, 'w').write(json.dumps(d, indent=2, ensure_ascii=False) + '\n')
+          "
+          # root package.json — only for workflow_dispatch so the next push
+          # auto-build uses the new version as its base.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python3 -c "
+          import json, os
+          p = 'package.json'
+          d = json.load(open(p))
+          d['version'] = os.environ['VERSION']
+          open(p, 'w').write(json.dumps(d, indent=2, ensure_ascii=False) + '\n')
+            "
+          fi
+          echo "Bumped all version files to $VERSION"
 
+      # ── 3. Commit & push the version bump back to main ───────────────────────
+      # [skip ci] prevents this commit from triggering a recursive run.
+      # The step always outputs the current HEAD SHA (bumped or not) so build
+      # jobs can check out the exact tree that was versioned.
       - name: Commit and push version bump
-        if: github.event_name == 'workflow_dispatch'
+        id: version-bump
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add apps/desktop/src-tauri/tauri.conf.json \
                   apps/desktop/src-tauri/Cargo.toml \
                   apps/desktop/package.json
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            git add package.json
+          fi
           if git diff --cached --quiet; then
-            echo "Files already at version ${{ steps.get-version.outputs.version }} — nothing to commit"
+            echo "Nothing to commit — versions already at ${{ steps.get-version.outputs.version }}"
           else
             git commit -m "chore: bump version to ${{ steps.get-version.outputs.version }} [skip ci]"
             git push
             echo "✓ Version bump committed and pushed"
           fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # ── 4. Create the git tag (points at the version-bump commit) ───────────
       - name: Create git tag
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const tag = "${{ steps.get-version.outputs.tag }}"
-            // Resolve current HEAD (after the version-bump commit, if any)
-            const branch = context.ref.startsWith('refs/heads/')
-              ? context.ref.slice('refs/heads/'.length)
-              : context.ref
-            const { data: branchRef } = await github.rest.git.getRef({
-              owner: context.repo.owner,
-              repo:  context.repo.repo,
-              ref:   `heads/${branch}`,
-            })
-            const sha = branchRef.object.sha
+            const sha = "${{ steps.version-bump.outputs.sha }}"
             try {
               await github.rest.git.createRef({
                 owner: context.repo.owner,
@@ -161,6 +201,7 @@ jobs:
               }
             }
 
+      # ── 5. Create draft release ──────────────────────────────────────────────
       - name: Create draft release
         id: create-release
         uses: actions/github-script@v7
@@ -190,7 +231,6 @@ jobs:
               `See commit history for full list of changes.`,
             ].join('\n')
 
-            // Check if a release already exists for this tag
             let releaseData
             try {
               const existing = await github.rest.repos.getReleaseByTag({
@@ -202,7 +242,6 @@ jobs:
               releaseData = existing.data
             } catch (e) {
               if (e.status !== 404) throw e
-              // No release yet — create a fresh draft
               const created = await github.rest.repos.createRelease({
                 owner:      context.repo.owner,
                 repo:       context.repo.repo,
@@ -228,6 +267,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Check out the version-bump commit, not the original trigger SHA.
+          ref: ${{ needs.create-release.outputs.bumped_sha }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -300,6 +342,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Check out the version-bump commit, not the original trigger SHA.
+          ref: ${{ needs.create-release.outputs.bumped_sha }}
 
       - name: Install Linux system dependencies
         run: |
