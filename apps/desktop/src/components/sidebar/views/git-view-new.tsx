@@ -513,19 +513,21 @@ function FileSection({
 
   return (
     <div>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {open ? (
-          <ChevronDown className="h-3 w-3 shrink-0" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0" />
-        )}
-        <span>{title}</span>
-        <span className="font-normal">{count}</span>
-        {action && <span className="ml-auto" onClick={(e) => e.stopPropagation()}>{action}</span>}
-      </button>
+      <div className="flex w-full items-center">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex flex-1 items-center gap-1 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {open ? (
+            <ChevronDown className="h-3 w-3 shrink-0" />
+          ) : (
+            <ChevronRight className="h-3 w-3 shrink-0" />
+          )}
+          <span>{title}</span>
+          <span className="font-normal">{count}</span>
+        </button>
+        {action && <span className="ml-auto pr-2">{action}</span>}
+      </div>
       {open && children}
     </div>
   );
