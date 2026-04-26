@@ -113,7 +113,7 @@ class LspBridgeImpl {
     this.openDocuments.add(uri);
 
     // Ensure the language server is running
-    await this.manager.onLanguageOpened(languageId);
+    await this.manager.onLanguageOpened(languageId, filePath);
 
     // Send textDocument/didOpen
     const connection = this.manager.getConnection(languageId);
@@ -227,14 +227,19 @@ class LspBridgeImpl {
     useLspStore.getState().removeServer(languageId);
 
     // Re-open if there are documents for this language (including variants like tsx → typescriptreact)
+    let reopenFilePath: string | undefined;
     const hasOpenDocs = Array.from(this.openDocuments).some((uri) => {
       const path = this.uriToFilePath(uri);
       const docLang = detectLspLanguage(path);
-      return docLang === languageId;
+      if (docLang === languageId) {
+        reopenFilePath = path;
+        return true;
+      }
+      return false;
     });
 
     if (hasOpenDocs) {
-      await this.manager.onLanguageOpened(languageId);
+      await this.manager.onLanguageOpened(languageId, reopenFilePath);
     }
   }
 

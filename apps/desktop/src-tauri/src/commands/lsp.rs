@@ -2,8 +2,15 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Stdio};
 use std::sync::Mutex;
+use serde::Serialize;
 use tauri::{Emitter, Manager};
 use super::utils::cmd;
+
+#[derive(Serialize)]
+pub struct LspStartResult {
+    pub server_id: String,
+    pub root_path: String,
+}
 
 pub struct LspProcess {
     pub child: Child,
@@ -18,9 +25,11 @@ pub async fn lsp_start(
     command: String,
     args: Vec<String>,
     root_path: String,
+    file_path: Option<String>,
     app: tauri::AppHandle,
-) -> Result<String, String> {
-    println!("[lsp_start] id={id} command={command} args={args:?} root_path={root_path}");
+) -> Result<LspStartResult, String> {
+    let resolved_root = resolve_lsp_root(&root_path, file_path.as_deref(), &command);
+    println!("[lsp_start] id={id} command={command} args={args:?} root_path={root_path} resolved_root={resolved_root}");
     // Resolve the full path to the command if it's not directly on PATH.
     let resolved = resolve_lsp_command(&command);
     println!("[lsp_start] resolved={resolved}");
@@ -43,7 +52,7 @@ pub async fn lsp_start(
     let mut child = cmd(program)
         .args(&extra_args)
         .args(&args)
-        .current_dir(&root_path)
+        .current_dir(&resolved_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -126,7 +135,10 @@ pub async fn lsp_start(
         },
     );
 
-    Ok(server_id)
+    Ok(LspStartResult {
+        server_id,
+        root_path: resolved_root,
+    })
 }
 
 #[tauri::command]
@@ -263,6 +275,30 @@ pub async fn lsp_probe_server(command: String) -> Result<bool, String> {
     }
 
     Ok(false)
+}
+
+/// Resolve the correct workspace root for an LSP server.
+/// For rust-analyzer, walks up from the opened file to find Cargo.toml.
+fn resolve_lsp_root(root_path: &str, file_path: Option<&str>, command: &str) -> String {
+    let is_rust = command == "rust-analyzer" || command.contains("rust-analyzer");
+    if is_rust {
+        // 1. Try to find Cargo.toml starting from the opened file.
+        if let Some(fp) = file_path {
+            let mut path = std::path::PathBuf::from(fp);
+            while let Some(parent) = path.parent() {
+                if parent.join("Cargo.toml").exists() {
+                    return parent.to_string_lossy().to_string();
+                }
+                path = parent.to_path_buf();
+            }
+        }
+        // 2. Fallback: check the provided root_path.
+        let root = std::path::PathBuf::from(root_path);
+        if root.join("Cargo.toml").exists() {
+            return root_path.to_string();
+        }
+    }
+    root_path.to_string()
 }
 
 /// Resolve an LSP command to its full path, checking common global bin directories

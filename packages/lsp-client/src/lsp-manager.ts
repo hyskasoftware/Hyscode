@@ -73,7 +73,7 @@ export class LspManager {
     this.configs.clear();
   }
 
-  async onLanguageOpened(languageId: string): Promise<void> {
+  async onLanguageOpened(languageId: string, filePath?: string): Promise<void> {
     const serverKey = normalizeServerKey(languageId);
     const existing = this.servers.get(serverKey);
     if (existing) {
@@ -86,20 +86,26 @@ export class LspManager {
 
     const serverId = `lsp-${serverKey}-${Date.now()}`;
     const rootPath = this.rootUri.replace(/^file:\/\/\/?/, '');
-    console.log('[LspManager] lsp_start serverKey=', serverKey, 'rootUri=', this.rootUri, 'rootPath=', rootPath);
+    console.log('[LspManager] lsp_start serverKey=', serverKey, 'rootUri=', this.rootUri, 'rootPath=', rootPath, 'filePath=', filePath);
 
     try {
-      await this.invoke('lsp_start', {
+      const startResult = await this.invoke('lsp_start', {
         id: serverId,
         command: config.command,
         args: config.args ?? [],
         rootPath,
-      });
+        filePath: filePath ?? null,
+      }) as { server_id: string; root_path: string };
 
-      const transport = new TauriLspTransport(serverId, this.invoke, this.listen);
+      const resolvedRootPath = startResult.root_path ?? rootPath;
+      const resolvedRootUri = resolvedRootPath.startsWith('/')
+        ? `file://${resolvedRootPath}`
+        : `file:///${resolvedRootPath.replace(/\\/g, '/')}`;
+
+      const transport = new TauriLspTransport(startResult.server_id, this.invoke, this.listen);
       await transport.start();
 
-    const connection = new LspConnection(serverId, serverKey, transport);
+    const connection = new LspConnection(startResult.server_id, serverKey, transport);
     connection.onStatusChange((status) => {
       for (const listener of this.statusListeners) {
         listener(serverKey, status);
@@ -114,7 +120,7 @@ export class LspManager {
       }
     });
 
-    await connection.initialize(this.rootUri);
+    await connection.initialize(resolvedRootUri);
 
     const adapter = new MonacoLspAdapter(connection, this.monaco);
     // Register adapter for both the normalized key and the original languageId
