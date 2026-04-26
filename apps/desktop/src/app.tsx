@@ -440,6 +440,12 @@ export function App() {
       useLayoutStore.getState().setTerminalVisible(true);
     }, { category: 'Terminal', key: 'ctrl+shift+`' });
 
+    builtin('workbench.action.terminal.newInEditor', 'New Terminal in Editor', () => {
+      const sessionId = useTerminalStore.getState().createSession(undefined, false, undefined, 'editor');
+      const session = useTerminalStore.getState().sessions.find((s) => s.id === sessionId);
+      useEditorStore.getState().openTerminalTab(sessionId, session?.name ?? 'Terminal');
+    }, { category: 'Terminal' });
+
     builtin('workbench.action.terminal.moveToBottom', 'Move Terminal to Bottom', () => {
       useLayoutStore.getState().moveTerminalToBottom();
     }, { category: 'Terminal' });

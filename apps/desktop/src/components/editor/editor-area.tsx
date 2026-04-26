@@ -7,6 +7,7 @@ import { AgentDiffViewer } from './agent-diff-viewer';
 import { PendingChangesBar } from './pending-changes-bar';
 import { InlineReviewBar } from './inline-review-bar';
 import { EditorContextMenu } from './editor-context-menu';
+import { TerminalInstance } from '../terminal/terminal-instance';
 import {
   MarkdownViewer,
   ImageViewer,
@@ -392,120 +393,134 @@ export function EditorArea() {
   return (
     <div className="flex h-full flex-col">
       {hasOpenTabs && <EditorTabs />}
-      {!activeTab ? (
-        <EditorWelcome />
-      ) : activeTab.type === 'diff' && activeTab.diffProps ? (
-        <DiffViewer
-          filePath={activeTab.diffProps.filePath}
-          staged={activeTab.diffProps.staged}
-        />
-      ) : activeTab.viewerType === 'markdown' ? (
-        loading ? (
-          <EditorLoading />
-        ) : (
-          <MarkdownViewer
-            content={content ?? ''}
-            mode={activeTab.markdownMode ?? 'preview'}
-            onModeChange={(mode) => setMarkdownMode(activeTab.id, mode)}
-            onChange={handleEditorChange}
-            language={activeTab.language}
-          />
-        )
-      ) : activeTab.viewerType === 'image' ? (
-        <ImageViewer filePath={activeTab.filePath} />
-      ) : activeTab.viewerType === 'pdf' ? (
-        <PdfViewer filePath={activeTab.filePath} />
-      ) : activeTab.viewerType === 'spreadsheet' ? (
-        <SpreadsheetViewer filePath={activeTab.filePath} />
-      ) : activeTab.viewerType === 'docx' ? (
-        <DocxViewer filePath={activeTab.filePath} />
-      ) : activeTab.viewerType === 'pptx' ? (
-        <PptxViewer filePath={activeTab.filePath} />
-      ) : loading ? (
-        <EditorLoading />
-      ) : showFullDiff && editSession ? (
-        <AgentDiffViewer change={{
-          id: editSession.id,
-          filePath: editSession.filePath,
-          toolName: editSession.toolName,
-          toolCallId: editSession.toolCallId,
-          originalContent: editSession.originalContent,
-          newContent: editSession.newContent,
-          status: 'pending',
-        }} />
-      ) : (
-        <>
-          {editSession && (
-            <InlineReviewBar
-              session={editSession}
-              onToggleDiff={() => setShowFullDiff((v) => !v)}
-              showingDiff={showFullDiff}
+      <div className="relative flex-1 overflow-hidden">
+        {/* ── Layer 1: Normal editor content (hidden when a terminal tab is active) ── */}
+        <div className="absolute inset-0 flex flex-col" style={{ display: activeTab?.type === 'terminal' ? 'none' : 'flex' }}>
+          {!activeTab ? (
+            <EditorWelcome />
+          ) : activeTab.type === 'diff' && activeTab.diffProps ? (
+            <DiffViewer
+              filePath={activeTab.diffProps.filePath}
+              staged={activeTab.diffProps.staged}
             />
+          ) : activeTab.viewerType === 'markdown' ? (
+            loading ? (
+              <EditorLoading />
+            ) : (
+              <MarkdownViewer
+                content={content ?? ''}
+                mode={activeTab.markdownMode ?? 'preview'}
+                onModeChange={(mode) => setMarkdownMode(activeTab.id, mode)}
+                onChange={handleEditorChange}
+                language={activeTab.language}
+              />
+            )
+          ) : activeTab.viewerType === 'image' ? (
+            <ImageViewer filePath={activeTab.filePath} />
+          ) : activeTab.viewerType === 'pdf' ? (
+            <PdfViewer filePath={activeTab.filePath} />
+          ) : activeTab.viewerType === 'spreadsheet' ? (
+            <SpreadsheetViewer filePath={activeTab.filePath} />
+          ) : activeTab.viewerType === 'docx' ? (
+            <DocxViewer filePath={activeTab.filePath} />
+          ) : activeTab.viewerType === 'pptx' ? (
+            <PptxViewer filePath={activeTab.filePath} />
+          ) : loading ? (
+            <EditorLoading />
+          ) : showFullDiff && editSession ? (
+            <AgentDiffViewer change={{
+              id: editSession.id,
+              filePath: editSession.filePath,
+              toolName: editSession.toolName,
+              toolCallId: editSession.toolCallId,
+              originalContent: editSession.originalContent,
+              newContent: editSession.newContent,
+              status: 'pending',
+            }} />
+          ) : (
+            <>
+              {editSession && (
+                <InlineReviewBar
+                  session={editSession}
+                  onToggleDiff={() => setShowFullDiff((v) => !v)}
+                  showingDiff={showFullDiff}
+                />
+              )}
+              <div className="flex-1 overflow-hidden">
+                <Suspense fallback={<EditorLoading />}>
+                  <MonacoEditor
+                    path={activeTab.filePath}
+                    language={detectLanguage(activeTab.filePath)}
+                    value={content ?? ''}
+                    onChange={handleEditorChange}
+                    theme={monacoTheme}
+                    onMount={(editor, monaco) => {
+                      editorInstanceRef.current = editor;
+                      monacoInstanceRef.current = monaco;
+                      setEditorVersion((v) => v + 1);
+
+                      // Disable Monaco's built-in context menu so we show our own
+                      editor.updateOptions({ contextmenu: false });
+
+                      // Intercept right-click on the editor's DOM
+                      const domNode = editor.getDomNode();
+                      if (domNode) {
+                        domNode.addEventListener('contextmenu', (e: MouseEvent) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditorCtxMenu({ x: e.clientX, y: e.clientY });
+                        });
+                      }
+                    }}
+                    beforeMount={(monaco) => {
+                      defineAllMonacoThemes(monaco);
+                      registerAllLanguages(monaco);
+                      disableNativeTypeScriptValidation(monaco);
+                      LspBridge.setMonaco(monaco);
+                    }}
+                    options={{
+                      fontFamily: `'${editorFontFamily}', 'JetBrains Mono', 'Fira Code', monospace`,
+                      fontSize: editorFontSize,
+                      lineHeight: editorLineHeight,
+                      minimap: { enabled: editorMinimap, scale: 1 },
+                      scrollBeyondLastLine: editorScrollBeyondLastLine,
+                      smoothScrolling: editorSmoothScrolling,
+                      cursorBlinking: 'smooth',
+                      cursorSmoothCaretAnimation: 'on',
+                      cursorStyle: editorCursorStyle,
+                      bracketPairColorization: { enabled: editorBracketPairColorization },
+                      guides: { bracketPairs: editorBracketPairColorization, indentation: true },
+                      wordWrap: editorWordWrap,
+                      lineNumbers: editorLineNumbers,
+                      tabSize: editorTabSize,
+                      insertSpaces: editorInsertSpaces,
+                      renderWhitespace: editorRenderWhitespace,
+                      autoClosingBrackets: editorAutoClosingBrackets,
+                      autoClosingQuotes: editorAutoClosingQuotes,
+                      formatOnPaste: editorFormatOnPaste,
+                      formatOnType: editorFormatOnType,
+                      padding: { top: 8 },
+                      overviewRulerLanes: 3,
+                      overviewRulerBorder: false,
+                      lineDecorationsWidth: 12,
+                      glyphMargin: true,
+                    }}
+                  />
+                </Suspense>
+              </div>
+            </>
           )}
-          <div className="flex-1 overflow-hidden">
-          <Suspense fallback={<EditorLoading />}>
-            <MonacoEditor
-              path={activeTab.filePath}
-              language={detectLanguage(activeTab.filePath)}
-              value={content ?? ''}
-              onChange={handleEditorChange}
-              theme={monacoTheme}
-              onMount={(editor, monaco) => {
-                editorInstanceRef.current = editor;
-                monacoInstanceRef.current = monaco;
-                setEditorVersion((v) => v + 1);
-
-                // Disable Monaco's built-in context menu so we show our own
-                editor.updateOptions({ contextmenu: false });
-
-                // Intercept right-click on the editor's DOM
-                const domNode = editor.getDomNode();
-                if (domNode) {
-                  domNode.addEventListener('contextmenu', (e: MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setEditorCtxMenu({ x: e.clientX, y: e.clientY });
-                  });
-                }
-              }}
-              beforeMount={(monaco) => {
-                defineAllMonacoThemes(monaco);
-                registerAllLanguages(monaco);
-                disableNativeTypeScriptValidation(monaco);
-                LspBridge.setMonaco(monaco);
-              }}
-              options={{
-                fontFamily: `'${editorFontFamily}', 'JetBrains Mono', 'Fira Code', monospace`,
-                fontSize: editorFontSize,
-                lineHeight: editorLineHeight,
-                minimap: { enabled: editorMinimap, scale: 1 },
-                scrollBeyondLastLine: editorScrollBeyondLastLine,
-                smoothScrolling: editorSmoothScrolling,
-                cursorBlinking: 'smooth',
-                cursorSmoothCaretAnimation: 'on',
-                cursorStyle: editorCursorStyle,
-                bracketPairColorization: { enabled: editorBracketPairColorization },
-                guides: { bracketPairs: editorBracketPairColorization, indentation: true },
-                wordWrap: editorWordWrap,
-                lineNumbers: editorLineNumbers,
-                tabSize: editorTabSize,
-                insertSpaces: editorInsertSpaces,
-                renderWhitespace: editorRenderWhitespace,
-                autoClosingBrackets: editorAutoClosingBrackets,
-                autoClosingQuotes: editorAutoClosingQuotes,
-                formatOnPaste: editorFormatOnPaste,
-                formatOnType: editorFormatOnType,
-                padding: { top: 8 },
-                overviewRulerLanes: 3,
-                overviewRulerBorder: false,
-                lineDecorationsWidth: 12,
-                glyphMargin: true,
-              }}
-            />
-          </Suspense>
         </div>
-        </>
-      )}
+
+        {/* ── Layer 2: Terminal tabs (always mounted; visibility toggled) ── */}
+        {tabs
+          .filter((t): t is typeof t & { terminalSessionId: string } => t.type === 'terminal' && !!t.terminalSessionId)
+          .map((t) => (
+            <div key={t.terminalSessionId} className="absolute inset-0" style={{ display: t.id === activeTabId ? 'block' : 'none' }}>
+              <TerminalInstance sessionId={t.terminalSessionId} isActive={t.id === activeTabId} />
+            </div>
+          ))}
+      </div>
       <PendingChangesBar />
 
       {editorCtxMenu && (

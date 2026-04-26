@@ -18,6 +18,8 @@ export interface TerminalSession {
   ptyId: string | null;
   /** Whether this session is owned by the AI agent */
   isAgentSession: boolean;
+  /** Where this session is rendered: 'panel' (bottom/sidebar) or 'editor' (as editor tab) */
+  location: 'panel' | 'editor';
   /** Initial working directory for this session */
   cwd: string | null;
   /** Last executed command (for environment context injection) */
@@ -32,7 +34,7 @@ interface TerminalState {
   sessions: TerminalSession[];
   activeSessionId: string | null;
   nextIndex: number;
-  createSession: (name?: string, isAgentSession?: boolean, cwd?: string) => string;
+  createSession: (name?: string, isAgentSession?: boolean, cwd?: string, location?: 'panel' | 'editor') => string;
   closeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
   renameSession: (id: string, name: string) => void;
@@ -58,7 +60,7 @@ export const useTerminalStore = create<TerminalState>()(
     activeSessionId: null,
     nextIndex: 1,
 
-    createSession: (name?: string, isAgentSession = false, cwd?: string) => {
+    createSession: (name?: string, isAgentSession = false, cwd?: string, location: 'panel' | 'editor' = 'panel') => {
       const id = genId();
       const idx = get().nextIndex;
       const sessionName = name ?? `Terminal ${idx}`;
@@ -68,6 +70,7 @@ export const useTerminalStore = create<TerminalState>()(
           name: sessionName,
           ptyId: null,
           isAgentSession,
+          location,
           cwd: cwd ?? null,
           lastCommand: null,
           commandHistory: [],
@@ -143,6 +146,7 @@ export const useTerminalStore = create<TerminalState>()(
           name: 'Agent Terminal',
           ptyId: null,
           isAgentSession: true,
+          location: 'panel',
           cwd: null,
           lastCommand: null,
           commandHistory: [],

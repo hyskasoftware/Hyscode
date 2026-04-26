@@ -7,7 +7,8 @@ import { useAgentStore } from '../../stores/agent-store';
 import { TerminalInstance } from './terminal-instance';
 
 export function TerminalPanel() {
-  const sessions = useTerminalStore((s) => s.sessions);
+  const allSessions = useTerminalStore((s) => s.sessions);
+  const sessions = allSessions.filter((session) => session.location === 'panel');
   const activeSessionId = useTerminalStore((s) => s.activeSessionId);
   const createSession = useTerminalStore((s) => s.createSession);
   const closeSession = useTerminalStore((s) => s.closeSession);

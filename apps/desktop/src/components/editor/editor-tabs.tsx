@@ -1,10 +1,20 @@
-import { X, Circle, GitCompare, Wand2, Loader2, Pin } from 'lucide-react';
+import { X, Circle, GitCompare, Wand2, Loader2, Pin, Terminal, Plus, FilePlus, FolderOpen, Search, Code2 } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
 import { useEditorStore } from '../../stores';
 import { useAgentStore } from '../../stores/agent-store';
+import { useTerminalStore } from '../../stores/terminal-store';
 import { useShallow } from 'zustand/shallow';
 import { TabContextMenu } from './tab-context-menu';
 import { getFileIcon } from '../sidebar/views/file-icons';
+import { openCommandPalette } from './command-palette';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import type { AgentEditPhase } from '../../stores/agent-store';
 import type { Tab } from '../../stores/editor-store';
 
@@ -96,6 +106,42 @@ export function EditorTabs() {
     }),
   );
 
+  const handleNewFile = useCallback(() => {
+    useEditorStore.getState().openUntitled();
+  }, []);
+
+  const handleOpenFile = useCallback(async () => {
+    const { pickFile } = await import('../../lib/tauri-dialog');
+    const { getViewerType } = await import('../../lib/utils');
+    const path = await pickFile();
+    if (path) {
+      const sep = path.includes('/') ? '/' : '\\';
+      const fileName = path.split(sep).pop() ?? 'file';
+      const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+      useEditorStore.getState().openTab({
+        id: path,
+        filePath: path,
+        fileName,
+        language: ext || 'plaintext',
+        viewerType: getViewerType(fileName),
+      });
+    }
+  }, []);
+
+  const handleNewTerminal = useCallback(() => {
+    const sessionId = useTerminalStore.getState().createSession(undefined, false, undefined, 'editor');
+    const session = useTerminalStore.getState().sessions.find((s) => s.id === sessionId);
+    useEditorStore.getState().openTerminalTab(sessionId, session?.name ?? 'Terminal');
+  }, []);
+
+  const handleSearchProject = useCallback(() => {
+    openCommandPalette();
+  }, []);
+
+  const handleSearchSymbols = useCallback(() => {
+    openCommandPalette();
+  }, []);
+
   if (tabs.length === 0) return null;
 
   return (
@@ -103,6 +149,7 @@ export function EditorTabs() {
       {tabs.map((tab, index) => {
         const isActive = activeTabId === tab.id;
         const isDiff = tab.type === 'diff';
+        const isTerminal = tab.type === 'terminal';
         const editPhase = tab.filePath ? editPhaseMap[tab.filePath] : undefined;
         const isStreaming = editPhase === 'streaming';
         const isPendingReview = editPhase === 'pending_review';
@@ -132,6 +179,8 @@ export function EditorTabs() {
             )}
             {isDiff ? (
               <GitCompare className="h-3 w-3 shrink-0 text-accent" />
+            ) : isTerminal ? (
+              <Terminal className="h-3 w-3 shrink-0 text-green-400" />
             ) : isStreaming ? (
               <Loader2 className="h-3 w-3 shrink-0 text-purple-400 animate-spin" />
             ) : isPendingReview ? (
@@ -156,6 +205,40 @@ export function EditorTabs() {
           </div>
         );
       })}
+
+      {/* New tab dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
+          <Plus className="h-3 w-3" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={4} className="w-56">
+          <DropdownMenuItem onClick={handleNewFile}>
+            <FilePlus className="h-3.5 w-3.5 shrink-0" />
+            New File
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleOpenFile}>
+            <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+            Open File
+            <DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSearchProject}>
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            Search Project
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSearchSymbols}>
+            <Code2 className="h-3.5 w-3.5 shrink-0" />
+            Search Symbols
+            <DropdownMenuShortcut>Ctrl+T</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleNewTerminal}>
+            <Terminal className="h-3.5 w-3.5 shrink-0" />
+            New Terminal
+            <DropdownMenuShortcut>Ctrl+Shift+`</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {contextMenu && (
         <TabContextMenu
