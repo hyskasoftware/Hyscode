@@ -21,15 +21,17 @@ interface RuleEditorDialogProps {
     content: string;
     filePath: string;
   };
+  /** Default scope for new rules (when existingRule is not provided). */
+  initialScope?: RuleScope;
 }
 
-export function RuleEditorDialog({ open, onClose, existingRule }: RuleEditorDialogProps) {
+export function RuleEditorDialog({ open, onClose, existingRule, initialScope = 'global' }: RuleEditorDialogProps) {
   const themeId = useSettingsStore((s) => s.themeId);
   const monacoTheme = getMonacoThemeName(themeId);
   const projectPath = useProjectStore((s) => s.rootPath);
 
   const [name, setName] = useState(existingRule?.name ?? '');
-  const [scope, setScope] = useState<RuleScope>(existingRule?.scope ?? 'global');
+  const [scope, setScope] = useState<RuleScope>(existingRule?.scope ?? initialScope);
   const [content, setContent] = useState(existingRule?.content ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,11 +39,11 @@ export function RuleEditorDialog({ open, onClose, existingRule }: RuleEditorDial
   useEffect(() => {
     if (open) {
       setName(existingRule?.name ?? '');
-      setScope(existingRule?.scope ?? 'global');
+      setScope(existingRule?.scope ?? initialScope);
       setContent(existingRule?.content ?? '');
       setError(null);
     }
-  }, [open, existingRule]);
+  }, [open, existingRule, initialScope]);
 
   const handleEditorChange = useCallback((value: string | undefined) => {
     if (value !== undefined) setContent(value);

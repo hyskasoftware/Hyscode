@@ -18,12 +18,19 @@ export function RulesPanelDialog({ open, onClose }: RulesPanelDialogProps) {
   const toggleRule = useRulesStore((s) => s.toggleRule);
   const removeRule = useRulesStore((s) => s.removeRule);
   const setDiscoveredRules = useRulesStore((s) => s.setDiscoveredRules);
+  const ruleEditorOpen = useRulesStore((s) => s.ruleEditorOpen);
+  const ruleEditorScope = useRulesStore((s) => s.ruleEditorScope);
+  const ruleEditorExistingId = useRulesStore((s) => s.ruleEditorExistingId);
+  const openRuleEditor = useRulesStore((s) => s.openRuleEditor);
+  const closeRuleEditor = useRulesStore((s) => s.closeRuleEditor);
   const projectPath = useProjectStore((s) => s.rootPath);
   const openSettings = useSettingsStore((s) => s.openSettings);
 
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<RuleEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const editingRule = ruleEditorExistingId
+    ? rules.find((r) => r.id === ruleEditorExistingId) ?? null
+    : null;
 
   // Load rules when dialog opens
   useEffect(() => {
@@ -107,7 +114,7 @@ export function RulesPanelDialog({ open, onClose }: RulesPanelDialogProps) {
                     key={rule.id}
                     rule={rule}
                     onToggle={() => toggleRule(rule.id)}
-                    onEdit={() => { setEditingRule(rule); setEditorOpen(true); }}
+                    onEdit={() => openRuleEditor({ existingId: rule.id })}
                     onDelete={() => handleDelete(rule)}
                     deleting={deletingId === rule.id}
                   />
@@ -128,7 +135,7 @@ export function RulesPanelDialog({ open, onClose }: RulesPanelDialogProps) {
                     key={rule.id}
                     rule={rule}
                     onToggle={() => toggleRule(rule.id)}
-                    onEdit={() => { setEditingRule(rule); setEditorOpen(true); }}
+                    onEdit={() => openRuleEditor({ existingId: rule.id })}
                     onDelete={() => handleDelete(rule)}
                     deleting={deletingId === rule.id}
                   />
@@ -142,7 +149,7 @@ export function RulesPanelDialog({ open, onClose }: RulesPanelDialogProps) {
               No rules configured.
               <br />
               <button
-                onClick={() => { setEditingRule(null); setEditorOpen(true); }}
+                onClick={() => openRuleEditor()}
                 className="mt-1 text-accent hover:underline"
               >
                 Create your first rule
@@ -157,7 +164,7 @@ export function RulesPanelDialog({ open, onClose }: RulesPanelDialogProps) {
             {rules.filter((r) => r.enabled).length} active
           </span>
           <button
-            onClick={() => { setEditingRule(null); setEditorOpen(true); }}
+            onClick={() => openRuleEditor()}
             className="flex items-center gap-1 rounded-md bg-accent/10 px-2 py-1 text-[10px] font-medium text-accent hover:bg-accent/20 transition-colors"
           >
             <Plus className="h-3 w-3" />
@@ -167,9 +174,10 @@ export function RulesPanelDialog({ open, onClose }: RulesPanelDialogProps) {
       </div>
 
       <RuleEditorDialog
-        open={editorOpen}
-        onClose={() => setEditorOpen(false)}
+        open={ruleEditorOpen}
+        onClose={closeRuleEditor}
         existingRule={editingRule ?? undefined}
+        initialScope={ruleEditorScope}
       />
     </>
   );

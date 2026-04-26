@@ -26,6 +26,11 @@ interface RulesState {
   // Persisted preferences
   enabledMap: Record<string, boolean>;
 
+  // Rule editor dialog (transient)
+  ruleEditorOpen: boolean;
+  ruleEditorScope: RuleScope;
+  ruleEditorExistingId: string | null;
+
   // ─── Actions ────────────────────────────────────────────────────────
 
   /** Populate rules from harness discovery. Merges with persisted prefs. */
@@ -47,6 +52,11 @@ interface RulesState {
 
   /** Get rules that are active (enabled). */
   getActiveRules: () => RuleEntry[];
+
+  /** Open the rule editor dialog. existingId=null for new rule. */
+  openRuleEditor: (opts?: { scope?: RuleScope; existingId?: string | null }) => void;
+  /** Close the rule editor dialog. */
+  closeRuleEditor: () => void;
 }
 
 // ─── Store ──────────────────────────────────────────────────────────────────
@@ -57,6 +67,9 @@ export const useRulesStore = create<RulesState>()(
       rules: [],
       loading: false,
       enabledMap: {},
+      ruleEditorOpen: false,
+      ruleEditorScope: 'global' as RuleScope,
+      ruleEditorExistingId: null,
 
       setDiscoveredRules: (discovered: Rule[]) =>
         set((state) => {
@@ -119,6 +132,19 @@ export const useRulesStore = create<RulesState>()(
         const state = get();
         return state.rules.filter((r) => r.enabled);
       },
+
+      openRuleEditor: (opts) =>
+        set((state) => {
+          state.ruleEditorOpen = true;
+          state.ruleEditorScope = opts?.scope ?? 'global';
+          state.ruleEditorExistingId = opts?.existingId ?? null;
+        }),
+
+      closeRuleEditor: () =>
+        set((state) => {
+          state.ruleEditorOpen = false;
+          state.ruleEditorExistingId = null;
+        }),
     })),
     {
       name: 'hyscode-rules',

@@ -17,6 +17,8 @@ interface LayoutState {
   agentRightTab: 'changes' | 'preview' | 'terminal';
   /** File path to preview in agent-mode right panel */
   agentPreviewFile: string | null;
+  /** Whether the rules panel popup is open in the agent panel */
+  rulesPanelOpen: boolean;
 
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   setTerminalLocation: (location: TerminalLocation) => void;
@@ -24,6 +26,7 @@ interface LayoutState {
   setSidebarActiveTab: (tab: 'chat' | 'terminal') => void;
   setAgentRightTab: (tab: 'changes' | 'preview' | 'terminal') => void;
   setAgentPreviewFile: (filePath: string | null) => void;
+  setRulesPanelOpen: (open: boolean) => void;
   toggleTerminal: () => void;
   moveTerminalToSidebar: () => void;
   moveTerminalToBottom: () => void;
@@ -38,6 +41,7 @@ export const useLayoutStore = create<LayoutState>()(
       sidebarActiveTab: 'chat',
       agentRightTab: 'changes',
       agentPreviewFile: null,
+      rulesPanelOpen: false,
 
       setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
       setTerminalLocation: (location) => set({ terminalLocation: location }),
@@ -45,6 +49,7 @@ export const useLayoutStore = create<LayoutState>()(
       setSidebarActiveTab: (tab) => set({ sidebarActiveTab: tab }),
       setAgentRightTab: (tab) => set({ agentRightTab: tab }),
       setAgentPreviewFile: (filePath) => set({ agentPreviewFile: filePath, agentRightTab: 'preview' }),
+      setRulesPanelOpen: (open) => set({ rulesPanelOpen: open }),
 
       toggleTerminal: () =>
         set((state) => ({ terminalVisible: !state.terminalVisible })),

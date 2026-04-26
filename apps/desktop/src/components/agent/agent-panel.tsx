@@ -12,6 +12,7 @@ import { AgentChangedFiles } from './agent-changed-files';
 import { AgentQuestionCard } from './agent-question-card';
 import { RulesPanelDialog } from './rules-panel-dialog';
 import { useAgentStore } from '@/stores/agent-store';
+import { useLayoutStore } from '@/stores/layout-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -190,7 +191,8 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
   const tokenUsage = useAgentStore((s) => s.tokenUsage);
   const historyOpen = useAgentStore((s) => s.historyOpen);
   const setHistoryOpen = useAgentStore((s) => s.setHistoryOpen);
-  const [rulesOpen, setRulesOpen] = useState(false);
+  const rulesOpen = useLayoutStore((s) => s.rulesPanelOpen);
+  const setRulesOpen = useLayoutStore((s) => s.setRulesPanelOpen);
 
   const handleSpecApprove = async () => {
     try {
@@ -224,7 +226,7 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    onClick={() => setRulesOpen((v) => !v)}
+                    onClick={() => setRulesOpen(!rulesOpen)}
                     className={rulesOpen ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}
                   />
                 }

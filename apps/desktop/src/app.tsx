@@ -10,6 +10,7 @@ import { EditorLayout, AgentLayout, ReviewLayout } from './components/layouts';
 import { useProjectStore, useFileStore, useSettingsStore, useEditorStore } from './stores';
 import { useLayoutStore } from './stores/layout-store';
 import { useSkillsStore } from './stores/skills-store';
+import { useRulesStore } from './stores/rules-store';
 import { useExtensionStore } from './stores/extension-store';
 import { useCommandStore } from './stores/command-store';
 import { useKeybindingStore } from './stores/keybinding-store';
@@ -393,6 +394,45 @@ export function App() {
     builtin('workbench.action.openSettings', 'Open Settings', () => {
       useSettingsStore.getState().openSettings();
     }, { category: 'Preferences', key: 'ctrl+,' });
+
+    // ── Rules commands ─────────────────────────────────────────────────────
+    builtin('agent.rules.openPanel', 'Open Rules Panel', () => {
+      useLayoutStore.getState().setRulesPanelOpen(true);
+    }, { category: 'Agent' });
+
+    builtin('agent.rules.closePanel', 'Close Rules Panel', () => {
+      useLayoutStore.getState().setRulesPanelOpen(false);
+    }, { category: 'Agent' });
+
+    builtin('agent.rules.togglePanel', 'Toggle Rules Panel', () => {
+      const s = useLayoutStore.getState();
+      s.setRulesPanelOpen(!s.rulesPanelOpen);
+    }, { category: 'Agent', key: 'ctrl+shift+r' });
+
+    builtin('agent.rules.openSettings', 'Open Rules Settings', () => {
+      useSettingsStore.getState().openSettings();
+    }, { category: 'Agent' });
+
+    builtin('agent.rules.createGlobal', 'Create Global Rule', () => {
+      useLayoutStore.getState().setWorkspaceMode('agent');
+      useLayoutStore.getState().setRulesPanelOpen(true);
+      useRulesStore.getState().openRuleEditor({ scope: 'global' });
+    }, { category: 'Agent' });
+
+    builtin('agent.rules.createWorkspace', 'Create Workspace Rule', () => {
+      useLayoutStore.getState().setWorkspaceMode('agent');
+      useLayoutStore.getState().setRulesPanelOpen(true);
+      useRulesStore.getState().openRuleEditor({ scope: 'workspace' });
+    }, { category: 'Agent' });
+
+    builtin('agent.rules.reload', 'Reload Rules from Disk', async () => {
+      try {
+        const discovered = await HarnessBridge.get().loadRules();
+        useRulesStore.getState().setDiscoveredRules(discovered);
+      } catch (err) {
+        console.error('[Rules] Reload failed:', err);
+      }
+    }, { category: 'Agent' });
 
     // ── Terminal commands ─────────────────────────────────────────────────
     builtin('workbench.action.terminal.new', 'New Terminal', () => {

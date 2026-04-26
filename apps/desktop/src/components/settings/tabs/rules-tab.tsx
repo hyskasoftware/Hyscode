@@ -13,11 +13,18 @@ export function RulesTab() {
   const setDiscoveredRules = useRulesStore((s) => s.setDiscoveredRules);
   const toggleRule = useRulesStore((s) => s.toggleRule);
   const removeRule = useRulesStore((s) => s.removeRule);
+  const ruleEditorOpen = useRulesStore((s) => s.ruleEditorOpen);
+  const ruleEditorScope = useRulesStore((s) => s.ruleEditorScope);
+  const ruleEditorExistingId = useRulesStore((s) => s.ruleEditorExistingId);
+  const openRuleEditor = useRulesStore((s) => s.openRuleEditor);
+  const closeRuleEditor = useRulesStore((s) => s.closeRuleEditor);
   const projectPath = useProjectStore((s) => s.rootPath);
 
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<RuleEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const editingRule = ruleEditorExistingId
+    ? rules.find((r) => r.id === ruleEditorExistingId) ?? null
+    : null;
 
   // Load rules on mount
   useEffect(() => {
@@ -41,21 +48,6 @@ export function RulesTab() {
     void load();
     return () => { cancelled = true; };
   }, [setDiscoveredRules, projectPath]);
-
-  const handleEdit = useCallback((rule: RuleEntry) => {
-    setEditingRule(rule);
-    setEditorOpen(true);
-  }, []);
-
-  const handleNew = useCallback(() => {
-    setEditingRule(null);
-    setEditorOpen(true);
-  }, []);
-
-  const handleCloseEditor = useCallback(() => {
-    setEditorOpen(false);
-    setEditingRule(null);
-  }, []);
 
   const handleDelete = useCallback(async (rule: RuleEntry) => {
     if (!confirm(`Delete rule "${rule.name}"?`)) return;
@@ -91,7 +83,7 @@ export function RulesTab() {
           </span>
         </div>
         <button
-          onClick={handleNew}
+          onClick={() => openRuleEditor()}
           className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[11px] font-medium text-accent-foreground hover:bg-accent/90 transition-colors"
         >
           <Plus className="h-3 w-3" />
@@ -113,7 +105,7 @@ export function RulesTab() {
                 key={rule.id}
                 rule={rule}
                 onToggle={() => toggleRule(rule.id)}
-                onEdit={() => handleEdit(rule)}
+                onEdit={() => openRuleEditor({ existingId: rule.id })}
                 onDelete={() => handleDelete(rule)}
                 deleting={deletingId === rule.id}
               />
@@ -138,7 +130,7 @@ export function RulesTab() {
                 key={rule.id}
                 rule={rule}
                 onToggle={() => toggleRule(rule.id)}
-                onEdit={() => handleEdit(rule)}
+                onEdit={() => openRuleEditor({ existingId: rule.id })}
                 onDelete={() => handleDelete(rule)}
                 deleting={deletingId === rule.id}
               />
@@ -155,9 +147,10 @@ export function RulesTab() {
       )}
 
       <RuleEditorDialog
-        open={editorOpen}
-        onClose={handleCloseEditor}
+        open={ruleEditorOpen}
+        onClose={closeRuleEditor}
         existingRule={editingRule ?? undefined}
+        initialScope={ruleEditorScope}
       />
     </div>
   );
