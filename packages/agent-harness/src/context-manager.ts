@@ -15,6 +15,7 @@ import type {
   GatheredContextEntry,
   Skill,
   AgentDefinition,
+  Rule,
 } from './types';
 
 const PRIORITY_ORDER: ContextPriority[] = ['always', 'high', 'medium', 'low'];
@@ -27,6 +28,7 @@ export class ContextManager {
   private conversationHistory: Message[] = [];
   private activeSkills: Skill[] = [];
   private allSkills: Skill[] = [];
+  private activeRules: Rule[] = [];
   private agentDef: AgentDefinition | null = null;
   private systemPromptOverride: string | null = null;
 
@@ -51,6 +53,10 @@ export class ContextManager {
 
   setAllSkills(skills: Skill[]): void {
     this.allSkills = skills;
+  }
+
+  setActiveRules(rules: Rule[]): void {
+    this.activeRules = rules;
   }
 
   // ─── Context Sources ────────────────────────────────────────────────
@@ -180,6 +186,15 @@ export class ContextManager {
       parts.push(this.systemPromptOverride);
     } else if (this.agentDef) {
       parts.push(this.agentDef.basePrompt);
+    }
+
+    // Active rules (injected before skills — higher precedence)
+    if (this.activeRules.length > 0) {
+      parts.push('\n<active_rules>');
+      for (const rule of this.activeRules) {
+        parts.push(`<rule name="${rule.name}" scope="${rule.scope}">\n${rule.content}\n</rule>`);
+      }
+      parts.push('</active_rules>');
     }
 
     // Context sources marked as 'always' priority

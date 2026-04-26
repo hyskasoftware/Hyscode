@@ -360,6 +360,19 @@ export interface AgentQuestionAnswer {
   answer: string;
 }
 
+// ─── Rule Types ─────────────────────────────────────────────────────────────
+
+export type RuleScope = 'global' | 'workspace';
+
+export interface Rule {
+  id: string;
+  name: string;
+  filePath: string;
+  scope: RuleScope;
+  content: string;
+  enabled: boolean;
+}
+
 // ─── Skill Types ────────────────────────────────────────────────────────────
 
 export type SkillScope = 'built-in' | 'global' | 'workspace';

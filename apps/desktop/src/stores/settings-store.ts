@@ -135,6 +135,9 @@ interface SettingsState {
   // ─ Skills ─
   skillsPath: string;
 
+  // ─ Rules ─
+  globalRulesPath: string;
+
   // ─ Mobile / Devices ─
   flutterSdkPath: string;
   androidSdkPath: string;
@@ -244,6 +247,9 @@ export const useSettingsStore = create<SettingsState>()(
 
       // Skills
       skillsPath: '',
+
+      // Rules
+      globalRulesPath: '',
 
       // Mobile / Devices
       flutterSdkPath: '',

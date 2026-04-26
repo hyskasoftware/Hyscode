@@ -14,6 +14,7 @@ import type {
   ToolExecutionContext,
   ToolHandler,
   Skill,
+  Rule,
   AgentQuestion,
   AgentQuestionAnswer,
 } from './types';
@@ -23,6 +24,7 @@ import { ToolRouter } from './tool-router';
 import { getAllBuiltinTools } from './tools';
 import { getAgentDefinition } from './agents';
 import { SkillLoader } from './skill-loader';
+import { RuleLoader } from './rule-loader';
 import type { SddDatabase } from './sdd-engine';
 import { SddEngine } from './sdd-engine';
 import type { PreCompletionHook, PostToolHook, MiddlewareContext } from './middleware';
@@ -52,6 +54,8 @@ export interface HarnessOptions {
   sddDb?: SddDatabase;
   /** Skill loader config */
   skillLoader?: SkillLoader;
+  /** Rule loader config */
+  ruleLoader?: RuleLoader;
   /** PTY id of the persistent agent terminal (managed by the UI). When set,
    *  run_terminal_command writes to this shared session instead of spawning a new one. */
   agentTerminalPtyId?: string;
@@ -64,6 +68,7 @@ export class Harness {
   private contextManager: ContextManager;
   private toolRouter: ToolRouter;
   private skillLoader: SkillLoader | null;
+  private ruleLoader: RuleLoader | null;
   private sddEngine: SddEngine | null = null;
   private eventHandler: HarnessEventHandler | null;
   private invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
@@ -79,6 +84,7 @@ export class Harness {
   private onModeSwitchRequest: HarnessOptions['onModeSwitchRequest'] = undefined;
   private onUserQuestionRequest: HarnessOptions['onUserQuestionRequest'] = undefined;
   private activeSkills: Skill[] = [];
+  private activeRules: Rule[] = [];
 
   // ─── Agent Terminal Integration ───────────────────────────────────
   private agentTerminalPtyId: string | undefined;
@@ -102,6 +108,7 @@ export class Harness {
     this.listen = options.listen;
     this.eventHandler = options.onEvent ?? null;
     this.skillLoader = options.skillLoader ?? null;
+    this.ruleLoader = options.ruleLoader ?? null;
 
     // Agent terminal integration
     this.agentTerminalPtyId = options.agentTerminalPtyId;
@@ -220,6 +227,22 @@ export class Harness {
   setActiveSkills(skills: Skill[]): void {
     this.activeSkills = skills;
     this.contextManager.setActiveSkills(skills);
+  }
+
+  /** Get active rules for external callers (bridge). */
+  getActiveRules(): Rule[] {
+    return this.activeRules;
+  }
+
+  /** Set active rules for external callers (bridge). */
+  setActiveRules(rules: Rule[]): void {
+    this.activeRules = rules;
+    this.contextManager.setActiveRules(rules);
+  }
+
+  /** Get the rule loader (for external callers to list rules) */
+  getRuleLoader(): RuleLoader | null {
+    return this.ruleLoader;
   }
 
   /** Get the workspace path for external callers (bridge). */

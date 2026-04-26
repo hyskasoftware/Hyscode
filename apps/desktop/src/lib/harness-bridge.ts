@@ -2,7 +2,7 @@
 // Singleton that owns the Harness instance and wires its events → Zustand stores.
 // Lives outside React to avoid re-renders during streaming.
 
-import { Harness, SkillLoader, applyPolicyOverride } from '@hyscode/agent-harness';
+import { Harness, SkillLoader, RuleLoader, applyPolicyOverride } from '@hyscode/agent-harness';
 import type {
   HarnessEvent,
   AgentType,
@@ -24,6 +24,7 @@ import { McpBridge } from './mcp-bridge';
 import { useAgentStore } from '@/stores/agent-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useSkillsStore } from '@/stores/skills-store';
+import { useRulesStore } from '@/stores/rules-store';
 import { useFileStore } from '@/stores/file-store';
 import { useEditorStore } from '@/stores/editor-store';
 import { useTerminalStore } from '@/stores/terminal-store';
@@ -144,6 +145,30 @@ export class HarnessBridge {
       },
     });
 
+    // Create RuleLoader with Tauri-backed file system callbacks
+    const ruleLoader = new RuleLoader({
+      globalPath: `${homePath}/.config/hyscode/rules`,
+      workspacePath,
+      readDir: async (path: string) => {
+        try {
+          return await tauriInvokeRaw<Array<{ name: string; is_dir: boolean }>>('list_dir_all', { path });
+        } catch {
+          return [];
+        }
+      },
+      readFile: async (path: string) => {
+        return await tauriInvokeRaw<string>('read_file', { path });
+      },
+      pathExists: async (path: string) => {
+        try {
+          await tauriInvokeRaw('stat_path', { path });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    });
+
     this.harness = new Harness({
       workspacePath,
       projectId,
@@ -179,6 +204,7 @@ export class HarnessBridge {
       onModeSwitchRequest: (request) => this.handleModeSwitchRequest(request),
       onUserQuestionRequest: (questions, title) => this.handleUserQuestionRequest(questions, title),
       skillLoader,
+      ruleLoader,
     });
   }
 
@@ -269,6 +295,11 @@ export class HarnessBridge {
     const activeForMode = useSkillsStore.getState().getActiveForMode(store.mode as AgentType);
     this.syncActiveSkills(activeForMode.map((s) => s.name));
     dbg(`Skills ativas: ${activeForMode.length}`);
+
+    // Sync active rules from rules store → harness
+    const activeRules = useRulesStore.getState().getActiveRules();
+    this.syncActiveRules(activeRules.map((r) => r.id));
+    dbg(`Rules ativas: ${activeRules.length}`);
 
     if (!store.conversationId) {
       const id = crypto.randomUUID();
@@ -734,6 +765,35 @@ export class HarnessBridge {
     const active = loader.getActive();
     this.harness.setActiveSkills(active);
     this.harness.getContextManager().setAllSkills(loader.getAll());
+  }
+
+  async loadRules(): Promise<import('@hyscode/agent-harness').Rule[]> {
+    try {
+      const loader = this.harness.getRuleLoader();
+      if (!loader) return [];
+      const all = await loader.loadAll();
+      this.debug(`Rules loaded: ${all.length} total`);
+      return all;
+    } catch (err) {
+      this.debug(`Failed to load rules: ${err instanceof Error ? err.message : String(err)}`);
+      return [];
+    }
+  }
+
+  /** Sync the active rule set from the rules store to the harness before a run */
+  syncActiveRules(activeRuleIds: string[]): void {
+    const loader = this.harness.getRuleLoader();
+    if (!loader) return;
+    // Disable all, then enable only the ones from the store
+    for (const rule of loader.getAll()) {
+      rule.enabled = false;
+    }
+    for (const id of activeRuleIds) {
+      loader.enable(id);
+    }
+    // Update context manager
+    const active = loader.getActive();
+    this.harness.setActiveRules(active);
   }
 
   /** Register all tools from connected MCP servers as native tool handlers */

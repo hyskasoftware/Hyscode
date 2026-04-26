@@ -8,6 +8,7 @@ export { useTerminalStore } from './terminal-store';
 export { useExtensionStore } from './extension-store';
 export { useLspStore } from './lsp-store';
 export { useSkillsStore } from './skills-store';
+export { useRulesStore } from './rules-store';
 export { useLayoutStore } from './layout-store';
 export { useDeviceStore } from './device-store';
 export { useDockerStore } from './docker-store';

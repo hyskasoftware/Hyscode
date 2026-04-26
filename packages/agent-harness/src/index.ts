@@ -30,6 +30,8 @@ export type {
   AgentQuestion,
   AgentQuestionOption,
   AgentQuestionAnswer,
+  Rule,
+  RuleScope,
   SkillScope,
   SkillActivation,
   SkillFrontmatter,
@@ -50,6 +52,9 @@ export { ContextManager } from './context-manager';
 export { ToolRouter } from './tool-router';
 export { SkillLoader } from './skill-loader';
 export type { SkillLoaderConfig } from './skill-loader';
+
+export { RuleLoader } from './rule-loader';
+export type { RuleLoaderConfig } from './rule-loader';
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 export type { MiddlewareContext, PreCompletionHook, PostToolHook } from './middleware';

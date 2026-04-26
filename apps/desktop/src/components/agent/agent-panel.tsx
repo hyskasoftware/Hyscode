@@ -1,4 +1,4 @@
-import { Trash2, History, Bot } from 'lucide-react';
+import { Trash2, History, Bot, BookText } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { AgentMessages } from './agent-messages';
 import { AgentInput } from './agent-input';
@@ -10,6 +10,7 @@ import { SddTaskList } from './sdd/sdd-task-list';
 import { AgentTaskList } from './agent-task-list';
 import { AgentChangedFiles } from './agent-changed-files';
 import { AgentQuestionCard } from './agent-question-card';
+import { RulesPanelDialog } from './rules-panel-dialog';
 import { useAgentStore } from '@/stores/agent-store';
 import { HarnessBridge } from '@/lib/harness-bridge';
 import { Button } from '@/components/ui/button';
@@ -189,6 +190,7 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
   const tokenUsage = useAgentStore((s) => s.tokenUsage);
   const historyOpen = useAgentStore((s) => s.historyOpen);
   const setHistoryOpen = useAgentStore((s) => s.setHistoryOpen);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const handleSpecApprove = async () => {
     try {
@@ -215,6 +217,24 @@ export function AgentPanel({ hideChangedFiles }: { hideChangedFiles?: boolean } 
           <span className="text-[11px] font-medium">Agent</span>
         </div>
         <div className="flex items-center gap-0.5">
+          <div className="relative">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setRulesOpen((v) => !v)}
+                    className={rulesOpen ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}
+                  />
+                }
+              >
+                <BookText className="h-3 w-3" />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Active Rules</TooltipContent>
+            </Tooltip>
+            <RulesPanelDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
+          </div>
           <ContextPieButton usage={tokenUsage} messageCount={messageCount} />
           <Tooltip>
             <TooltipTrigger
