@@ -1,0 +1,841 @@
+{
+  "Kotlin File Template": {
+    "prefix": ["kfile", "ktfile"],
+    "body": [
+      "package ${1:com.example}",
+      "",
+      "$0"
+    ],
+    "description": "Template de arquivo Kotlin com package"
+  },
+  "Main Function": {
+    "prefix": ["main", "mainfn"],
+    "body": [
+      "fun main() {",
+      "    $0",
+      "}"
+    ],
+    "description": "Função main"
+  },
+  "Main Function with Args": {
+    "prefix": ["mainargs"],
+    "body": [
+      "fun main(args: Array<String>) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Função main com argumentos"
+  },
+
+  "Class": {
+    "prefix": ["class", "kclass"],
+    "body": [
+      "class ${1:MyClass} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Classe Kotlin"
+  },
+  "Class with Constructor": {
+    "prefix": ["kctor", "classctor"],
+    "body": [
+      "class ${1:MyClass}(",
+      "    val ${2:param}: ${3:String}",
+      ") {",
+      "    $0",
+      "}"
+    ],
+    "description": "Classe com construtor primário"
+  },
+  "Open Class": {
+    "prefix": ["oclass", "openclass"],
+    "body": [
+      "open class ${1:BaseClass} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Classe aberta para herança"
+  },
+  "Abstract Class": {
+    "prefix": ["aclass", "abstractclass"],
+    "body": [
+      "abstract class ${1:AbstractClass} {",
+      "    abstract fun ${2:method}()",
+      "    $0",
+      "}"
+    ],
+    "description": "Classe abstrata"
+  },
+  "Data Class": {
+    "prefix": ["dclass", "dataclass"],
+    "body": [
+      "data class ${1:User}(",
+      "    val ${2:id}: ${3:String},",
+      "    val ${4:name}: ${5:String},",
+      ")"
+    ],
+    "description": "Data class"
+  },
+  "Sealed Class": {
+    "prefix": ["sclass", "sealedclass"],
+    "body": [
+      "sealed class ${1:Result} {",
+      "    data class Success(val data: ${2:String}) : ${1:Result}()",
+      "    data class Error(val message: ${3:String}) : ${1:Result}()",
+      "}"
+    ],
+    "description": "Sealed class com subclasses"
+  },
+  "Sealed Interface": {
+    "prefix": ["siface", "sealedinterface"],
+    "body": [
+      "sealed interface ${1:Result} {",
+      "    data class Success(val data: ${2:String}) : ${1:Result}",
+      "    data class Error(val message: ${3:String}) : ${1:Result}",
+      "}"
+    ],
+    "description": "Sealed interface"
+  },
+  "Interface": {
+    "prefix": ["iface", "interface"],
+    "body": [
+      "interface ${1:MyService} {",
+      "    fun ${2:execute}()",
+      "}"
+    ],
+    "description": "Interface Kotlin"
+  },
+  "Enum Class": {
+    "prefix": ["enum", "enumclass"],
+    "body": [
+      "enum class ${1:Status} {",
+      "    ${2:ACTIVE},",
+      "    ${3:INACTIVE},",
+      "    ${4:PENDING};",
+      "}"
+    ],
+    "description": "Enum class"
+  },
+  "Object": {
+    "prefix": ["obj", "object"],
+    "body": [
+      "object ${1:Singleton} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Singleton object"
+  },
+  "Companion Object": {
+    "prefix": ["companion"],
+    "body": [
+      "companion object {",
+      "    $0",
+      "}"
+    ],
+    "description": "Companion object"
+  },
+  "Inline Class (Value Class)": {
+    "prefix": ["valueclass", "inlineclass"],
+    "body": [
+      "@JvmInline",
+      "value class ${1:UserId}(val value: ${2:String})"
+    ],
+    "description": "Value class (inline class)"
+  },
+
+  "Function": {
+    "prefix": ["fun", "function"],
+    "body": [
+      "fun ${1:name}(${2}): ${3:Unit} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Função"
+  },
+  "Single Expression Function": {
+    "prefix": ["sfun", "singlefun"],
+    "body": [
+      "fun ${1:name}(${2}) = ${3:expression}"
+    ],
+    "description": "Função de expressão única"
+  },
+  "Extension Function": {
+    "prefix": ["extfun", "extension"],
+    "body": [
+      "fun ${1:String}.${2:myExtension}(${3}): ${4:String} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Função de extensão"
+  },
+  "Inline Function": {
+    "prefix": ["ifun", "inlinefun"],
+    "body": [
+      "inline fun <reified ${1:T}> ${2:name}(${3}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Função inline com reified"
+  },
+  "Lambda": {
+    "prefix": ["lambda"],
+    "body": [
+      "{ ${1:param} ->",
+      "    $0",
+      "}"
+    ],
+    "description": "Lambda expression"
+  },
+  "Higher-Order Function": {
+    "prefix": ["hof", "higherorder"],
+    "body": [
+      "fun ${1:operation}(${2:callback}: (${3:ParamType}) -> ${4:ReturnType}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Higher-order function"
+  },
+
+  "Property": {
+    "prefix": ["prop", "property"],
+    "body": [
+      "var ${1:name}: ${2:String} = ${3:initialValue}"
+    ],
+    "description": "Propriedade com getter/setter implícito"
+  },
+  "Lazy Property": {
+    "prefix": ["lazy"],
+    "body": [
+      "val ${1:lazyValue} by lazy {",
+      "    $0",
+      "}"
+    ],
+    "description": "Propriedade lazy"
+  },
+  "Lateinit Property": {
+    "prefix": ["lateinit"],
+    "body": [
+      "lateinit var ${1:dependency}: ${2:Dependency}"
+    ],
+    "description": "Propriedade lateinit"
+  },
+  "Custom Getter/Setter": {
+    "prefix": ["getset", "gettersetter"],
+    "body": [
+      "var ${1:name}: ${2:String} = ${3:initialValue}",
+      "    get() = field",
+      "    set(value) {",
+      "        field = value",
+      "    }"
+    ],
+    "description": "Getter/setter customizado"
+  },
+
+  "Println": {
+    "prefix": ["sout", "println"],
+    "body": [
+      "println(${1:\"$2\"})"
+    ],
+    "description": "println"
+  },
+  "Println with Variable": {
+    "prefix": ["soutv", "printlnv"],
+    "body": [
+      "println(\"${1:variable} = \$${1:variable}\")"
+    ],
+    "description": "println com nome da variável"
+  },
+  "String Template": {
+    "prefix": ["strt", "template"],
+    "body": [
+      "\"${1:text} \$${2:variable}\""
+    ],
+    "description": "String template"
+  },
+  "Multiline String": {
+    "prefix": ["mstr", "multiline"],
+    "body": [
+      "\"\"\"",
+      "    ${1:line1}",
+      "    ${2:line2}",
+      "\"\"\".trimIndent()"
+    ],
+    "description": "String multiline com trimIndent"
+  },
+
+  "If Expression": {
+    "prefix": ["if"],
+    "body": [
+      "if (${1:condition}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "If statement"
+  },
+  "If-Else Expression": {
+    "prefix": ["ifelse"],
+    "body": [
+      "if (${1:condition}) {",
+      "    ${2:// if branch}",
+      "} else {",
+      "    ${3:// else branch}",
+      "}"
+    ],
+    "description": "If-else expression"
+  },
+  "When Expression": {
+    "prefix": ["when"],
+    "body": [
+      "when (${1:value}) {",
+      "    ${2:is} ${3:Type} -> ${4:// handle}",
+      "    else -> ${5:// default}",
+      "}"
+    ],
+    "description": "When expression"
+  },
+  "When with Subject": {
+    "prefix": ["whensub"],
+    "body": [
+      "val ${1:result} = when {",
+      "    ${2:condition1} -> ${3:value1}",
+      "    ${4:condition2} -> ${5:value2}",
+      "    else -> ${6:defaultValue}",
+      "}"
+    ],
+    "description": "When sem subject"
+  },
+  "For Loop": {
+    "prefix": ["fori", "for"],
+    "body": [
+      "for (${1:i} in ${2:0}..${3:10}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "For loop com range"
+  },
+  "For Each": {
+    "prefix": ["foreach", "forin"],
+    "body": [
+      "for (${1:item} in ${2:collection}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "For-each loop"
+  },
+  "While Loop": {
+    "prefix": ["while"],
+    "body": [
+      "while (${1:condition}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "While loop"
+  },
+  "Do While": {
+    "prefix": ["dowhile"],
+    "body": [
+      "do {",
+      "    $0",
+      "} while (${1:condition})"
+    ],
+    "description": "Do-while loop"
+  },
+
+  "Try-Catch": {
+    "prefix": ["try", "trycatch"],
+    "body": [
+      "try {",
+      "    $0",
+      "} catch (e: ${1:Exception}) {",
+      "    // handle error",
+      "}"
+    ],
+    "description": "Try-catch"
+  },
+  "Try-Catch-Finally": {
+    "prefix": ["tryfinally"],
+    "body": [
+      "try {",
+      "    $0",
+      "} catch (e: ${1:Exception}) {",
+      "    // handle error",
+      "} finally {",
+      "    // cleanup",
+      "}"
+    ],
+    "description": "Try-catch-finally"
+  },
+  "Run Catching": {
+    "prefix": ["runcatch"],
+    "body": [
+      "runCatching {",
+      "    $0",
+      "}.onSuccess { ${1:result} ->",
+      "    // success",
+      "}.onFailure { ${2:error} ->",
+      "    // failure",
+      "}"
+    ],
+    "description": "runCatching builder"
+  },
+  "Elvis Operator": {
+    "prefix": ["elvis"],
+    "body": [
+      "${1:value} ?: ${2:default}"
+    ],
+    "description": "Operador Elvis"
+  },
+  "Safe Call": {
+    "prefix": ["safe", "safecall"],
+    "body": [
+      "${1:nullable}?.${2:property}"
+    ],
+    "description": "Safe call operator"
+  },
+  "Let": {
+    "prefix": ["let"],
+    "body": [
+      "${1:nullable}?.let { ${2:it} ->",
+      "    $0",
+      "}"
+    ],
+    "description": "Safe call com let"
+  },
+  "Also": {
+    "prefix": ["also"],
+    "body": [
+      "${1:instance}.also {",
+      "    ${2:it}.${3:doSomething}()",
+      "}"
+    ],
+    "description": "Scope function also"
+  },
+  "Apply": {
+    "prefix": ["apply"],
+    "body": [
+      "${1:instance}.apply {",
+      "    ${2:property} = ${3:value}",
+      "}"
+    ],
+    "description": "Scope function apply"
+  },
+  "With": {
+    "prefix": ["with"],
+    "body": [
+      "with(${1:instance}) {",
+      "    ${2:property}",
+      "}"
+    ],
+    "description": "Scope function with"
+  },
+  "Run": {
+    "prefix": ["run"],
+    "body": [
+      "${1:instance}.run {",
+      "    $0",
+      "}"
+    ],
+    "description": "Scope function run"
+  },
+  "Take If": {
+    "prefix": ["takeif"],
+    "body": [
+      "${1:value}.takeIf { ${2:it} > ${3:0} }"
+    ],
+    "description": "takeIf"
+  },
+  "Take Unless": {
+    "prefix": ["takeunless"],
+    "body": [
+      "${1:value}.takeUnless { ${2:it} == null }"
+    ],
+    "description": "takeUnless"
+  },
+
+  "Coroutine Launch": {
+    "prefix": ["launch"],
+    "body": [
+      "launch {",
+      "    $0",
+      "}"
+    ],
+    "description": "Coroutine launch"
+  },
+  "Coroutine Async": {
+    "prefix": ["async"],
+    "body": [
+      "async {",
+      "    $0",
+      "}"
+    ],
+    "description": "Coroutine async"
+  },
+  "Coroutine withContext": {
+    "prefix": ["withcontext"],
+    "body": [
+      "withContext(${1:Dispatchers.IO}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "withContext"
+  },
+  "Coroutine runBlocking": {
+    "prefix": ["runblocking"],
+    "body": [
+      "runBlocking {",
+      "    $0",
+      "}"
+    ],
+    "description": "runBlocking"
+  },
+  "Coroutine Flow": {
+    "prefix": ["flow"],
+    "body": [
+      "flow {",
+      "    emit(${1:value})",
+      "    $0",
+      "}"
+    ],
+    "description": "Cold flow"
+  },
+  "Coroutine Flow Collect": {
+    "prefix": ["flowcollect"],
+    "body": [
+      "${1:flow}.collect { ${2:value} ->",
+      "    $0",
+      "}"
+    ],
+    "description": "Flow collect"
+  },
+  "Coroutine Suspend Function": {
+    "prefix": ["suspend"],
+    "body": [
+      "suspend fun ${1:name}(${2}): ${3:Unit} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Suspend function"
+  },
+  "Coroutine ViewModelScope": {
+    "prefix": ["vmscope"],
+    "body": [
+      "viewModelScope.launch {",
+      "    $0",
+      "}"
+    ],
+    "description": "viewModelScope.launch"
+  },
+  "Coroutine LifecycleScope": {
+    "prefix": ["lcscope"],
+    "body": [
+      "lifecycleScope.launch {",
+      "    $0",
+      "}"
+    ],
+    "description": "lifecycleScope.launch"
+  },
+
+  "Nullable Type": {
+    "prefix": ["null"],
+    "body": [
+      "${1:String}?"
+    ],
+    "description": "Tipo nullable"
+  },
+  "Generic Function": {
+    "prefix": ["generic"],
+    "body": [
+      "fun <${1:T}> ${2:name}(${3:item}: ${1:T}): ${1:T} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Função genérica"
+  },
+  "Typealias": {
+    "prefix": ["typealias"],
+    "body": [
+      "typealias ${1:AliasName} = ${2:OriginalType}"
+    ],
+    "description": "Typealias"
+  },
+
+  "JUnit Test": {
+    "prefix": ["test", "junit"],
+    "body": [
+      "@Test",
+      "fun \`${1:should do something}\`() {",
+      "    // Arrange",
+      "    $0",
+      "",
+      "    // Act",
+      "",
+      "    // Assert",
+      "}"
+    ],
+    "description": "JUnit 5 test"
+  },
+  "JUnit Parameterized Test": {
+    "prefix": ["ptest", "paramtest"],
+    "body": [
+      "@ParameterizedTest",
+      "@ValueSource(strings = [${1:\"a\", \"b\"}])",
+      "fun \`should handle \$input\`(input: String) {",
+      "    $0",
+      "}"
+    ],
+    "description": "JUnit 5 parameterized test"
+  },
+  "MockK Every": {
+    "prefix": ["mockkevery"],
+    "body": [
+      "every { ${1:mock}.${2:method}() } returns ${3:result}"
+    ],
+    "description": "MockK every"
+  },
+  "MockK Verify": {
+    "prefix": ["mockkverify"],
+    "body": [
+      "verify { ${1:mock}.${2:method}() }"
+    ],
+    "description": "MockK verify"
+  },
+
+  "Ktor Route": {
+    "prefix": ["route"],
+    "body": [
+      "routing {",
+      "    ${1:get}(\"${2:/}\") {",
+      "        call.respondText(\"${3:Hello!}\")",
+      "    }",
+      "}"
+    ],
+    "description": "Ktor routing block"
+  },
+  "Ktor Get Route": {
+    "prefix": ["kget"],
+    "body": [
+      "get(\"${1:/api/resource}\") {",
+      "    ${2:call.respond(HttpStatusCode.OK, ${3:result})}",
+      "}"
+    ],
+    "description": "Ktor GET route"
+  },
+  "Ktor Post Route": {
+    "prefix": ["kpost"],
+    "body": [
+      "post(\"${1:/api/resource}\") {",
+      "    val body = call.receive<${2:RequestBody}>()",
+      "    ${3:call.respond(HttpStatusCode.Created, ${4:result})}",
+      "}"
+    ],
+    "description": "Ktor POST route"
+  },
+  "Ktor Application Module": {
+    "prefix": ["ktorapp"],
+    "body": [
+      "fun Application.${1:module}() {",
+      "    routing {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "Ktor Application module"
+  },
+
+  "Jetpack Compose @Composable": {
+    "prefix": ["comp"],
+    "body": [
+      "@Composable",
+      "fun ${1:MyComponent}(${2}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Função Compose"
+  },
+  "Jetpack Compose Preview": {
+    "prefix": ["preview"],
+    "body": [
+      "@Preview",
+      "@Composable",
+      "fun ${1:MyComponent}Preview() {",
+      "    ${2:MyComponent}()",
+      "}"
+    ],
+    "description": "Preview Compose"
+  },
+  "Jetpack Compose Scaffold": {
+    "prefix": ["scaffold"],
+    "body": [
+      "Scaffold(",
+      "    topBar = {",
+      "        TopAppBar(",
+      "            title = { Text(\"${1:Title}\") }",
+      "        )",
+      "    }",
+      ") { paddingValues ->",
+      "    Column(",
+      "        modifier = Modifier",
+      "            .fillMaxSize()",
+      "            .padding(paddingValues)",
+      "    ) {",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "Scaffold Compose"
+  },
+  "Jetpack Compose Column": {
+    "prefix": ["column"],
+    "body": [
+      "Column(",
+      "    modifier = Modifier${1:.fillMaxSize()},",
+      "    verticalArrangement = Arrangement.${2:Center},",
+      "    horizontalAlignment = Alignment.${3:CenterHorizontally}",
+      ") {",
+      "    $0",
+      "}"
+    ],
+    "description": "Column Compose"
+  },
+  "Jetpack Compose Row": {
+    "prefix": ["row"],
+    "body": [
+      "Row(",
+      "    modifier = Modifier${1:.fillMaxWidth()},",
+      "    horizontalArrangement = Arrangement.${2:SpaceBetween},",
+      "    verticalAlignment = Alignment.${3:CenterVertically}",
+      ") {",
+      "    $0",
+      "}"
+    ],
+    "description": "Row Compose"
+  },
+  "Jetpack Compose Box": {
+    "prefix": ["box"],
+    "body": [
+      "Box(",
+      "    modifier = Modifier${1:.fillMaxSize()},",
+      "    contentAlignment = Alignment.${2:Center}",
+      ") {",
+      "    $0",
+      "}"
+    ],
+    "description": "Box Compose"
+  },
+  "Jetpack Compose LazyColumn": {
+    "prefix": ["lazycolumn"],
+    "body": [
+      "LazyColumn(",
+      "    modifier = Modifier${1:.fillMaxSize()}",
+      ") {",
+      "    items(${2:items}) { ${3:item} ->",
+      "        $0",
+      "    }",
+      "}"
+    ],
+    "description": "LazyColumn Compose"
+  },
+  "Jetpack Compose LaunchedEffect": {
+    "prefix": ["leffect"],
+    "body": [
+      "LaunchedEffect(${1:key}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "LaunchedEffect Compose"
+  },
+  "Jetpack Compose remember": {
+    "prefix": ["remember"],
+    "body": [
+      "val ${1:state} = remember { ${2:mutableStateOf(${3:default})} }"
+    ],
+    "description": "remember mutableStateOf"
+  },
+  "Jetpack Compose rememberSaveable": {
+    "prefix": ["remembersaveable"],
+    "body": [
+      "val ${1:state} = rememberSaveable { mutableStateOf(${2:default}) }"
+    ],
+    "description": "rememberSaveable"
+  },
+  "Jetpack Compose derivedStateOf": {
+    "prefix": ["derived"],
+    "body": [
+      "val ${1:derived} by remember { derivedStateOf { ${2:expression} } }"
+    ],
+    "description": "derivedStateOf"
+  },
+
+  "KMP Common Module": {
+    "prefix": ["kmpcommon"],
+    "body": [
+      "expect class ${1:Platform} {",
+      "    val name: String",
+      "}"
+    ],
+    "description": "KMP expect class"
+  },
+  "KMP Actual Implementation": {
+    "prefix": ["kmpactual"],
+    "body": [
+      "actual class ${1:Platform} actual constructor() {",
+      "    actual val name: String = \"${2:PlatformName}\"",
+      "}"
+    ],
+    "description": "KMP actual class"
+  },
+
+  "Delegation by": {
+    "prefix": ["by"],
+    "body": [
+      "class ${1:MyClass} : ${2:Interface} by ${3:delegate}"
+    ],
+    "description": "Delegation pattern"
+  },
+  "Init Block": {
+    "prefix": ["init"],
+    "body": [
+      "init {",
+      "    $0",
+      "}"
+    ],
+    "description": "Init block"
+  },
+  "Constructor (Secondary)": {
+    "prefix": ["constructor"],
+    "body": [
+      "constructor(${1}) : this(${2}) {",
+      "    $0",
+      "}"
+    ],
+    "description": "Construtor secundário"
+  },
+  "Require Check": {
+    "prefix": ["require"],
+    "body": [
+      "require(${1:condition}) { \"${2:error message}\" }"
+    ],
+    "description": "require() precondition"
+  },
+  "Check (Invariant)": {
+    "prefix": ["check"],
+    "body": [
+      "check(${1:condition}) { \"${2:error message}\" }"
+    ],
+    "description": "check() invariant"
+  },
+  "TODO": {
+    "prefix": ["todo"],
+    "body": [
+      "TODO(\"${1:implement}\")"
+    ],
+    "description": "TODO marker"
+  },
+  "Not Implemented": {
+    "prefix": ["notimpl"],
+    "body": [
+      "TODO(\"Not yet implemented\")"
+    ],
+    "description": "Not yet implemented"
+  }
+}
