@@ -50,12 +50,21 @@ export function EditorArea() {
   const editorFontFamily = useSettingsStore((s) => s.fontFamily);
   const editorLineHeight = useSettingsStore((s) => s.lineHeight);
   const editorTabSize = useSettingsStore((s) => s.tabSize);
+  const editorInsertSpaces = useSettingsStore((s) => s.insertSpaces);
   const editorWordWrap = useSettingsStore((s) => s.wordWrap);
   const editorMinimap = useSettingsStore((s) => s.minimap);
   const editorLineNumbers = useSettingsStore((s) => s.lineNumbers);
   const editorCursorStyle = useSettingsStore((s) => s.cursorStyle);
   const editorRenderWhitespace = useSettingsStore((s) => s.renderWhitespace);
   const editorBracketPairColorization = useSettingsStore((s) => s.bracketPairColorization);
+  const editorScrollBeyondLastLine = useSettingsStore((s) => s.scrollBeyondLastLine);
+  const editorSmoothScrolling = useSettingsStore((s) => s.smoothScrolling);
+  const editorAutoClosingBrackets = useSettingsStore((s) => s.autoClosingBrackets);
+  const editorAutoClosingQuotes = useSettingsStore((s) => s.autoClosingQuotes);
+  const editorFormatOnPaste = useSettingsStore((s) => s.formatOnPaste);
+  const editorFormatOnType = useSettingsStore((s) => s.formatOnType);
+  const autoSave = useSettingsStore((s) => s.autoSave);
+  const autoSaveDelay = useSettingsStore((s) => s.autoSaveDelay);
   const themeId = useSettingsStore((s) => s.themeId);
   const monacoTheme = getMonacoThemeName(themeId);
   const extensionThemesVersion = useExtensionStore((s) => s.extensionThemesVersion);
@@ -99,8 +108,82 @@ export function EditorArea() {
   const editorInstanceRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const monacoInstanceRef = useRef<typeof monacoEditor | null>(null);
 
+  // Auto-save timer ref
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Track when editor mounts so decoration hooks re-run
   const [editorVersion, setEditorVersion] = useState(0);
+
+  // ── Shared file-save logic (used by Ctrl+S AND autoSave) ──────────────────
+  const saveCurrentFile = useCallback(async () => {
+    if (!activeTab) return;
+    if (activeTab.filePath.startsWith('untitled:')) return;
+    const currentContent = contentRef.current;
+    if (currentContent === null) return;
+    try {
+      await tauriFs.writeFile(activeTab.filePath, currentContent);
+      markDirty(activeTab.id, false);
+      const lang = detectLspLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
+      LspBridge.onFileSaved(activeTab.filePath, lang, currentContent);
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+    }
+  }, [activeTab?.id, activeTab?.filePath, activeTab?.language, markDirty]);
+
+  // Clear pending auto-save timer when tab changes
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [activeTab?.filePath]);
+
+  // Auto-save on focus change
+  useEffect(() => {
+    const editor = editorInstanceRef.current;
+    if (!editor || autoSave !== 'onFocusChange') return;
+    const disposable = editor.onDidBlurEditorText(() => {
+      saveCurrentFile();
+    });
+    return () => disposable.dispose();
+  }, [editorVersion, autoSave, saveCurrentFile]);
+
+  // ── Real-time Monaco option updates ───────────────────────────────────────
+  useEffect(() => {
+    const editor = editorInstanceRef.current;
+    if (!editor) return;
+    editor.updateOptions({
+      fontFamily: `'${editorFontFamily}', 'JetBrains Mono', 'Fira Code', monospace`,
+      fontSize: editorFontSize,
+      lineHeight: editorLineHeight,
+      minimap: { enabled: editorMinimap, scale: 1 },
+      scrollBeyondLastLine: editorScrollBeyondLastLine,
+      smoothScrolling: editorSmoothScrolling,
+      cursorStyle: editorCursorStyle,
+      bracketPairColorization: { enabled: editorBracketPairColorization },
+      guides: { bracketPairs: editorBracketPairColorization, indentation: true },
+      wordWrap: editorWordWrap,
+      lineNumbers: editorLineNumbers,
+      tabSize: editorTabSize,
+      insertSpaces: editorInsertSpaces,
+      renderWhitespace: editorRenderWhitespace,
+      autoClosingBrackets: editorAutoClosingBrackets,
+      autoClosingQuotes: editorAutoClosingQuotes,
+      formatOnPaste: editorFormatOnPaste,
+      formatOnType: editorFormatOnType,
+    });
+  }, [
+    editorVersion,
+    editorFontSize, editorFontFamily, editorLineHeight,
+    editorTabSize, editorInsertSpaces,
+    editorWordWrap, editorMinimap, editorLineNumbers, editorCursorStyle,
+    editorRenderWhitespace, editorBracketPairColorization,
+    editorScrollBeyondLastLine, editorSmoothScrolling,
+    editorAutoClosingBrackets, editorAutoClosingQuotes,
+    editorFormatOnPaste, editorFormatOnType,
+  ]);
 
   // Apply git diff decorations to gutter + minimap
   useGitDecorations(
@@ -265,8 +348,14 @@ export function EditorArea() {
       // Notify LSP of content change (debounced inside bridge)
       const lang = detectLspLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
       LspBridge.onFileChanged(activeTab.filePath, lang, value);
+
+      // Auto-save after delay
+      if (autoSave === 'afterDelay' && !activeTab.filePath.startsWith('untitled:')) {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = setTimeout(saveCurrentFile, autoSaveDelay);
+      }
     },
-    [activeTab?.id, activeTab?.filePath, activeTab?.language, markDirty, setFileContent],
+    [activeTab?.id, activeTab?.filePath, activeTab?.language, markDirty, setFileContent, autoSave, autoSaveDelay, saveCurrentFile],
   );
 
   // Save with Ctrl+S (only for text-editable viewers)
@@ -291,19 +380,12 @@ export function EditorArea() {
           return;
         }
 
-        try {
-          await tauriFs.writeFile(activeTab.filePath, currentContent);
-          markDirty(activeTab.id, false);
-          const lang = detectLspLanguage(activeTab.filePath) ?? activeTab.language ?? 'plaintext';
-          LspBridge.onFileSaved(activeTab.filePath, lang, currentContent);
-        } catch (err) {
-          console.error('Failed to save file:', err);
-        }
+        saveCurrentFile();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activeTab?.id, activeTab?.filePath, activeTab?.fileName, markDirty]);
+  }, [activeTab?.id, activeTab?.filePath, activeTab?.fileName, markDirty, saveCurrentFile]);
 
   const hasOpenTabs = tabs.length > 0;
 
@@ -397,8 +479,8 @@ export function EditorArea() {
                 fontSize: editorFontSize,
                 lineHeight: editorLineHeight,
                 minimap: { enabled: editorMinimap, scale: 1 },
-                scrollBeyondLastLine: false,
-                smoothScrolling: true,
+                scrollBeyondLastLine: editorScrollBeyondLastLine,
+                smoothScrolling: editorSmoothScrolling,
                 cursorBlinking: 'smooth',
                 cursorSmoothCaretAnimation: 'on',
                 cursorStyle: editorCursorStyle,
@@ -407,8 +489,12 @@ export function EditorArea() {
                 wordWrap: editorWordWrap,
                 lineNumbers: editorLineNumbers,
                 tabSize: editorTabSize,
-                insertSpaces: true,
-                renderWhitespace: editorRenderWhitespace === 'none' ? 'none' : editorRenderWhitespace,
+                insertSpaces: editorInsertSpaces,
+                renderWhitespace: editorRenderWhitespace,
+                autoClosingBrackets: editorAutoClosingBrackets,
+                autoClosingQuotes: editorAutoClosingQuotes,
+                formatOnPaste: editorFormatOnPaste,
+                formatOnType: editorFormatOnType,
                 padding: { top: 8 },
                 overviewRulerLanes: 3,
                 overviewRulerBorder: false,

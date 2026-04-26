@@ -5,6 +5,8 @@ import type {
   CursorStyle,
   RenderWhitespace,
   AutoSave,
+  AutoClosingBrackets,
+  AutoClosingQuotes,
 } from '../../../stores/settings-store';
 
 export function EditorTab() {
@@ -48,6 +50,12 @@ export function EditorTab() {
             onChange={(v) => store.set('tabSize', v)}
             min={1}
             max={8}
+          />
+        </Row>
+        <Row label="Insert Spaces">
+          <Toggle
+            checked={store.insertSpaces}
+            onChange={(v) => store.set('insertSpaces', v)}
           />
         </Row>
         <Row label="Word Wrap">
@@ -94,6 +102,17 @@ export function EditorTab() {
             ]}
           />
         </Row>
+        {store.autoSave === 'afterDelay' && (
+          <Row label="Auto Save Delay (ms)">
+            <NumberInput
+              value={store.autoSaveDelay}
+              onChange={(v) => store.set('autoSaveDelay', v)}
+              min={100}
+              max={10000}
+              step={100}
+            />
+          </Row>
+        )}
       </Section>
 
       {/* Display */}
@@ -119,6 +138,58 @@ export function EditorTab() {
           <Toggle
             checked={store.bracketPairColorization}
             onChange={(v) => store.set('bracketPairColorization', v)}
+          />
+        </Row>
+        <Row label="Scroll Beyond Last Line">
+          <Toggle
+            checked={store.scrollBeyondLastLine}
+            onChange={(v) => store.set('scrollBeyondLastLine', v)}
+          />
+        </Row>
+        <Row label="Smooth Scrolling">
+          <Toggle
+            checked={store.smoothScrolling}
+            onChange={(v) => store.set('smoothScrolling', v)}
+          />
+        </Row>
+      </Section>
+
+      {/* Advanced */}
+      <Section title="Advanced">
+        <Row label="Auto Close Brackets">
+          <SelectInput<AutoClosingBrackets>
+            value={store.autoClosingBrackets}
+            onChange={(v) => store.set('autoClosingBrackets', v)}
+            options={[
+              { value: 'languageDefined', label: 'Language Default' },
+              { value: 'always', label: 'Always' },
+              { value: 'beforeWhitespace', label: 'Before Whitespace' },
+              { value: 'never', label: 'Never' },
+            ]}
+          />
+        </Row>
+        <Row label="Auto Close Quotes">
+          <SelectInput<AutoClosingQuotes>
+            value={store.autoClosingQuotes}
+            onChange={(v) => store.set('autoClosingQuotes', v)}
+            options={[
+              { value: 'languageDefined', label: 'Language Default' },
+              { value: 'always', label: 'Always' },
+              { value: 'beforeWhitespace', label: 'Before Whitespace' },
+              { value: 'never', label: 'Never' },
+            ]}
+          />
+        </Row>
+        <Row label="Format on Paste">
+          <Toggle
+            checked={store.formatOnPaste}
+            onChange={(v) => store.set('formatOnPaste', v)}
+          />
+        </Row>
+        <Row label="Format on Type">
+          <Toggle
+            checked={store.formatOnType}
+            onChange={(v) => store.set('formatOnType', v)}
           />
         </Row>
       </Section>
@@ -192,7 +263,7 @@ function NumberInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-1 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-accent"
       />
-      <span className="w-8 text-right text-[11px] tabular-nums text-muted-foreground">
+      <span className="w-10 text-right text-[11px] tabular-nums text-muted-foreground">
         {step < 1 ? value.toFixed(1) : value}
       </span>
     </div>

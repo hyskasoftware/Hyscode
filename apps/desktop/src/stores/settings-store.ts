@@ -12,6 +12,8 @@ export type LineNumbers = 'on' | 'off' | 'relative';
 export type CursorStyle = 'line' | 'block' | 'underline';
 export type RenderWhitespace = 'none' | 'boundary' | 'all';
 export type AutoSave = 'off' | 'afterDelay' | 'onFocusChange';
+export type AutoClosingBrackets = 'always' | 'languageDefined' | 'beforeWhitespace' | 'never';
+export type AutoClosingQuotes = 'always' | 'languageDefined' | 'beforeWhitespace' | 'never';
 export type TerminalCursorStyle = 'block' | 'underline' | 'bar';
 
 export type ThemeId =
@@ -75,13 +77,21 @@ interface SettingsState {
   fontFamily: string;
   lineHeight: number;
   tabSize: number;
+  insertSpaces: boolean;
   wordWrap: WordWrap;
   minimap: boolean;
   lineNumbers: LineNumbers;
   cursorStyle: CursorStyle;
   renderWhitespace: RenderWhitespace;
   bracketPairColorization: boolean;
+  scrollBeyondLastLine: boolean;
+  smoothScrolling: boolean;
+  autoClosingBrackets: AutoClosingBrackets;
+  autoClosingQuotes: AutoClosingQuotes;
+  formatOnPaste: boolean;
+  formatOnType: boolean;
   autoSave: AutoSave;
+  autoSaveDelay: number;
 
   // ─ Terminal ─
   terminalFontSize: number;
@@ -193,13 +203,21 @@ export const useSettingsStore = create<SettingsState>()(
       fontFamily: 'Geist Mono',
       lineHeight: 1.5,
       tabSize: 2,
+      insertSpaces: true,
       wordWrap: 'off',
       minimap: true,
       lineNumbers: 'on',
       cursorStyle: 'line',
       renderWhitespace: 'none',
       bracketPairColorization: true,
+      scrollBeyondLastLine: false,
+      smoothScrolling: true,
+      autoClosingBrackets: 'languageDefined',
+      autoClosingQuotes: 'languageDefined',
+      formatOnPaste: false,
+      formatOnType: false,
       autoSave: 'off',
+      autoSaveDelay: 1000,
 
       // Terminal
       terminalFontSize: 13,
