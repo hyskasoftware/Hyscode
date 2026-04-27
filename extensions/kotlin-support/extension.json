@@ -1,0 +1,277 @@
+{
+  "name": "kotlin-support",
+  "displayName": "Kotlin",
+  "version": "1.0.0",
+  "description": "Suporte completo a Kotlin — linguagem, snippets, criação de projetos, Gradle Kotlin DSL, Ktor, Android, Coroutines e Multiplatform",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["kotlin", "kt", "jvm", "android", "ktor", "coroutines", "gradle-kts", "multiplatform", "kmp", "compose"],
+  "license": "MIT",
+  "activationEvents": [
+    "onLanguage:kotlin",
+    "workspaceContains:build.gradle.kts",
+    "workspaceContains:settings.gradle.kts",
+    "workspaceContains:pom.xml"
+  ],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "kotlin",
+        "aliases": ["Kotlin", "KT"],
+        "extensions": [".kt"],
+        "filenames": [],
+        "mimetypes": ["text/x-kotlin"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "kotlin-script",
+        "aliases": ["Kotlin Script", "KTS"],
+        "extensions": [".kts"],
+        "filenames": [],
+        "mimetypes": ["text/x-kotlin-script"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "kotlin", "path": "snippets/kotlin.json" }
+    ],
+    "commands": [
+      {
+        "id": "kotlin.newProject",
+        "title": "New Kotlin Project",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newGradleKtsProject",
+        "title": "New Gradle Kotlin DSL Project",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newKtorProject",
+        "title": "New Ktor Project",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newKmpProject",
+        "title": "New Kotlin Multiplatform Project",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newClass",
+        "title": "New Class",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newDataClass",
+        "title": "New Data Class",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newSealedClass",
+        "title": "New Sealed Class",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newInterface",
+        "title": "New Interface",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newEnum",
+        "title": "New Enum",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newObject",
+        "title": "New Object",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.run",
+        "title": "Run",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.build",
+        "title": "Build",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.test",
+        "title": "Run Tests",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.fmt",
+        "title": "Format (ktlint/ktfmt)",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.newComposeScreen",
+        "title": "New Compose Screen",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.wrapTryCatch",
+        "title": "Wrap Selection with try/catch",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.generateGetterSetter",
+        "title": "Generate Getter/Setter",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.addDependency",
+        "title": "Add Gradle Dependency",
+        "category": "Kotlin"
+      },
+      {
+        "id": "kotlin.gradleBuild",
+        "title": "gradle build",
+        "category": "Gradle"
+      },
+      {
+        "id": "kotlin.gradleClean",
+        "title": "gradle clean",
+        "category": "Gradle"
+      },
+      {
+        "id": "kotlin.gradleTest",
+        "title": "gradle test",
+        "category": "Gradle"
+      },
+      {
+        "id": "kotlin.gradleRun",
+        "title": "gradle run",
+        "category": "Gradle"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "kotlin.run",
+        "key": "ctrl+shift+r",
+        "when": "editorTextFocus && editorLangId == kotlin"
+      },
+      {
+        "command": "kotlin.build",
+        "key": "ctrl+shift+b",
+        "when": "editorTextFocus && editorLangId == kotlin"
+      },
+      {
+        "command": "kotlin.test",
+        "key": "ctrl+shift+t",
+        "when": "editorTextFocus && editorLangId == kotlin"
+      },
+      {
+        "command": "kotlin.fmt",
+        "key": "ctrl+shift+f",
+        "when": "editorTextFocus && editorLangId == kotlin"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "kotlin.run", "group": "1_kotlin", "when": "editorLangId == kotlin" },
+        { "command": "kotlin.build", "group": "1_kotlin", "when": "editorLangId == kotlin" },
+        { "command": "kotlin.test", "group": "1_kotlin", "when": "editorLangId == kotlin" },
+        { "command": "kotlin.wrapTryCatch", "group": "2_kotlin", "when": "editorLangId == kotlin && editorHasSelection" },
+        { "command": "kotlin.generateGetterSetter", "group": "2_kotlin", "when": "editorLangId == kotlin" }
+      ],
+      "commandPalette": [
+        { "command": "kotlin.newProject" },
+        { "command": "kotlin.newGradleKtsProject" },
+        { "command": "kotlin.newKtorProject" },
+        { "command": "kotlin.newKmpProject" },
+        { "command": "kotlin.newClass" },
+        { "command": "kotlin.newDataClass" },
+        { "command": "kotlin.newSealedClass" },
+        { "command": "kotlin.newInterface" },
+        { "command": "kotlin.newEnum" },
+        { "command": "kotlin.newObject" },
+        { "command": "kotlin.run" },
+        { "command": "kotlin.build" },
+        { "command": "kotlin.test" },
+        { "command": "kotlin.fmt" },
+        { "command": "kotlin.newComposeScreen" },
+        { "command": "kotlin.wrapTryCatch" },
+        { "command": "kotlin.generateGetterSetter" },
+        { "command": "kotlin.addDependency" },
+        { "command": "kotlin.gradleBuild" },
+        { "command": "kotlin.gradleClean" },
+        { "command": "kotlin.gradleTest" },
+        { "command": "kotlin.gradleRun" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "kotlin-support.indicator",
+        "text": "🟣 Kotlin",
+        "tooltip": "Kotlin support ativo",
+        "alignment": "right",
+        "priority": 42
+      }
+    ],
+    "settingsTabs": [
+      {
+        "id": "kotlin-support.settings",
+        "label": "Kotlin",
+        "icon": "code"
+      }
+    ],
+    "configuration": {
+      "title": "Kotlin",
+      "properties": {
+        "kotlin.compilerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Caminho para o compilador kotlinc (deixe vazio para usar PATH)"
+        },
+        "kotlin.jdkPath": {
+          "type": "string",
+          "default": "",
+          "description": "Caminho para o JDK usado pelo Kotlin (deixe vazio para usar JAVA_HOME)"
+        },
+        "kotlin.jvmTarget": {
+          "type": "string",
+          "default": "21",
+          "enum": ["1.8", "11", "17", "21", "23"],
+          "description": "Versão JVM alvo para compilação"
+        },
+        "kotlin.formatOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Formatar código automaticamente ao salvar"
+        },
+        "kotlin.linter": {
+          "type": "string",
+          "default": "ktlint",
+          "enum": ["ktlint", "ktfmt", "none"],
+          "description": "Formatador/linter padrão"
+        },
+        "kotlin.coroutinesEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets e sugestões de coroutines"
+        },
+        "kotlin.composeEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Habilitar snippets e templates do Jetpack Compose"
+        },
+        "kotlin.buildTool": {
+          "type": "string",
+          "default": "gradle-kts",
+          "enum": ["gradle-kts", "gradle-groovy", "maven"],
+          "description": "Ferramenta de build padrão"
+        },
+        "kotlin.gradleExecutable": {
+          "type": "string",
+          "default": "gradle",
+          "description": "Executável do Gradle (gradle ou gradlew)"
+        }
+      }
+    }
+  }
+}

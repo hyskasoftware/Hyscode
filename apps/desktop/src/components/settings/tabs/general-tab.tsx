@@ -141,7 +141,7 @@ export function GeneralTab() {
             value={store.maxIterations}
             onChange={(v) => store.set('maxIterations', v)}
             min={1}
-            max={100}
+            max={500}
           />
         </Row>
         <Row label="Temperature">

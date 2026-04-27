@@ -5,6 +5,7 @@
   "description": "Suporte completo a Vue 3 — SFC, Composition API, snippets, comandos CLI e configuração de linguagem",
   "publisher": "hyscode",
   "engines": { "hyscode": ">=0.1.0" },
+  "icon": "icon.png",
   "categories": ["Languages", "Snippets"],
   "keywords": ["vue", "vue3", "composition-api", "sfc", "pinia", "vue-router", "nuxt", "vite"],
   "license": "MIT",

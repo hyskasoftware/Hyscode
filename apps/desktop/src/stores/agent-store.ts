@@ -442,6 +442,7 @@ export const useAgentStore = create<AgentState>()(
         state.tokenUsage = null;
         state.apiRequestCount = 0;
         state.lastApiRequestAt = null;
+        state.agentTasks = [];
         state.pendingModeSwitch = null;
         state.delegationChain = [];
         state.pendingUserQuestion = null;

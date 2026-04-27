@@ -1,0 +1,302 @@
+{
+  "name": "ruby-support",
+  "displayName": "Ruby & Ruby on Rails",
+  "version": "1.0.0",
+  "description": "Suporte completo a Ruby e Ruby on Rails — linguagem, snippets, comandos de terminal (bundle, rails, rspec, rubocop), criação de projetos e templates",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["ruby", "rails", "ruby-on-rails", "erb", "rspec", "rubocop", "bundler", "rake", "gem"],
+  "license": "MIT",
+  "activationEvents": [
+    "onLanguage:ruby",
+    "workspaceContains:Gemfile",
+    "workspaceContains:Rakefile",
+    "workspaceContains:config/routes.rb"
+  ],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ruby",
+        "aliases": ["Ruby", "RB"],
+        "extensions": [".rb", ".rbw", ".rake", ".gemspec", ".ru"],
+        "filenames": ["Rakefile", "Gemfile", "Guardfile", "Podfile", "Capfile", "Vagrantfile"],
+        "mimetypes": ["text/x-ruby"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "erb",
+        "aliases": ["ERB", "Ruby HTML", "Embedded Ruby"],
+        "extensions": [".erb", ".rhtml"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "gemfile",
+        "aliases": ["Gemfile"],
+        "filenames": ["Gemfile"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "ruby", "path": "snippets/ruby.json" },
+      { "language": "erb", "path": "snippets/ruby-rails.json" }
+    ],
+    "commands": [
+      {
+        "id": "ruby.newProject",
+        "title": "New Ruby Project",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.newClass",
+        "title": "New Class",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.newModule",
+        "title": "New Module",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.newGem",
+        "title": "New Gem",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.run",
+        "title": "Run",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.test",
+        "title": "Run Tests",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.testFile",
+        "title": "Run Tests (current file)",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.bundleInstall",
+        "title": "Bundle Install",
+        "category": "Bundler"
+      },
+      {
+        "id": "ruby.bundleUpdate",
+        "title": "Bundle Update",
+        "category": "Bundler"
+      },
+      {
+        "id": "ruby.bundleAdd",
+        "title": "Bundle Add",
+        "category": "Bundler"
+      },
+      {
+        "id": "ruby.rubocop",
+        "title": "Lint (RuboCop)",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.rubocopFix",
+        "title": "Lint & Fix (RuboCop -A)",
+        "category": "Ruby"
+      },
+      {
+        "id": "ruby.fmt",
+        "title": "Format (RuboCop)",
+        "category": "Ruby"
+      },
+      {
+        "id": "rails.new",
+        "title": "New Rails Project",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.server",
+        "title": "Server (rails s)",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.console",
+        "title": "Console (rails c)",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.generate",
+        "title": "Generate",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.migrate",
+        "title": "Migrate",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.rollback",
+        "title": "Rollback",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.routes",
+        "title": "Routes",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.dbSeed",
+        "title": "DB Seed",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.rspec",
+        "title": "Run RSpec",
+        "category": "Rails"
+      },
+      {
+        "id": "rails.wrapBeginRescue",
+        "title": "Wrap Selection with begin/rescue",
+        "category": "Ruby"
+      },
+      {
+        "id": "rails.generateGetterSetter",
+        "title": "Generate attr_accessor",
+        "category": "Ruby"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "ruby.run",
+        "key": "ctrl+shift+r",
+        "when": "editorTextFocus && editorLangId == ruby"
+      },
+      {
+        "command": "ruby.test",
+        "key": "ctrl+shift+t",
+        "when": "editorTextFocus && editorLangId == ruby"
+      },
+      {
+        "command": "ruby.fmt",
+        "key": "ctrl+shift+f",
+        "when": "editorTextFocus && editorLangId == ruby"
+      },
+      {
+        "command": "rails.server",
+        "key": "ctrl+shift+s",
+        "when": "editorTextFocus && editorLangId == ruby"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "ruby.run", "group": "1_ruby", "when": "editorLangId == ruby" },
+        { "command": "ruby.testFile", "group": "1_ruby", "when": "editorLangId == ruby" },
+        { "command": "ruby.rubocop", "group": "2_ruby", "when": "editorLangId == ruby" },
+        { "command": "rails.wrapBeginRescue", "group": "2_ruby", "when": "editorLangId == ruby && editorHasSelection" },
+        { "command": "rails.generateGetterSetter", "group": "2_ruby", "when": "editorLangId == ruby" }
+      ],
+      "commandPalette": [
+        { "command": "ruby.newProject" },
+        { "command": "ruby.newClass" },
+        { "command": "ruby.newModule" },
+        { "command": "ruby.newGem" },
+        { "command": "ruby.run" },
+        { "command": "ruby.test" },
+        { "command": "ruby.testFile" },
+        { "command": "ruby.bundleInstall" },
+        { "command": "ruby.bundleUpdate" },
+        { "command": "ruby.bundleAdd" },
+        { "command": "ruby.rubocop" },
+        { "command": "ruby.rubocopFix" },
+        { "command": "ruby.fmt" },
+        { "command": "rails.new" },
+        { "command": "rails.server" },
+        { "command": "rails.console" },
+        { "command": "rails.generate" },
+        { "command": "rails.migrate" },
+        { "command": "rails.rollback" },
+        { "command": "rails.routes" },
+        { "command": "rails.dbSeed" },
+        { "command": "rails.rspec" },
+        { "command": "rails.wrapBeginRescue" },
+        { "command": "rails.generateGetterSetter" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "ruby-support.indicator",
+        "text": "💎 Ruby",
+        "tooltip": "Ruby & Rails support ativo",
+        "command": "ruby.run",
+        "alignment": "right",
+        "priority": 46
+      }
+    ],
+    "settingsTabs": [
+      {
+        "id": "ruby-support.settings",
+        "label": "Ruby",
+        "icon": "code"
+      }
+    ],
+    "configuration": {
+      "title": "Ruby",
+      "properties": {
+        "ruby.rubyPath": {
+          "type": "string",
+          "default": "ruby",
+          "description": "Caminho para o executável ruby"
+        },
+        "ruby.bundlePath": {
+          "type": "string",
+          "default": "bundle",
+          "description": "Caminho para o executável bundle"
+        },
+        "ruby.railsPath": {
+          "type": "string",
+          "default": "rails",
+          "description": "Caminho para o executável rails"
+        },
+        "ruby.rspecPath": {
+          "type": "string",
+          "default": "rspec",
+          "description": "Caminho para o executável rspec"
+        },
+        "ruby.rubocopPath": {
+          "type": "string",
+          "default": "rubocop",
+          "description": "Caminho para o executável rubocop"
+        },
+        "ruby.rakePath": {
+          "type": "string",
+          "default": "rake",
+          "description": "Caminho para o executável rake"
+        },
+        "ruby.formatOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Executar RuboCop automaticamente ao salvar"
+        },
+        "ruby.lintOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Executar RuboCop lint ao salvar"
+        },
+        "ruby.rspecEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets e comandos RSpec"
+        },
+        "ruby.railsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets e comandos Rails"
+        },
+        "ruby.useBundler": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prefixar comandos com 'bundle exec' quando Gemfile existir"
+        }
+      }
+    }
+  }
+}

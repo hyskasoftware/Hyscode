@@ -1,0 +1,209 @@
+{
+  "name": "lua-support",
+  "displayName": "Lua",
+  "version": "1.0.0",
+  "description": "Suporte completo à linguagem Lua — linguagem, snippets, comandos, LuaRocks, LÖVE, OpenResty, LuaJIT e configuração de linguagem",
+  "publisher": "hyscode",
+  "engines": { "hyscode": ">=0.1.0" },
+  "categories": ["Languages", "Snippets"],
+  "keywords": ["lua", "luajit", "luarocks", "love2d", "openresty", "corona", "garrysmod", "roblox", "neovim"],
+  "license": "MIT",
+  "activationEvents": ["onLanguage:lua", "workspaceContains:main.lua", "workspaceContains:conf.lua", "workspaceContains:*.rockspec"],
+  "main": "main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "lua",
+        "aliases": ["Lua", "lua"],
+        "extensions": [".lua"],
+        "configuration": "language-configuration.json"
+      },
+      {
+        "id": "luau",
+        "aliases": ["Luau", "Roblox Lua"],
+        "extensions": [".luau"],
+        "configuration": "language-configuration.json"
+      }
+    ],
+    "snippets": [
+      { "language": "lua", "path": "snippets/lua.json" }
+    ],
+    "commands": [
+      {
+        "id": "lua.run",
+        "title": "Run",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.runJit",
+        "title": "Run with LuaJIT",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.check",
+        "title": "Check Syntax",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.newFile",
+        "title": "New Lua File",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.newModule",
+        "title": "New Module",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.newClass",
+        "title": "New Class (OOP)",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.newLoveProject",
+        "title": "New LÖVE Project",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.initLuarocks",
+        "title": "Init LuaRocks Project",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.addDependency",
+        "title": "Add Dependency (LuaRocks)",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.fmt",
+        "title": "Format (StyLua)",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.lint",
+        "title": "Lint (luacheck)",
+        "category": "Lua"
+      },
+      {
+        "id": "lua.test",
+        "title": "Run Tests (busted)",
+        "category": "Lua"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "lua.run",
+        "key": "ctrl+shift+r",
+        "when": "editorTextFocus && editorLangId == lua"
+      },
+      {
+        "command": "lua.check",
+        "key": "ctrl+shift+b",
+        "when": "editorTextFocus && editorLangId == lua"
+      },
+      {
+        "command": "lua.fmt",
+        "key": "ctrl+shift+f",
+        "when": "editorTextFocus && editorLangId == lua"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "lua.run", "group": "1_lua", "when": "editorLangId == lua" },
+        { "command": "lua.check", "group": "1_lua", "when": "editorLangId == lua" },
+        { "command": "lua.fmt", "group": "2_lua", "when": "editorLangId == lua" }
+      ],
+      "commandPalette": [
+        { "command": "lua.run" },
+        { "command": "lua.runJit" },
+        { "command": "lua.check" },
+        { "command": "lua.newFile" },
+        { "command": "lua.newModule" },
+        { "command": "lua.newClass" },
+        { "command": "lua.newLoveProject" },
+        { "command": "lua.initLuarocks" },
+        { "command": "lua.addDependency" },
+        { "command": "lua.fmt" },
+        { "command": "lua.lint" },
+        { "command": "lua.test" }
+      ]
+    },
+    "statusBarItems": [
+      {
+        "id": "lua-support.indicator",
+        "text": "🌙 Lua",
+        "tooltip": "Lua support ativo",
+        "alignment": "right",
+        "priority": 48
+      }
+    ],
+    "settingsTabs": [
+      {
+        "id": "lua-support.settings",
+        "label": "Lua",
+        "icon": "code"
+      }
+    ],
+    "configuration": {
+      "title": "Lua",
+      "properties": {
+        "lua.executablePath": {
+          "type": "string",
+          "default": "lua",
+          "description": "Caminho para o executável Lua (lua, lua5.4, luajit, etc.)"
+        },
+        "lua.luajitPath": {
+          "type": "string",
+          "default": "luajit",
+          "description": "Caminho para o executável LuaJIT"
+        },
+        "lua.luarocksPath": {
+          "type": "string",
+          "default": "luarocks",
+          "description": "Caminho para o executável LuaRocks"
+        },
+        "lua.formatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Formatar código automaticamente ao salvar (requer StyLua)"
+        },
+        "lua.lintOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Executar luacheck automaticamente ao salvar"
+        },
+        "lua.styluaPath": {
+          "type": "string",
+          "default": "stylua",
+          "description": "Caminho para o executável StyLua (formatador)"
+        },
+        "lua.luacheckPath": {
+          "type": "string",
+          "default": "luacheck",
+          "description": "Caminho para o executável luacheck (linter)"
+        },
+        "lua.lovePath": {
+          "type": "string",
+          "default": "love",
+          "description": "Caminho para o executável LÖVE (deixe vazio para usar $PATH)"
+        },
+        "lua.snippets.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar snippets Lua"
+        },
+        "lua.defaultModuleStyle": {
+          "type": "string",
+          "default": "return",
+          "enum": ["return", "local", "global"],
+          "enumDescriptions": [
+            "return { ... } — módulo retorna uma tabela",
+            "local M = {} — módulo usa tabela local",
+            "M = {} — módulo usa tabela global"
+          ],
+          "description": "Estilo padrão de módulo para novos arquivos"
+        }
+      }
+    }
+  }
+}

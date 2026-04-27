@@ -181,11 +181,15 @@ export class Harness {
     this.abortController?.abort();
   }
 
-  setConfig(patch: Partial<Pick<HarnessConfig, 'providerId' | 'modelId'>>): void {
+  setConfig(patch: Partial<Pick<HarnessConfig, 'providerId' | 'modelId' | 'maxIterations'>>): void {
     if (patch.providerId !== undefined) this.config.providerId = patch.providerId;
     if (patch.modelId !== undefined) {
       this.config.modelId = patch.modelId;
       this._effectivePolicy = null; // Invalidate — model change affects budgets
+    }
+    if (patch.maxIterations !== undefined) {
+      this.config.maxIterations = patch.maxIterations;
+      this._effectivePolicy = null; // Invalidate — iteration limit changed
     }
   }
 
@@ -253,13 +257,19 @@ export class Harness {
   /**
    * Compute the effective policy for the current mode + model.
    * Merges the base mode policy with model-specific adjustments.
+   * Respects user-configured maxIterations from the HarnessConfig.
    */
   getEffectivePolicy(): ModePolicy {
     if (!this._effectivePolicy || this._effectivePolicy.mode !== this.agentType) {
       const base = getModePolicy(this.agentType);
+      // User-configured maxIterations takes precedence over the mode default
+      const merged: ModePolicy = {
+        ...base,
+        maxIterations: this.config.maxIterations ?? base.maxIterations,
+      };
       this._effectivePolicy = this.config.modelId
-        ? adjustPolicyForModel(base, this.config.modelId)
-        : base;
+        ? adjustPolicyForModel(merged, this.config.modelId)
+        : merged;
     }
     return this._effectivePolicy;
   }
