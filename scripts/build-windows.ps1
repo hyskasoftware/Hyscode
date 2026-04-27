@@ -21,7 +21,7 @@ $TAURI_DIR = Join-Path $DESKTOP "src-tauri"
 $RELEASE_DIR = Join-Path $TAURI_DIR "target" "release"
 $BUNDLE_DIR = Join-Path $RELEASE_DIR "bundle"
 $TARGET_BUNDLE_DIR = Join-Path $TAURI_DIR "target" $Target "release" "bundle"
-$VERSION = "0.1.0"
+$VERSION = "0.2.1"
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan

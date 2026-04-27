@@ -2,7 +2,7 @@ import { ExternalLink, Github, Heart, RefreshCw, Loader2, CheckCircle, ArrowUpCi
 import { useUpdateStore } from '../../../stores/update-store';
 
 const APP_NAME = 'HysCode';
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.1';
 const APP_IDENTIFIER = 'com.hyscode.app';
 const APP_DESCRIPTION =
   'A modern, AI-powered code editor built with Tauri, React, and Monaco. Designed for developers who want an intelligent, fast, and extensible coding experience.';
