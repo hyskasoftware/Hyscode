@@ -272,7 +272,7 @@ export class HarnessBridge {
     const modelId = settings.activeModelId ?? '';
 
     // Sync settings → harness config
-    this.harness.setConfig({ providerId, modelId });
+    this.harness.setConfig({ providerId, modelId, maxIterations: settings.maxIterations });
     // mode IS the agent type — single source of truth
     this.harness.setAgentType(store.mode as AgentType);
 

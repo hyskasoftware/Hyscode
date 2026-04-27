@@ -484,7 +484,7 @@ function QuickSettingsSection() {
             </button>
             <span className="min-w-[20px] text-center text-[10px] tabular-nums text-foreground">{maxIterations}</span>
             <button
-              onClick={() => setSetting('maxIterations', Math.min(50, maxIterations + 5))}
+              onClick={() => setSetting('maxIterations', Math.min(500, maxIterations + 5))}
               className="rounded bg-muted px-1.5 py-px text-[9px] text-muted-foreground hover:text-foreground transition-colors"
             >
               +
