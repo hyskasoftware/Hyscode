@@ -1,0 +1,464 @@
+{
+  "Function": {
+    "prefix": ["fun", "function"],
+    "body": [
+      "function ${1:name}(${2:args})",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Declaração de função"
+  },
+  "Local Function": {
+    "prefix": ["lfun", "localfun"],
+    "body": [
+      "local function ${1:name}(${2:args})",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Declaração de função local"
+  },
+  "Anonymous Function": {
+    "prefix": ["anon", "lambda"],
+    "body": [
+      "function(${1:args})",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Função anônima"
+  },
+  "If Statement": {
+    "prefix": ["if"],
+    "body": [
+      "if ${1:condition} then",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Estrutura if"
+  },
+  "If-Else Statement": {
+    "prefix": ["ife", "ifelse"],
+    "body": [
+      "if ${1:condition} then",
+      "  ${2:$TM_SELECTED_TEXT}",
+      "else",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Estrutura if-else"
+  },
+  "If-Elseif-Else Statement": {
+    "prefix": ["ifee", "ifelseif"],
+    "body": [
+      "if ${1:condition} then",
+      "  ${2}",
+      "elseif ${3:condition} then",
+      "  ${4}",
+      "else",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Estrutura if-elseif-else"
+  },
+  "While Loop": {
+    "prefix": ["while"],
+    "body": [
+      "while ${1:condition} do",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Loop while"
+  },
+  "For Numeric Loop": {
+    "prefix": ["fori", "fornum"],
+    "body": [
+      "for ${1:i} = ${2:1}, ${3:10} do",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Loop for numérico"
+  },
+  "For Generic Loop (pairs)": {
+    "prefix": ["forp", "forpairs"],
+    "body": [
+      "for ${1:key}, ${2:value} in pairs(${3:table}) do",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Loop for com pairs()"
+  },
+  "For Generic Loop (ipairs)": {
+    "prefix": ["forip", "foripairs"],
+    "body": [
+      "for ${1:i}, ${2:value} in ipairs(${3:table}) do",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Loop for com ipairs()"
+  },
+  "Repeat-Until Loop": {
+    "prefix": ["repeat", "rep"],
+    "body": [
+      "repeat",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "until ${1:condition}"
+    ],
+    "description": "Loop repeat-until"
+  },
+  "Module (return table)": {
+    "prefix": ["mod", "module"],
+    "body": [
+      "local ${1:M} = {}",
+      "",
+      "${0:$TM_SELECTED_TEXT}",
+      "",
+      "return ${1:M}"
+    ],
+    "description": "Módulo Lua com tabela de retorno"
+  },
+  "Class (OOP with metatables)": {
+    "prefix": ["class", "oop"],
+    "body": [
+      "local ${1:Class} = {}",
+      "${1:Class}.__index = ${1:Class}",
+      "",
+      "function ${1:Class}.new(${2:...})",
+      "  local self = setmetatable({}, ${1:Class})",
+      "  ${3:-- initialize}",
+      "  return self",
+      "end",
+      "",
+      "function ${1:Class}:${4:method}(${5:...})",
+      "  ${0}",
+      "end",
+      "",
+      "return ${1:Class}"
+    ],
+    "description": "Classe Lua usando metatables"
+  },
+  "Metatable": {
+    "prefix": ["meta", "metatable"],
+    "body": [
+      "local mt = {}",
+      "mt.__index = mt",
+      "",
+      "function mt:${1:__tostring}()",
+      "  ${0}",
+      "end",
+      "",
+      "setmetatable(${2:tbl}, mt)"
+    ],
+    "description": "Definição de metatable"
+  },
+  "Table Constructor": {
+    "prefix": ["tbl", "table"],
+    "body": [
+      "local ${1:t} = {",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "}"
+    ],
+    "description": "Construtor de tabela"
+  },
+  "Require Module": {
+    "prefix": ["req", "require"],
+    "body": [
+      "local ${2:${1/(.*)\\.//}} = require('${1:module}')"
+    ],
+    "description": "Requerer módulo"
+  },
+  "PCall (Protected Call)": {
+    "prefix": ["pcall", "protected"],
+    "body": [
+      "local ok, ${1:result} = pcall(function()",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end)",
+      "if not ok then",
+      "  -- handle error",
+      "end"
+    ],
+    "description": "Chamada protegida com pcall"
+  },
+  "XPCall": {
+    "prefix": ["xpcall"],
+    "body": [
+      "local ok, ${1:result} = xpcall(function()",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end, function(err)",
+      "  return debug.traceback(err)",
+      "end)"
+    ],
+    "description": "Chamada protegida com xpcall e traceback"
+  },
+  "Coroutine": {
+    "prefix": ["coro", "coroutine"],
+    "body": [
+      "local co = coroutine.create(function()",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end)",
+      "coroutine.resume(co)"
+    ],
+    "description": "Criação e início de coroutine"
+  },
+  "Yield": {
+    "prefix": ["yield", "cyield"],
+    "body": [
+      "coroutine.yield(${1:value})"
+    ],
+    "description": "Suspender coroutine"
+  },
+  "File Read": {
+    "prefix": ["fread", "fileread"],
+    "body": [
+      "local file = io.open('${1:path}', 'r')",
+      "if file then",
+      "  local content = file:read('*a')",
+      "  file:close()",
+      "  ${0:-- use content}",
+      "end"
+    ],
+    "description": "Ler arquivo"
+  },
+  "File Write": {
+    "prefix": ["fwrite", "filewrite"],
+    "body": [
+      "local file = io.open('${1:path}', 'w')",
+      "if file then",
+      "  file:write(${2:content})",
+      "  file:close()",
+      "end"
+    ],
+    "description": "Escrever em arquivo"
+  },
+  "JSON Encode": {
+    "prefix": ["jsonenc", "tojson"],
+    "body": [
+      "local json = require('json') -- or cjson",
+      "local encoded = json.encode(${1:tbl})"
+    ],
+    "description": "Codificar tabela para JSON"
+  },
+  "JSON Decode": {
+    "prefix": ["jsondec", "fromjson"],
+    "body": [
+      "local json = require('json') -- or cjson",
+      "local decoded = json.decode(${1:str})"
+    ],
+    "description": "Decodificar JSON para tabela"
+  },
+  "LÖVE Load": {
+    "prefix": ["loveload", "love.load"],
+    "body": [
+      "function love.load()",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Callback love.load() do LÖVE2D"
+  },
+  "LÖVE Update": {
+    "prefix": ["loveupdate", "love.update"],
+    "body": [
+      "function love.update(dt)",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Callback love.update(dt) do LÖVE2D"
+  },
+  "LÖVE Draw": {
+    "prefix": ["lovedraw", "love.draw"],
+    "body": [
+      "function love.draw()",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Callback love.draw() do LÖVE2D"
+  },
+  "LÖVE Keypressed": {
+    "prefix": ["lovekey", "love.keypressed"],
+    "body": [
+      "function love.keypressed(key)",
+      "  if key == '${1:escape}' then",
+      "    ${0:love.event.quit()}",
+      "  end",
+      "end"
+    ],
+    "description": "Callback love.keypressed() do LÖVE2D"
+  },
+  "LÖVE Mousepressed": {
+    "prefix": ["lovemouse", "love.mousepressed"],
+    "body": [
+      "function love.mousepressed(x, y, button)",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Callback love.mousepressed() do LÖVE2D"
+  },
+  "LÖVE Conf": {
+    "prefix": ["loveconf", "love.conf"],
+    "body": [
+      "function love.conf(t)",
+      "  t.window.title = '${1:My Game}'",
+      "  t.window.width = ${2:800}",
+      "  t.window.height = ${3:600}",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Configuração love.conf() do LÖVE2D"
+  },
+  "Print Debug": {
+    "prefix": ["pr", "print"],
+    "body": [
+      "print('${1:debug}:', ${2:value})"
+    ],
+    "description": "Debug com print"
+  },
+  "Assert": {
+    "prefix": ["assert"],
+    "body": [
+      "assert(${1:condition}, '${2:error message}')"
+    ],
+    "description": "Assert com mensagem"
+  },
+  "Do Block": {
+    "prefix": ["do"],
+    "body": [
+      "do",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end"
+    ],
+    "description": "Bloco do-end para escopo local"
+  },
+  "Try-like (pcall wrapper)": {
+    "prefix": ["try", "trylua"],
+    "body": [
+      "local ok, err = pcall(function()",
+      "  ${0:$TM_SELECTED_TEXT}",
+      "end)",
+      "if not ok then",
+      "  error(err)",
+      "end"
+    ],
+    "description": "Wrapper try-catch-like com pcall"
+  },
+  "Busted Test": {
+    "prefix": ["describe", "busted"],
+    "body": [
+      "describe('${1:description}', function()",
+      "  it('${2:should do something}', function()",
+      "    ${0:$TM_SELECTED_TEXT}",
+      "  end)",
+      "end)"
+    ],
+    "description": "Teste com Busted (framework de testes Lua)"
+  },
+  "Busted Setup/Teardown": {
+    "prefix": ["setup", "bustedsetup"],
+    "body": [
+      "describe('${1:description}', function()",
+      "  setup(function()",
+      "    ${2:-- setup}",
+      "  end)",
+      "",
+      "  teardown(function()",
+      "    ${3:-- teardown}",
+      "  end)",
+      "",
+      "  it('${4:test}', function()",
+      "    ${0}",
+      "  end)",
+      "end)"
+    ],
+    "description": "Teste Busted com setup e teardown"
+  },
+  "Socket TCP Server": {
+    "prefix": ["tcpserver", "socketserver"],
+    "body": [
+      "local socket = require('socket')",
+      "local server = assert(socket.bind('*', ${1:8080}))",
+      "print('Server listening on port ${1:8080}')",
+      "",
+      "while true do",
+      "  local client = server:accept()",
+      "  client:settimeout(10)",
+      "  local line, err = client:receive()",
+      "  if not err then",
+      "    client:send(line .. '\\n')",
+      "  end",
+      "  client:close()",
+      "end"
+    ],
+    "description": "Servidor TCP simples com LuaSocket"
+  },
+  "Socket TCP Client": {
+    "prefix": ["tcpclient", "socketclient"],
+    "body": [
+      "local socket = require('socket')",
+      "local client = assert(socket.connect('${1:localhost}', ${2:8080}))",
+      "client:send('${3:hello}\\n')",
+      "local response = client:receive()",
+      "print(response)",
+      "client:close()"
+    ],
+    "description": "Cliente TCP simples com LuaSocket"
+  },
+  "HTTP Request (LuaSocket)": {
+    "prefix": ["http", "httpreq"],
+    "body": [
+      "local http = require('socket.http')",
+      "local body, code = http.request('${1:https://api.example.com}')",
+      "if code == 200 then",
+      "  ${0:-- process body}",
+      "end"
+    ],
+    "description": "Requisição HTTP com LuaSocket"
+  },
+  "Memoize Function": {
+    "prefix": ["memoize", "cache"],
+    "body": [
+      "local function memoize(fn)",
+      "  local cache = {}",
+      "  return function(...)",
+      "    local key = table.concat({...}, '|')",
+      "    if cache[key] == nil then",
+      "      cache[key] = fn(...)",
+      "    end",
+      "    return cache[key]",
+      "  end",
+      "end"
+    ],
+    "description": "Decorator memoize para funções"
+  },
+  "Deep Copy Table": {
+    "prefix": ["deepcopy", "copy"],
+    "body": [
+      "local function deepCopy(orig)",
+      "  local copy = {}",
+      "  for k, v in pairs(orig) do",
+      "    if type(v) == 'table' then",
+      "      copy[k] = deepCopy(v)",
+      "    else",
+      "      copy[k] = v",
+      "    end",
+      "  end",
+      "  return copy",
+      "end"
+    ],
+    "description": "Cópia profunda de tabela Lua"
+  },
+  "Dump Table": {
+    "prefix": ["dump", "tinspect"],
+    "body": [
+      "local function dump(t, indent)",
+      "  indent = indent or 0",
+      "  for k, v in pairs(t) do",
+      "    local formatting = string.rep('  ', indent) .. tostring(k) .. ': '",
+      "    if type(v) == 'table' then",
+      "      print(formatting)",
+      "      dump(v, indent + 1)",
+      "    else",
+      "      print(formatting .. tostring(v))",
+      "    end",
+      "  end",
+      "end"
+    ],
+    "description": "Inspeção recursiva de tabela"
+  }
+}
