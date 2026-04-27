@@ -1,0 +1,722 @@
+{
+  "Rails Model": {
+    "prefix": ["rmodel", "railsmodel"],
+    "body": [
+      "class ${1:ModelName} < ApplicationRecord",
+      "  ${0:# validations, associations, scopes}",
+      "end"
+    ],
+    "description": "Rails ActiveRecord model"
+  },
+  "Rails Model (full)": {
+    "prefix": ["rmodelf", "railsmodelfull"],
+    "body": [
+      "class ${1:ModelName} < ApplicationRecord",
+      "  # Validations",
+      "  validates :${2:name}, presence: true",
+      "",
+      "  # Associations",
+      "  belongs_to :${3:user}",
+      "  has_many :${4:items}, dependent: :destroy",
+      "",
+      "  # Scopes",
+      "  scope :${5:active}, -> { where(${6:active}: true) }",
+      "",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Rails model with validations, associations, scopes"
+  },
+  "Rails Controller": {
+    "prefix": ["rctrl", "railscontroller"],
+    "body": [
+      "class ${1:Name}Controller < ApplicationController",
+      "  before_action :set_${2:resource}, only: [:show, :edit, :update, :destroy]",
+      "",
+      "  def index",
+      "    @${3:resources} = ${4:Resource}.all",
+      "  end",
+      "",
+      "  def show",
+      "  end",
+      "",
+      "  def new",
+      "    @${2:resource} = ${4:Resource}.new",
+      "  end",
+      "",
+      "  def create",
+      "    @${2:resource} = ${4:Resource}.new(${2:resource}_params)",
+      "",
+      "    if @${2:resource}.save",
+      "      redirect_to @${2:resource}, notice: '${5:Resource} was successfully created.'",
+      "    else",
+      "      render :new, status: :unprocessable_entity",
+      "    end",
+      "  end",
+      "",
+      "  def edit",
+      "  end",
+      "",
+      "  def update",
+      "    if @${2:resource}.update(${2:resource}_params)",
+      "      redirect_to @${2:resource}, notice: '${5:Resource} was successfully updated.'",
+      "    else",
+      "      render :edit, status: :unprocessable_entity",
+      "    end",
+      "  end",
+      "",
+      "  def destroy",
+      "    @${2:resource}.destroy",
+      "    redirect_to ${3:resources}_url, notice: '${5:Resource} was successfully destroyed.'",
+      "  end",
+      "",
+      "  private",
+      "",
+      "  def set_${2:resource}",
+      "    @${2:resource} = ${4:Resource}.find(params[:id])",
+      "  end",
+      "",
+      "  def ${2:resource}_params",
+      "    params.require(:${2:resource}).permit(:${6:name}, :${7:email})",
+      "  end",
+      "end"
+    ],
+    "description": "Rails RESTful controller"
+  },
+  "Rails Controller (API)": {
+    "prefix": ["rapi", "railsapi"],
+    "body": [
+      "class Api::V1::${1:Name}Controller < ApplicationController",
+      "  before_action :set_${2:resource}, only: [:show, :update, :destroy]",
+      "",
+      "  def index",
+      "    @${3:resources} = ${4:Resource}.all",
+      "    render json: @${3:resources}",
+      "  end",
+      "",
+      "  def show",
+      "    render json: @${2:resource}",
+      "  end",
+      "",
+      "  def create",
+      "    @${2:resource} = ${4:Resource}.new(${2:resource}_params)",
+      "",
+      "    if @${2:resource}.save",
+      "      render json: @${2:resource}, status: :created",
+      "    else",
+      "      render json: @${2:resource}.errors, status: :unprocessable_entity",
+      "    end",
+      "  end",
+      "",
+      "  def update",
+      "    if @${2:resource}.update(${2:resource}_params)",
+      "      render json: @${2:resource}",
+      "    else",
+      "      render json: @${2:resource}.errors, status: :unprocessable_entity",
+      "    end",
+      "  end",
+      "",
+      "  def destroy",
+      "    @${2:resource}.destroy",
+      "    head :no_content",
+      "  end",
+      "",
+      "  private",
+      "",
+      "  def set_${2:resource}",
+      "    @${2:resource} = ${4:Resource}.find(params[:id])",
+      "  end",
+      "",
+      "  def ${2:resource}_params",
+      "    params.require(:${2:resource}).permit(:${5:name}, :${6:email})",
+      "  end",
+      "end"
+    ],
+    "description": "Rails API controller"
+  },
+  "Rails Migration": {
+    "prefix": ["rmigrate", "migration"],
+    "body": [
+      "class ${1:CreateTableName} < ActiveRecord::Migration[${2:7.1}]",
+      "  def change",
+      "    create_table :${3:table_name} do |t|",
+      "      t.string :${4:name}",
+      "      t.text :${5:description}",
+      "      t.references :${6:user}, null: false, foreign_key: true",
+      "",
+      "      t.timestamps",
+      "    end",
+      "  end",
+      "end"
+    ],
+    "description": "Rails migration"
+  },
+  "Rails Migration (add column)": {
+    "prefix": ["migadd", "addcolumn"],
+    "body": [
+      "class ${1:AddColumnToTable} < ActiveRecord::Migration[${2:7.1}]",
+      "  def change",
+      "    add_column :${3:table_name}, :${4:column_name}, :${5:string}",
+      "  end",
+      "end"
+    ],
+    "description": "Migration to add column"
+  },
+  "Rails Migration (remove column)": {
+    "prefix": ["migrem", "removecolumn"],
+    "body": [
+      "class ${1:RemoveColumnFromTable} < ActiveRecord::Migration[${2:7.1}]",
+      "  def change",
+      "    remove_column :${3:table_name}, :${4:column_name}",
+      "  end",
+      "end"
+    ],
+    "description": "Migration to remove column"
+  },
+  "Rails Migration (add index)": {
+    "prefix": ["migidx", "addindex"],
+    "body": [
+      "class ${1:AddIndexToTable} < ActiveRecord::Migration[${2:7.1}]",
+      "  def change",
+      "    add_index :${3:table_name}, :${4:column_name}",
+      "  end",
+      "end"
+    ],
+    "description": "Migration to add index"
+  },
+  "Rails Routes": {
+    "prefix": ["rroutes", "routes"],
+    "body": [
+      "Rails.application.routes.draw do",
+      "  resources :${1:posts}",
+      "  root '${2:home}#index'",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Rails routes"
+  },
+  "Rails Resource Route": {
+    "prefix": ["rres", "resource"],
+    "body": [
+      "resources :${1:posts}${2: do}",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Rails resource route"
+  },
+  "Rails Nested Resource Route": {
+    "prefix": ["rnested", "nested"],
+    "body": [
+      "resources :${1:posts} do",
+      "  resources :${2:comments}",
+      "end"
+    ],
+    "description": "Rails nested resource route"
+  },
+  "Rails Scope Route": {
+    "prefix": ["rscope", "scope"],
+    "body": [
+      "scope :${1:v1}, module: :${2:v1} do",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Rails scope route"
+  },
+  "Rails Namespace Route": {
+    "prefix": ["rnamespace", "nsroute"],
+    "body": [
+      "namespace :${1:admin} do",
+      "  ${0}",
+      "end"
+    ],
+    "description": "Rails namespace route"
+  },
+  "Rails Validation": {
+    "prefix": ["valid"],
+    "body": [
+      "validates :${1:attribute}, ${2:presence}: true"
+    ],
+    "description": "Rails validation"
+  },
+  "Rails Validation (custom)": {
+    "prefix": ["validc", "validate"],
+    "body": [
+      "validate :${1:custom_method}",
+      "",
+      "def ${1:custom_method}",
+      "  errors.add(:${2:attribute}, '${3:error message}') unless ${4:condition}",
+      "end"
+    ],
+    "description": "Custom validation"
+  },
+  "Rails Association (belongs_to)": {
+    "prefix": ["bt", "belongs_to"],
+    "body": [
+      "belongs_to :${1:user}${2:, optional: true}"
+    ],
+    "description": "belongs_to association"
+  },
+  "Rails Association (has_many)": {
+    "prefix": ["hm", "has_many"],
+    "body": [
+      "has_many :${1:items}${2:, dependent: :destroy}"
+    ],
+    "description": "has_many association"
+  },
+  "Rails Association (has_one)": {
+    "prefix": ["ho", "has_one"],
+    "body": [
+      "has_one :${1:profile}${2:, dependent: :destroy}"
+    ],
+    "description": "has_one association"
+  },
+  "Rails Association (has_and_belongs_to_many)": {
+    "prefix": ["habtm"],
+    "body": [
+      "has_and_belongs_to_many :${1:tags}"
+    ],
+    "description": "HABTM association"
+  },
+  "Rails Scope": {
+    "prefix": ["scope"],
+    "body": [
+      "scope :${1:active}, -> { where(${2:active}: true) }"
+    ],
+    "description": "ActiveRecord scope"
+  },
+  "Rails Callback": {
+    "prefix": ["callback"],
+    "body": [
+      "${1|before_validation,after_validation,before_save,after_save,before_create,after_create,before_update,after_update,before_destroy,after_destroy|} :${2:method_name}"
+    ],
+    "description": "ActiveRecord callback"
+  },
+  "Rails Concern": {
+    "prefix": ["concern", "rconcern"],
+    "body": [
+      "module ${1:Name}able",
+      "  extend ActiveSupport::Concern",
+      "",
+      "  included do",
+      "    ${2:# associations, validations}",
+      "  end",
+      "",
+      "  class_methods do",
+      "    ${3:# class methods}",
+      "  end",
+      "",
+      "  ${0:# instance methods}",
+      "end"
+    ],
+    "description": "Rails concern"
+  },
+  "Rails Mailer": {
+    "prefix": ["mailer", "rmailer"],
+    "body": [
+      "class ${1:User}Mailer < ApplicationMailer",
+      "  def ${2:welcome_email}(user)",
+      "    @user = user",
+      "    mail(to: @user.email, subject: '${3:Welcome!}')",
+      "  end",
+      "end"
+    ],
+    "description": "Rails mailer"
+  },
+  "Rails Job": {
+    "prefix": ["job", "rjob"],
+    "body": [
+      "class ${1:MyJob} < ApplicationJob",
+      "  queue_as :${2:default}",
+      "",
+      "  def perform(*args)",
+      "    ${0:# Do something later}",
+      "  end",
+      "end"
+    ],
+    "description": "Rails ActiveJob"
+  },
+  "Rails Service Object": {
+    "prefix": ["service", "rservice"],
+    "body": [
+      "class ${1:MyService}",
+      "  def self.call(${2:args})",
+      "    new(${2:args}).call",
+      "  end",
+      "",
+      "  def initialize(${2:args})",
+      "    ${3:# initialization}",
+      "  end",
+      "",
+      "  def call",
+      "    ${0:# implementation}",
+      "  end",
+      "end"
+    ],
+    "description": "Rails service object pattern"
+  },
+  "Rails Policy (Pundit)": {
+    "prefix": ["policy", "rpolicy"],
+    "body": [
+      "class ${1:Model}Policy < ApplicationPolicy",
+      "  class Scope < Scope",
+      "    def resolve",
+      "      scope.all",
+      "    end",
+      "  end",
+      "",
+      "  def index?",
+      "    true",
+      "  end",
+      "",
+      "  def show?",
+      "    true",
+      "  end",
+      "",
+      "  def create?",
+      "    user.admin?",
+      "  end",
+      "",
+      "  def update?",
+      "    user.admin? || record.user == user",
+      "  end",
+      "",
+      "  def destroy?",
+      "    user.admin?",
+      "  end",
+      "end"
+    ],
+    "description": "Pundit policy"
+  },
+  "Rails Serializer": {
+    "prefix": ["serializer", "rserializer"],
+    "body": [
+      "class ${1:Model}Serializer < ActiveModel::Serializer",
+      "  attributes :${2:id}, :${3:name}",
+      "",
+      "  has_many :${4:items}",
+      "end"
+    ],
+    "description": "ActiveModel Serializer"
+  },
+  "Rails Strong Params": {
+    "prefix": ["params", "strongparams"],
+    "body": [
+      "def ${1:model}_params",
+      "  params.require(:${1:model}).permit(:${2:name}, :${3:email}, :${4:password})",
+      "end"
+    ],
+    "description": "Strong parameters"
+  },
+  "Rails Before Action": {
+    "prefix": ["beforea", "before_action"],
+    "body": [
+      "before_action :${1:method_name}, only: [:${2:show}, :${3:edit}]"
+    ],
+    "description": "before_action callback"
+  },
+  "Rails Skip Before Action": {
+    "prefix": ["skipba", "skip_before_action"],
+    "body": [
+      "skip_before_action :${1:method_name}, only: [:${2:index}]"
+    ],
+    "description": "skip_before_action"
+  },
+  "Rails Rescue From": {
+    "prefix": ["rescuef", "rescue_from"],
+    "body": [
+      "rescue_from ${1:ActiveRecord::RecordNotFound}, with: :${2:handle_not_found}"
+    ],
+    "description": "rescue_from"
+  },
+  "Rails Flash Notice": {
+    "prefix": ["flashn", "flash_notice"],
+    "body": [
+      "flash[:notice] = '${1:Message}'"
+    ],
+    "description": "Flash notice"
+  },
+  "Rails Flash Alert": {
+    "prefix": ["flasha", "flash_alert"],
+    "body": [
+      "flash[:alert] = '${1:Message}'"
+    ],
+    "description": "Flash alert"
+  },
+  "Rails Redirect To": {
+    "prefix": ["redirect"],
+    "body": [
+      "redirect_to ${1:root_path}, notice: '${2:Message}'"
+    ],
+    "description": "redirect_to"
+  },
+  "Rails Render JSON": {
+    "prefix": ["renderj", "render_json"],
+    "body": [
+      "render json: ${1:@resource}${2:, status: :${3:ok}}"
+    ],
+    "description": "render json"
+  },
+  "Rails Render Partial": {
+    "prefix": ["renderp", "render_partial"],
+    "body": [
+      "render partial: '${1:partial_name}', locals: { ${2:var}: ${3:value} }"
+    ],
+    "description": "render partial"
+  },
+  "Rails Form With": {
+    "prefix": ["formw", "form_with"],
+    "body": [
+      "<%= form_with model: @${1:resource} do |f| %>",
+      "  <div>",
+      "    <%= f.label :${2:name} %>",
+      "    <%= f.text_field :${2:name} %>",
+      "  </div>",
+      "",
+      "  <div>",
+      "    <%= f.submit %>",
+      "  </div>",
+      "<% end %>"
+    ],
+    "description": "form_with ERB"
+  },
+  "Rails Link To": {
+    "prefix": ["linkto"],
+    "body": [
+      "<%= link_to '${1:Text}', ${2:path} %>"
+    ],
+    "description": "link_to ERB"
+  },
+  "Rails Button To": {
+    "prefix": ["buttonto"],
+    "body": [
+      "<%= button_to '${1:Text}', ${2:path}, method: :${3|delete,patch,post|} %>"
+    ],
+    "description": "button_to ERB"
+  },
+  "Rails Image Tag": {
+    "prefix": ["imgtag"],
+    "body": [
+      "<%= image_tag '${1:path}', alt: '${2:description}' %>"
+    ],
+    "description": "image_tag ERB"
+  },
+  "Rails ERB Output": {
+    "prefix": ["=", "erbout"],
+    "body": [
+      "<%= ${0:expression} %>"
+    ],
+    "description": "ERB output tag"
+  },
+  "Rails ERB Execution": {
+    "prefix": ["-", "erbe"],
+    "body": [
+      "<% ${0:code} %>"
+    ],
+    "description": "ERB execution tag"
+  },
+  "Rails ERB If": {
+    "prefix": ["erif"],
+    "body": [
+      "<% if ${1:condition} %>",
+      "  ${0}",
+      "<% end %>"
+    ],
+    "description": "ERB if block"
+  },
+  "Rails ERB Each": {
+    "prefix": ["reach"],
+    "body": [
+      "<% ${1:collection}.each do |${2:item}| %>",
+      "  ${0}",
+      "<% end %>"
+    ],
+    "description": "ERB each block"
+  },
+  "Rails ERB Render": {
+    "prefix": ["erender"],
+    "body": [
+      "<%= render '${1:partial_name}' %>"
+    ],
+    "description": "ERB render"
+  },
+  "Rails ERB Render (collection)": {
+    "prefix": ["erenderc", "render_collection"],
+    "body": [
+      "<%= render partial: '${1:item}', collection: @${2:items}, as: :${3:item} %>"
+    ],
+    "description": "ERB render collection"
+  },
+  "Rails Seeds": {
+    "prefix": ["seeds", "dbseeds"],
+    "body": [
+      "${1:Model}.create!([",
+      "  { ${2:name}: '${3:First}' },",
+      "  { ${2:name}: '${4:Second}' }",
+      "])"
+    ],
+    "description": "Database seeds"
+  },
+  "Rails RSpec Model Spec": {
+    "prefix": ["specm", "modelspec"],
+    "body": [
+      "require 'rails_helper'",
+      "",
+      "RSpec.describe ${1:Model}, type: :model do",
+      "  describe 'validations' do",
+      "    it { is_expected.to validate_presence_of(:${2:name}) }",
+      "  end",
+      "",
+      "  describe 'associations' do",
+      "    it { is_expected.to belong_to(:${3:user}) }",
+      "  end",
+      "end"
+    ],
+    "description": "RSpec model spec"
+  },
+  "Rails RSpec Controller Spec": {
+    "prefix": ["specc", "controllerspec"],
+    "body": [
+      "require 'rails_helper'",
+      "",
+      "RSpec.describe ${1:Name}Controller, type: :controller do",
+      "  describe 'GET #index' do",
+      "    it 'returns a success response' do",
+      "      get :index",
+      "      expect(response).to be_successful",
+      "    end",
+      "  end",
+      "end"
+    ],
+    "description": "RSpec controller spec"
+  },
+  "Rails RSpec Request Spec": {
+    "prefix": ["specr", "requestspec"],
+    "body": [
+      "require 'rails_helper'",
+      "",
+      "RSpec.describe '${1:/api/v1/resource}', type: :request do",
+      "  describe 'GET /index' do",
+      "    it 'returns a success response' do",
+      "      get ${2:resources_path}",
+      "      expect(response).to have_http_status(:ok)",
+      "    end",
+      "  end",
+      "end"
+    ],
+    "description": "RSpec request spec"
+  },
+  "Rails RSpec Feature Spec": {
+    "prefix": ["specf", "featurespec"],
+    "body": [
+      "require 'rails_helper'",
+      "",
+      "RSpec.feature '${1:User signs in}', type: :feature do",
+      "  scenario 'with valid credentials' do",
+      "    visit ${2:new_user_session_path}",
+      "    fill_in '${3:Email}', with: '${4:user@example.com}'",
+      "    fill_in '${5:Password}', with: '${6:password}'",
+      "    click_button '${7:Sign in}'",
+      "",
+      "    expect(page).to have_text('${8:Signed in successfully}')",
+      "  end",
+      "end"
+    ],
+    "description": "RSpec feature/Capybara spec"
+  },
+  "Rails FactoryBot Factory": {
+    "prefix": ["factory", "rfactory"],
+    "body": [
+      "FactoryBot.define do",
+      "  factory :${1:name} do",
+      "    ${2:attribute} { '${3:value}' }",
+      "    ${0}",
+      "  end",
+      "end"
+    ],
+    "description": "FactoryBot factory"
+  },
+  "Rails FactoryBot Trait": {
+    "prefix": ["trait"],
+    "body": [
+      "trait :${1:active} do",
+      "  ${2:status} { '${3:active}' }",
+      "end"
+    ],
+    "description": "FactoryBot trait"
+  },
+  "Rails FactoryBot Sequence": {
+    "prefix": ["sequence"],
+    "body": [
+      "sequence(:${1:email}) { |n| \"user#{n}@example.com\" }"
+    ],
+    "description": "FactoryBot sequence"
+  },
+  "Rails Devise Config": {
+    "prefix": ["devise"],
+    "body": [
+      "devise_for :${1:users}"
+    ],
+    "description": "Devise routes"
+  },
+  "Rails Devise Model": {
+    "prefix": ["devisem", "devise_model"],
+    "body": [
+      "devise :${1|database_authenticatable,registerable,recoverable,rememberable,validatable,confirmable,lockable,trackable,omniauthable|}"
+    ],
+    "description": "Devise model modules"
+  },
+  "Rails Stimulus Controller": {
+    "prefix": ["stimulus", "rjs"],
+    "body": [
+      "import { Controller } from '@hotwired/stimulus'",
+      "",
+      "export default class extends Controller {",
+      "  static targets = ['${1:output}']",
+      "",
+      "  connect() {",
+      "    ${0}",
+      "  }",
+      "",
+      "  ${2:action}() {",
+      "    this.${1:output}Target.textContent = 'Hello!'",
+      "  }",
+      "}"
+    ],
+    "description": "Stimulus controller"
+  },
+  "Rails Turbo Stream": {
+    "prefix": ["turbo", "turbostream"],
+    "body": [
+      "<%= turbo_stream.replace '${1:dom_id}', partial: '${2:partial}' %>"
+    ],
+    "description": "Turbo Stream ERB"
+  },
+  "Rails Turbo Frame": {
+    "prefix": ["turbo_frame", "turbof"],
+    "body": [
+      "<%= turbo_frame_tag '${1:frame_id}' do %>",
+      "  ${0}",
+      "<% end %>"
+    ],
+    "description": "Turbo Frame ERB"
+  },
+  "Rails Cable Channel": {
+    "prefix": ["channel", "cable"],
+    "body": [
+      "class ${1:Room}Channel < ApplicationCable::Channel",
+      "  def subscribed",
+      "    stream_from '${2:room}_channel'",
+      "  end",
+      "",
+      "  def unsubscribed",
+      "    # Any cleanup needed when channel is unsubscribed",
+      "  end",
+      "",
+      "  def ${3:receive}(data)",
+      "    ${0}",
+      "  end",
+      "end"
+    ],
+    "description": "ActionCable channel"
+  }
+}

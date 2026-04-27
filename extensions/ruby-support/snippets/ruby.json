@@ -1,0 +1,577 @@
+{
+  "Class": {
+    "prefix": ["class", "cl"],
+    "body": [
+      "class ${1:ClassName}",
+      "  def initialize(${2:args})",
+      "    ${0:# body}",
+      "  end",
+      "end"
+    ],
+    "description": "Ruby class with initialize"
+  },
+  "Class with attr_accessor": {
+    "prefix": ["classa", "cla"],
+    "body": [
+      "class ${1:ClassName}",
+      "  attr_accessor :${2:name}",
+      "",
+      "  def initialize(${2:name})",
+      "    @${2:name} = ${2:name}",
+      "  end",
+      "end"
+    ],
+    "description": "Ruby class com attr_accessor"
+  },
+  "Module": {
+    "prefix": ["mod", "module"],
+    "body": [
+      "module ${1:ModuleName}",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Ruby module"
+  },
+  "Method": {
+    "prefix": ["def", "method"],
+    "body": [
+      "def ${1:method_name}(${2:args})",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Ruby method"
+  },
+  "Class Method (self)": {
+    "prefix": ["defs", "selfmethod"],
+    "body": [
+      "def self.${1:method_name}(${2:args})",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Class method (self)"
+  },
+  "Singleton Method": {
+    "prefix": ["defsm", "singleton"],
+    "body": [
+      "def ${1:obj}.${2:method_name}",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Singleton method"
+  },
+  "Initialize": {
+    "prefix": ["init", "initialize"],
+    "body": [
+      "def initialize(${1:args})",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Constructor (initialize)"
+  },
+  "If Statement": {
+    "prefix": ["if"],
+    "body": [
+      "if ${1:condition}",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "If statement"
+  },
+  "If / Else": {
+    "prefix": ["ife", "ifelse"],
+    "body": [
+      "if ${1:condition}",
+      "  ${2:# true body}",
+      "else",
+      "  ${0:# false body}",
+      "end"
+    ],
+    "description": "If/else statement"
+  },
+  "Unless": {
+    "prefix": ["unless"],
+    "body": [
+      "unless ${1:condition}",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Unless statement"
+  },
+  "Ternary": {
+    "prefix": ["tern", "ternary"],
+    "body": [
+      "${1:condition} ? ${2:true_value} : ${3:false_value}"
+    ],
+    "description": "Ternary operator"
+  },
+  "Case / When": {
+    "prefix": ["case", "switch"],
+    "body": [
+      "case ${1:expression}",
+      "when ${2:value}",
+      "  ${3:# body}",
+      "else",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Case/when statement"
+  },
+  "While Loop": {
+    "prefix": ["while"],
+    "body": [
+      "while ${1:condition}",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "While loop"
+  },
+  "Until Loop": {
+    "prefix": ["until"],
+    "body": [
+      "until ${1:condition}",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Until loop"
+  },
+  "For Loop": {
+    "prefix": ["for"],
+    "body": [
+      "for ${1:item} in ${2:collection}",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "For loop"
+  },
+  "Each Block": {
+    "prefix": ["each"],
+    "body": [
+      "${1:collection}.each do |${2:item}|",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Each iterator block"
+  },
+  "Each (one-liner)": {
+    "prefix": ["each1", "each_one"],
+    "body": [
+      "${1:collection}.each { |${2:item}| ${0:# body} }"
+    ],
+    "description": "Each one-liner"
+  },
+  "Map": {
+    "prefix": ["map"],
+    "body": [
+      "${1:collection}.map { |${2:item}| ${0:# transform} }"
+    ],
+    "description": "Map iterator"
+  },
+  "Select": {
+    "prefix": ["select"],
+    "body": [
+      "${1:collection}.select { |${2:item}| ${0:# condition} }"
+    ],
+    "description": "Select iterator"
+  },
+  "Reject": {
+    "prefix": ["reject"],
+    "body": [
+      "${1:collection}.reject { |${2:item}| ${0:# condition} }"
+    ],
+    "description": "Reject iterator"
+  },
+  "Reduce / Inject": {
+    "prefix": ["reduce", "inject"],
+    "body": [
+      "${1:collection}.reduce(${2:initial}) { |${3:acc}, ${4:item}| ${0:# body} }"
+    ],
+    "description": "Reduce/Inject iterator"
+  },
+  "Block (do/end)": {
+    "prefix": ["block"],
+    "body": [
+      "do |${1:args}|",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Block with do/end"
+  },
+  "Lambda": {
+    "prefix": ["lambda"],
+    "body": [
+      "lambda { |${1:args}| ${0:# body} }"
+    ],
+    "description": "Lambda"
+  },
+  "Lambda (stabby)": {
+    "prefix": ["->", "stabby"],
+    "body": [
+      "->(${1:args}) { ${0:# body} }"
+    ],
+    "description": "Stabby lambda"
+  },
+  "Proc": {
+    "prefix": ["proc"],
+    "body": [
+      "Proc.new { |${1:args}| ${0:# body} }"
+    ],
+    "description": "Proc"
+  },
+  "Begin / Rescue": {
+    "prefix": ["begin", "rescue"],
+    "body": [
+      "begin",
+      "  ${1:# body}",
+      "rescue ${2:Exception} => ${3:e}",
+      "  ${0:# handle error}",
+      "end"
+    ],
+    "description": "Begin/rescue block"
+  },
+  "Begin / Rescue / Ensure": {
+    "prefix": ["beginensure"],
+    "body": [
+      "begin",
+      "  ${1:# body}",
+      "rescue ${2:Exception} => ${3:e}",
+      "  ${4:# handle error}",
+      "ensure",
+      "  ${0:# cleanup}",
+      "end"
+    ],
+    "description": "Begin/rescue/ensure block"
+  },
+  "attr_reader": {
+    "prefix": ["attrr", "attr_reader"],
+    "body": [
+      "attr_reader :${1:name}"
+    ],
+    "description": "attr_reader"
+  },
+  "attr_writer": {
+    "prefix": ["attrw", "attr_writer"],
+    "body": [
+      "attr_writer :${1:name}"
+    ],
+    "description": "attr_writer"
+  },
+  "attr_accessor": {
+    "prefix": ["attra", "attr_accessor"],
+    "body": [
+      "attr_accessor :${1:name}"
+    ],
+    "description": "attr_accessor"
+  },
+  "attr_accessor (multiple)": {
+    "prefix": ["attras", "attrs"],
+    "body": [
+      "attr_accessor :${1:name}, :${2:email}, :${3:age}"
+    ],
+    "description": "Multiple attr_accessor"
+  },
+  "Include": {
+    "prefix": ["inc"],
+    "body": [
+      "include ${1:ModuleName}"
+    ],
+    "description": "Include module"
+  },
+  "Extend": {
+    "prefix": ["ext"],
+    "body": [
+      "extend ${1:ModuleName}"
+    ],
+    "description": "Extend module"
+  },
+  "Require": {
+    "prefix": ["req"],
+    "body": [
+      "require '${1:module}'"
+    ],
+    "description": "Require module"
+  },
+  "Require_relative": {
+    "prefix": ["reqr"],
+    "body": [
+      "require_relative '${1:path}'"
+    ],
+    "description": "Require relative path"
+  },
+  "Puts": {
+    "prefix": ["p", "puts"],
+    "body": [
+      "puts '${1:message}'"
+    ],
+    "description": "Puts statement"
+  },
+  "Puts (variable)": {
+    "prefix": ["pv", "putsvar"],
+    "body": [
+      "puts '${1:label}: #{${2:var}}'"
+    ],
+    "description": "Puts with variable interpolation"
+  },
+  "Pry Binding": {
+    "prefix": ["pry", "binding"],
+    "body": [
+      "binding.pry"
+    ],
+    "description": "Pry breakpoint"
+  },
+  "TODO Comment": {
+    "prefix": ["todo"],
+    "body": [
+      "# TODO: ${1:description}"
+    ],
+    "description": "TODO comment"
+  },
+  "Frozen String Literal": {
+    "prefix": ["frozen"],
+    "body": [
+      "# frozen_string_literal: true",
+      "",
+      "${0}"
+    ],
+    "description": "Frozen string literal pragma"
+  },
+  "Shebang": {
+    "prefix": ["shebang"],
+    "body": [
+      "#!/usr/bin/env ruby",
+      "# frozen_string_literal: true",
+      "",
+      "${0}"
+    ],
+    "description": "Ruby shebang"
+  },
+  "Struct": {
+    "prefix": ["struct"],
+    "body": [
+      "${1:Name} = Struct.new(:${2:field1}, :${3:field2}) do",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Struct definition"
+  },
+  "OpenStruct": {
+    "prefix": ["ostruct"],
+    "body": [
+      "require 'ostruct'",
+      "",
+      "${1:obj} = OpenStruct.new(",
+      "  ${2:key}: ${3:value}",
+      ")"
+    ],
+    "description": "OpenStruct"
+  },
+  "Hash": {
+    "prefix": ["hash"],
+    "body": [
+      "${1:hash} = {",
+      "  ${2:key}: ${3:value}",
+      "}"
+    ],
+    "description": "Hash literal"
+  },
+  "Array": {
+    "prefix": ["array"],
+    "body": [
+      "${1:array} = [${2:1}, ${3:2}, ${4:3}]"
+    ],
+    "description": "Array literal"
+  },
+  "Symbol Array (%w)": {
+    "prefix": ["%w"],
+    "body": [
+      "%w[${1:foo bar baz}]"
+    ],
+    "description": "Word array (strings)"
+  },
+  "Symbol Array (%i)": {
+    "prefix": ["%i"],
+    "body": [
+      "%i[${1:foo bar baz}]"
+    ],
+    "description": "Symbol array"
+  },
+  "HEREDOC": {
+    "prefix": ["<<", "heredoc"],
+    "body": [
+      "<<~${1:EOS}",
+      "  ${0:text}",
+      "${1:EOS}"
+    ],
+    "description": "Squiggly heredoc"
+  },
+  "Rake Task": {
+    "prefix": ["task"],
+    "body": [
+      "desc '${1:Task description}'",
+      "task ${2:name}: :${3:dependency} do",
+      "  ${0:# body}",
+      "end"
+    ],
+    "description": "Rake task"
+  },
+  "Namespace": {
+    "prefix": ["ns", "namespace"],
+    "body": [
+      "namespace :${1:name} do",
+      "  ${0:# tasks}",
+      "end"
+    ],
+    "description": "Rake namespace"
+  },
+  "Gemfile Entry": {
+    "prefix": ["gem"],
+    "body": [
+      "gem '${1:name}', '~> ${2:1.0}'"
+    ],
+    "description": "Gemfile gem entry"
+  },
+  "Gemfile Entry (git)": {
+    "prefix": ["gemg", "gemgit"],
+    "body": [
+      "gem '${1:name}', git: '${2:https://github.com/user/repo.git}', branch: '${3:main}'"
+    ],
+    "description": "Gemfile gem from git"
+  },
+  "Gemfile Group": {
+    "prefix": ["group"],
+    "body": [
+      "group :${1:development} do",
+      "  gem '${2:name}'",
+      "end"
+    ],
+    "description": "Gemfile group"
+  },
+
+  "RSpec Describe": {
+    "prefix": ["desc", "describe"],
+    "body": [
+      "RSpec.describe ${1:ClassName} do",
+      "  ${0:# specs}",
+      "end"
+    ],
+    "description": "RSpec describe block"
+  },
+  "RSpec Context": {
+    "prefix": ["ctx", "context"],
+    "body": [
+      "context '${1:when ...}' do",
+      "  ${0:# specs}",
+      "end"
+    ],
+    "description": "RSpec context block"
+  },
+  "RSpec It": {
+    "prefix": ["it"],
+    "body": [
+      "it '${1:does something}' do",
+      "  ${0:# spec}",
+      "end"
+    ],
+    "description": "RSpec it block"
+  },
+  "RSpec It (one-liner)": {
+    "prefix": ["itis", "it_is"],
+    "body": [
+      "it { is_expected.to ${0:be_true} }"
+    ],
+    "description": "RSpec one-liner"
+  },
+  "RSpec Before": {
+    "prefix": ["bef", "before"],
+    "body": [
+      "before do",
+      "  ${0:# setup}",
+      "end"
+    ],
+    "description": "RSpec before hook"
+  },
+  "RSpec After": {
+    "prefix": ["aft", "after"],
+    "body": [
+      "after do",
+      "  ${0:# teardown}",
+      "end"
+    ],
+    "description": "RSpec after hook"
+  },
+  "RSpec Let": {
+    "prefix": ["let"],
+    "body": [
+      "let(:${1:name}) { ${0:value} }"
+    ],
+    "description": "RSpec let"
+  },
+  "RSpec Subject": {
+    "prefix": ["subj", "subject"],
+    "body": [
+      "subject { ${0:described_class.new} }"
+    ],
+    "description": "RSpec subject"
+  },
+  "RSpec Expect": {
+    "prefix": ["exp", "expect"],
+    "body": [
+      "expect(${1:subject}).to ${0:eq(expected)}"
+    ],
+    "description": "RSpec expect"
+  },
+  "RSpec Expect Change": {
+    "prefix": ["expectc", "change"],
+    "body": [
+      "expect { ${1:block} }.to change(${2:model}, :${3:count}).by(${4:1})"
+    ],
+    "description": "RSpec expect change"
+  },
+  "RSpec Allow": {
+    "prefix": ["allow"],
+    "body": [
+      "allow(${1:object}).to receive(:${2:method}).and_return(${3:value})"
+    ],
+    "description": "RSpec allow"
+  },
+  "RSpec FactoryBot create": {
+    "prefix": ["create"],
+    "body": [
+      "create(:${1:factory_name}${2:, ${3:attr: value}})"
+    ],
+    "description": "FactoryBot create"
+  },
+  "RSpec FactoryBot build": {
+    "prefix": ["build"],
+    "body": [
+      "build(:${1:factory_name}${2:, ${3:attr: value}})"
+    ],
+    "description": "FactoryBot build"
+  },
+  "RSpec Shared Example": {
+    "prefix": ["shared"],
+    "body": [
+      "shared_examples '${1:shared behavior}' do",
+      "  ${0:# shared specs}",
+      "end"
+    ],
+    "description": "RSpec shared examples"
+  },
+  "RSpec Include Example": {
+    "prefix": ["inclshared", "it_behaves"],
+    "body": [
+      "it_behaves_like '${1:shared behavior}'"
+    ],
+    "description": "RSpec include shared examples"
+  },
+  "RSpec Feature Test": {
+    "prefix": ["feature"],
+    "body": [
+      "feature '${1:User does something}' do",
+      "  scenario '${2:successfully}' do",
+      "    ${0:# steps}",
+      "  end",
+      "end"
+    ],
+    "description": "RSpec feature test"
+  }
+}
