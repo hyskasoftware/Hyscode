@@ -122,6 +122,11 @@ pub fn run() {
             commands::github_oauth::github_copilot_ensure_token,
             commands::github_oauth::github_copilot_disconnect,
             commands::github_oauth::github_copilot_is_authenticated,
+            // GitHub Pull Request commands
+            commands::github_pr::github_create_pull_request,
+            commands::github_pr::github_set_token,
+            commands::github_pr::github_has_token,
+            commands::github_pr::git_remote_info,
             // Database commands
             commands::db::db_ensure_project,
             commands::db::db_list_conversations,

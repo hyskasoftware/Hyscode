@@ -7,6 +7,7 @@ pub mod extension;
 pub mod fs;
 pub mod git;
 pub mod github_oauth;
+pub mod github_pr;
 pub mod keychain;
 pub mod lsp;
 pub mod pty;

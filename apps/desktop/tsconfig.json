@@ -10,7 +10,10 @@
       "@hyscode/ai-providers": ["../../packages/ai-providers/src"],
       "@hyscode/agent-harness": ["../../packages/agent-harness/src"],
       "@hyscode/mcp-client": ["../../packages/mcp-client/src"],
-      "@hyscode/skills": ["../../packages/skills/src"]
+      "@hyscode/skills": ["../../packages/skills/src"],
+      "@hyscode/extension-host": ["../../packages/extension-host/src"],
+      "@hyscode/extension-api": ["../../packages/extension-api/src"],
+      "@hyscode/lsp-client": ["../../packages/lsp-client/src"]
     }
   },
   "include": ["src"],
@@ -19,6 +22,9 @@
     { "path": "../../packages/ai-providers" },
     { "path": "../../packages/agent-harness" },
     { "path": "../../packages/mcp-client" },
-    { "path": "../../packages/skills" }
+    { "path": "../../packages/skills" },
+    { "path": "../../packages/extension-host" },
+    { "path": "../../packages/extension-api" },
+    { "path": "../../packages/lsp-client" }
   ]
 }

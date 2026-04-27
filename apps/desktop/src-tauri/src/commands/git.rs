@@ -88,7 +88,7 @@ pub struct CommitDetail {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-fn open_repo(path: &str) -> Result<Repository, String> {
+pub fn open_repo(path: &str) -> Result<Repository, String> {
     Repository::discover(path).map_err(|e| format!("Git error: {}", e))
 }
 

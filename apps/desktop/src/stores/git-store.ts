@@ -128,6 +128,15 @@ interface GitState {
   discardAll: () => Promise<void>;
   getCommitDetail: (hash: string) => Promise<CommitDetail>;
   getCommitFileDiff: (hash: string, filePath: string) => Promise<string>;
+  // Pull Request
+  createPullRequest: (opts: {
+    title: string;
+    body?: string;
+    base: string;
+    head: string;
+    draft?: boolean;
+  }) => Promise<string>;
+
   startAutoRefresh: () => Promise<void>;
   stopAutoRefresh: () => void;
 }
@@ -428,6 +437,22 @@ export const useGitStore = create<GitState>()(
       const rootPath = getRootPath();
       if (!rootPath) throw new Error('No project open');
       return invoke<string>('git_commit_file_diff', { repoPath: rootPath, hash, filePath });
+    },
+
+    createPullRequest: async (opts) => {
+      const rootPath = getRootPath();
+      if (!rootPath) throw new Error('No project open');
+      const result = await invoke<{ url: string; number: number }>('github_create_pull_request', {
+        repoPath: rootPath,
+        payload: {
+          title: opts.title,
+          body: opts.body ?? null,
+          head: opts.head,
+          base: opts.base,
+          draft: opts.draft ?? null,
+        },
+      });
+      return result.url;
     },
 
     startAutoRefresh: async () => {

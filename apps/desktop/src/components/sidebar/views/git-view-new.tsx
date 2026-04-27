@@ -22,6 +22,7 @@ import {
   XCircle,
   Sparkles,
   Settings2,
+  GitPullRequest,
 } from 'lucide-react';
 import { useGitStore, useEditorStore } from '../../../stores';
 import { useSettingsStore } from '../../../stores/settings-store';
@@ -29,6 +30,7 @@ import { getViewerType } from '../../../lib/utils';
 import { detectLanguage } from '../../../lib/lsp-bridge';
 import { GitFileItem } from '../../git/git-file-item';
 import { GitLogView } from '../../git/git-log-view';
+import { PullRequestDialog } from '../../git/pull-request-dialog';
 import { promptInput, promptConfirm } from '../../ui/dialogs';
 import type { GitFile } from '../../../stores/git-store';
 import { generateCommitMessage } from '../../../lib/commit-message-ai';
@@ -90,6 +92,7 @@ export function GitView() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [showAiSettings, setShowAiSettings] = useState(false);
+  const [showPrDialog, setShowPrDialog] = useState(false);
   const generateAbortRef = useRef<AbortController | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const aiSettingsRef = useRef<HTMLDivElement>(null);
@@ -379,6 +382,22 @@ export function GitView() {
           {behind > 0 && <span className="text-[10px] text-yellow-400">↓{behind}</span>}
         </div>
         <div className="flex items-center gap-0.5">
+          {/* History — directly accessible */}
+          <button
+            onClick={() => setPanelMode('log')}
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="View Commit History"
+          >
+            <History className="h-3 w-3" />
+          </button>
+          {/* Create Pull Request — directly accessible */}
+          <button
+            onClick={() => setShowPrDialog(true)}
+            className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+            title="Create Pull Request"
+          >
+            <GitPullRequest className="h-3 w-3" />
+          </button>
           <button
             onClick={refresh}
             className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -609,6 +628,9 @@ export function GitView() {
           </FileSection>
         )}
       </div>
+
+      {/* Pull Request Dialog */}
+      <PullRequestDialog open={showPrDialog} onClose={() => setShowPrDialog(false)} />
     </div>
   );
 }
