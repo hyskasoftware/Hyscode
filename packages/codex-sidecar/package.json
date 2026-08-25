@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build --compile src/index.ts --outfile ../../apps/desktop/src-tauri/binaries/codex-sidecar && node ../../scripts/tag-sidecar-triple.mjs codex-sidecar",
+    "build": "node ../../scripts/ensure-sidecar-binaries.mjs && bun build --compile src/index.ts --outfile ../../apps/desktop/src-tauri/binaries/codex-sidecar && node ../../scripts/tag-sidecar-triple.mjs codex-sidecar",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
