@@ -181,6 +181,16 @@ tracked changes. The standalone client refreshes this additive summary
 periodically through `git_summary`, keeping Git inspection out of the render
 loop while reflecting edits made during an active session.
 
+`runtime_ready.capabilities` also carries `subAgents` and the configured
+`subAgentMaxConcurrent` slot limit. Delegated child turns reach the TUI as
+`scoped_harness_event` messages keyed by the owning `spawn_subagent` tool call
+id, so the client can project per-sub-agent status, streamed output/thinking
+tails, tool calls, terminal stop reasons, and cumulative token usage without a
+second protocol channel. The TUI renders these through its `/subagents` panel
+(selection, detail view, cancellation via the existing `subagent_cancel`
+request) and surfaces the turn-local `manage_tasks` checklist from
+`tool_call_result.metadata`. Kanban remains Desktop-only.
+
 The runtime also exposes the shared VORTEX update preferences in
 `runtime_ready`. The standalone client owns the update lifecycle: it queries
 the Stable or Pre-release GitHub channel, selects the exact native target from

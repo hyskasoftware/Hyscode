@@ -3,7 +3,7 @@ import { inlineText, summarizeToolInput } from './controller';
 import { COMMANDS, flowTitle, matchingCommands, selectionOptions } from './commands';
 import { getCliLogo } from './logo';
 import { dynamicAnsiToken, resolveAnsiTheme, type AnsiToken, type AnsiTheme } from './theme';
-import type { CommandFlow, InteractionState, TranscriptItem, ToolView, UiState } from './types';
+import type { CommandFlow, InteractionState, SubAgentView, TranscriptItem, ToolView, UiState } from './types';
 
 let activeAnsiTheme: AnsiTheme = resolveAnsiTheme(DEFAULT_THEME_ID, []);
 
@@ -52,7 +52,7 @@ export class TerminalRenderer {
       const rawPanel = this.overlayLines(state, width, panelBudget);
       const panel = rawPanel.slice(0, panelBudget);
       const bodyHeight = Math.max(3, height - header.length - panel.length - composer.length);
-      const executionBanner = state.running ? [workingIndicator(), ''] : [];
+      const executionBanner = state.running ? [workingIndicator(state), ''] : [];
       const transcriptHeight = Math.max(1, bodyHeight - executionBanner.length);
       const sidebarWidth = state.sidebarVisible && width >= 100 ? SIDEBAR_WIDTH : 0;
       const mainWidth = sidebarWidth > 0 ? width - sidebarWidth - 1 : width;
@@ -103,7 +103,8 @@ function headerLines(state: UiState, width: number): string[] {
   const model = state.provider && state.model ? `${state.provider}/${state.model}` : 'model not selected';
   const modelText = `${SOFT}${shorten(model, Math.max(12, Math.min(32, Math.floor(width * 0.28))))}${RESET}`;
   const gitText = gitSummaryLine(state.git, Math.max(14, Math.min(36, Math.floor(width * 0.32))));
-  const right = `${modelText} ${MUTED}·${RESET} ${gitText}  ${runtime}  ${connection}`;
+  const delegation = activeDelegationChip(state);
+  const right = `${modelText} ${MUTED}·${RESET} ${gitText}  ${delegation}${delegation ? '  ' : ''}${runtime}  ${connection}`;
   const lines = [alignColumns(left, right, width)];
   if (state.tabs.length > 1) {
     lines.push(state.tabs.map((tab) => `${tab.active ? `${ACCENT}${BOLD}` : MUTED}${tab.active ? '●' : '○'} ${shorten(tab.title, 22)}${RESET}`).join('  '));
@@ -156,6 +157,7 @@ function sidebarLines(state: UiState, width: number, height: number): string[] {
     '',
     `${MUTED}RUNTIME${RESET}`,
     ` ${state.running ? `${WARNING}working${RESET}` : `${SUCCESS}ready${RESET}`}`,
+    ...(activeSubAgentCount(state) ? [` ${WARNING}⚙ ${activeSubAgentCount(state)} sub-agent(s) active${RESET}`] : []),
     ...wrapText(state.status, width - 1).slice(0, 2).map((line) => ` ${DIM}${line}${RESET}`),
     ...(state.recovery ? [` ${WARNING}/ ${state.recovery.action} available${RESET}`] : []),
     '',
@@ -217,6 +219,7 @@ function transcriptView(items: TranscriptItem[], width: number, state: UiState):
   if (state.mainPanel === 'terminal') lines.push(...terminalPanel(state, width));
   else if (state.mainPanel === 'sdd') lines.push(...sddPanel(state, width));
   else if (state.mainPanel === 'activity') lines.push(...activityPanel(state, width));
+  else if (state.mainPanel === 'subagents') lines.push(...subagentsPanel(state, width));
   return lines;
 }
 
@@ -257,43 +260,126 @@ function sddPanel(state: UiState, width: number): string[] {
   const sdd = state.sdd;
   if (!sdd.sessionId) return [`${MUTED}No SDD session. Use /sdd and choose Start.${RESET}`, ''];
   const lines = [`${ACCENT}${BOLD}SDD · ${sdd.phase ?? 'active'}${RESET} ${DIM}${shorten(sdd.sessionId, 18)}${RESET}`];
-  if (sdd.spec) lines.push(...wrapText(sdd.spec, Math.max(12, width - 4)).slice(0, 6).map((line) => `${SOFT}${line}${RESET}`));
-  if (sdd.tasks.length) {
-    lines.push(`${MUTED}TASKS${RESET}`);
-    for (const [index, task] of sdd.tasks.slice(0, 8).entries()) {
-      const selected = index === sdd.selectedTask;
-      const marker = task.status === 'completed' ? '✓' : task.status === 'failed' ? '×' : task.status === 'in_progress' ? '›' : '·';
-      lines.push(`${selected ? ACCENT : MUTED}${selected ? '▸' : ' '} ${marker} ${shorten(task.title, width - 24)}${RESET} ${DIM}${task.status}${RESET}`);
-    }
+  if (sdd.spec) {
+    lines.push(`${MUTED}SPEC${RESET}`);
+    lines.push(...wrapText(sdd.spec, Math.max(12, width - 4)).slice(0, 6).map((line) => `${SOFT}${line}${RESET}`));
+    if (sdd.phase === 'specifying' || sdd.phase === 'planning') lines.push(`${DIM}/sdd approve-spec · reject with feedback${RESET}`);
+    else if (sdd.phase === 'describing') lines.push(`${DIM}/sdd approve-plan once the plan is ready${RESET}`);
   }
-  lines.push(`${DIM}/sdd approve-spec · /sdd approve-plan · /sdd resume${RESET}`, '');
+  if (sdd.tasks.length) {
+    const completed = sdd.tasks.filter((task) => task.status === 'completed').length;
+    const active = sdd.tasks.filter((task) => task.status === 'in_progress').length;
+    lines.push(`${MUTED}TASKS · ${completed}/${sdd.tasks.length} completed${active ? ` · ${active} active` : ''}${RESET}`);
+    for (const row of windowedRows(sdd.tasks.length, sdd.selectedTask, SDD_VISIBLE_TASKS)) {
+      if (row.ellipsis) {
+        lines.push(`  ${DIM}⋯ ${row.above ? `${row.count} above` : `${row.count} below`} ${row.count === 1 ? 'task' : 'tasks'}${RESET}`);
+        continue;
+      }
+      const task = sdd.tasks[row.index];
+      renderSddTaskRow(lines, task, row.index === sdd.selectedTask && state.focus !== 'transcript', width);
+    }
+    const selected = sdd.tasks[Math.min(sdd.selectedTask, sdd.tasks.length - 1)];
+    if (selected && sdd.expandedTask) appendSddTaskDetail(lines, selected, width);
+  }
+  if (sdd.failedTask) {
+    lines.push(`${ERROR}FAILED · ${shorten(`#${sdd.failedTask.ordinal} ${sdd.failedTask.title}`, Math.max(12, width - 14))}${RESET}`);
+    lines.push(`${DIM}/sdd resume to retry the failed task${RESET}`);
+  }
+  if (sdd.review) {
+    lines.push(`${MUTED}REVIEW${RESET}`);
+    lines.push(...wrapText(sdd.review, Math.max(12, width - 4)).slice(0, 5).map((line) => `${SOFT}${line}${RESET}`));
+  }
+  lines.push(`${DIM}/sdd approve-spec · approve-plan · resume · ↑↓ select · enter details${RESET}`, '');
   return lines;
 }
+
+const SDD_VISIBLE_TASKS = 8;
+
+type WindowedRow = { index: number; ellipsis: boolean; above?: boolean; count?: number };
+
+/** Sliding window over a list with `⋯ N above/below` ellipsis rows. */
+function windowedRows(total: number, selected: number, maxVisible: number): WindowedRow[] {
+  if (total <= maxVisible) return Array.from({ length: total }, (_, index) => ({ index, ellipsis: false }));
+  const half = Math.floor(maxVisible / 2);
+  let start = Math.max(0, selected - half);
+  const end = Math.min(total, start + maxVisible - 2);
+  start = end - (maxVisible - 2);
+  const rows: WindowedRow[] = [];
+  if (start > 0) rows.push({ index: 0, ellipsis: true, above: true, count: start });
+  for (let index = start; index < end; index += 1) rows.push({ index, ellipsis: false });
+  if (end < total) rows.push({ index: total - 1, ellipsis: true, above: false, count: total - end });
+  return rows;
+}
+
+function renderSddTaskRow(lines: string[], task: UiState['sdd']['tasks'][number], isSelected: boolean, width: number): void {
+  const marker = task.status === 'completed'
+    ? `${SUCCESS}✓${RESET}`
+    : task.status === 'failed'
+      ? `${ERROR}×${RESET}`
+      : task.status === 'in_progress'
+        ? `${WARNING}›${RESET}`
+        : task.status === 'skipped'
+          ? `${MUTED}○${RESET}`
+          : `${MUTED}·${RESET}`;
+  const pointer = isSelected ? `${ACCENT}▸${RESET}` : ' ';
+  const titleColor = isSelected ? ACCENT : SOFT;
+  lines.push(`${pointer} ${marker} ${titleColor}${shorten(task.title, Math.max(10, width - 24))}${RESET} ${DIM}${task.status}${RESET}`);
+}
+
+function appendSddTaskDetail(lines: string[], task: UiState['sdd']['tasks'][number], width: number): void {
+  const innerWidth = Math.max(12, width - 8);
+  if (task.description.trim()) {
+    lines.push(...wrapText(task.description, innerWidth).slice(0, 6).map((line) => `      ${SOFT}${line}${RESET}`));
+  }
+  if (task.files.length) {
+    lines.push(`      ${DIM}files · ${shorten(task.files.slice(0, 3).join(', '), innerWidth)}${task.files.length > 3 ? ` +${task.files.length - 3}` : ''}${RESET}`);
+  }
+  if (task.dependencies.length) {
+    lines.push(`      ${DIM}depends on ${task.dependencies.length} task(s)${RESET}`);
+  }
+  if (task.agentOutput) {
+    lines.push(`      ${MUTED}output${RESET}`);
+    lines.push(...appendTailLines(task.agentOutput.split(/\r?\n/u), innerWidth, 4));
+  }
+}
+
+const ACTIVITY_ROW_CAP = 4;
+const SUBAGENT_SUMMARY_ROWS = 6;
+const SUBAGENT_DETAIL_TAIL = 12;
+const SUBAGENT_DETAIL_THINKING = 5;
 
 function activityPanel(state: UiState, width: number): string[] {
   const lines = [`${ACCENT}${BOLD}SESSION ACTIVITY${RESET}`];
   const pending = state.fileChanges.filter((change) => change.status === 'pending');
   lines.push(`${DIM}Usage: ${state.usage.inputTokens.toLocaleString()} in · ${state.usage.outputTokens.toLocaleString()} out · ${state.usage.requestCount} request(s) · $${state.usage.estimatedCost.toFixed(4)}${RESET}`);
+  if (state.agentTasks.length) appendTaskListSection(lines, state.agentTasks, width);
   if (pending.length) {
     lines.push(`${WARNING}FILE REVIEW · ${pending.length} pending${RESET}`);
-    for (const change of pending.slice(0, 4)) {
+    for (const change of pending.slice(0, ACTIVITY_ROW_CAP)) {
       lines.push(`  ${WARNING}·${RESET} ${shorten(change.filePath, width - 8)}`);
       lines.push(...changeDiff(change.originalContent, change.newContent, width).slice(0, 5));
     }
     lines.push(`${DIM}Use /diffs to choose accept, reject, or bulk review actions.${RESET}`);
   }
   if (state.subagents.length) {
-    lines.push(`${ACCENT}SUB-AGENTS · ${state.subagents.length}${RESET}`);
-    for (const agent of state.subagents.slice(-6)) lines.push(`  ${agent.status === 'done' ? SUCCESS : agent.status === 'error' ? ERROR : WARNING}●${RESET} ${shorten(agent.task || agent.ownerId, width - 18)} ${DIM}${agent.status}${RESET}`);
+    const active = state.subagents.filter((agent) => agent.status === 'queued' || agent.status === 'running').length;
+    lines.push(`${ACCENT}SUB-AGENTS · ${active} active of ${state.subagents.length}${RESET}`);
+    const visible = state.subagents.slice(-SUBAGENT_SUMMARY_ROWS);
+    if (visible.length < state.subagents.length) {
+      lines.push(`  ${DIM}⋯ ${state.subagents.length - visible.length} earlier sub-agent(s) · /subagents for the full list${RESET}`);
+    }
+    for (const agent of visible) lines.push(subAgentRow(agent, state, width));
+    lines.push(`${DIM}/subagents opens the panel with details and cancellation.${RESET}`);
   }
   const terminalTools = state.tools.filter((tool) => tool.terminalId);
   if (terminalTools.length) {
     lines.push(`${ACCENT}TERMINAL TOOLS · ${terminalTools.length}${RESET}`);
-    for (const tool of terminalTools.slice(-6)) {
+    for (const tool of terminalTools.slice(-ACTIVITY_ROW_CAP + 2)) {
+      const ownerLabel = tool.ownerId ? `${DIM}↳ sub-agent${RESET} ` : '';
       const stateLabel = tool.terminalState ?? tool.status;
       const command = typeof tool.input.command === 'string' ? tool.input.command : '';
       const terminalLabel = tool.terminalId ? shorten(tool.terminalId, 24) : 'terminal';
-      lines.push(`  ${tool.status === 'error' ? ERROR : tool.status === 'success' ? SUCCESS : WARNING}●${RESET} ${shorten(tool.name, width - 28)} ${DIM}${stateLabel} · ${terminalLabel}${RESET}`);
+      lines.push(`  ${ownerLabel}${tool.status === 'error' ? ERROR : tool.status === 'success' ? SUCCESS : WARNING}●${RESET} ${shorten(tool.name, width - 28)} ${DIM}${stateLabel} · ${terminalLabel}${RESET}`);
       if (command) lines.push(`    ${DIM}$ ${shorten(command, width - 8)}${RESET}`);
       if (tool.liveOutput) lines.push(`    ${shorten(tool.liveOutput.split(/\r?\n/u).at(-1) ?? '', width - 10)}`);
     }
@@ -301,21 +387,147 @@ function activityPanel(state: UiState, width: number): string[] {
   }
   if (state.rules.length) {
     lines.push(`${ACCENT}RULES · ${state.rules.length}${RESET}`);
-    for (const rule of state.rules.slice(0, 4)) lines.push(`  ${rule.mandatory ? WARNING : rule.enabled ? SUCCESS : MUTED}●${RESET} ${shorten(rule.name || rule.filePath, width - 14)} ${DIM}${rule.enabled ? 'active' : 'off'}${RESET}`);
+    for (const rule of state.rules.slice(0, ACTIVITY_ROW_CAP)) lines.push(`  ${rule.mandatory ? WARNING : rule.enabled ? SUCCESS : MUTED}●${RESET} ${shorten(rule.name || rule.filePath, width - 14)} ${DIM}${rule.enabled ? 'active' : 'off'}${RESET}`);
   }
   if (state.skills.length) {
     lines.push(`${ACCENT}SKILLS · ${state.skills.length}${RESET}`);
-    for (const skill of state.skills.slice(0, 4)) lines.push(`  ${skill.active ? SUCCESS : MUTED}●${RESET} ${shorten(skill.name, width - 8)} ${DIM}${skill.scope}${RESET}`);
+    for (const skill of state.skills.slice(0, ACTIVITY_ROW_CAP)) lines.push(`  ${skill.active ? SUCCESS : MUTED}●${RESET} ${shorten(skill.name, width - 8)} ${DIM}${skill.scope}${RESET}`);
   }
   if (state.memories.length) {
     lines.push(`${ACCENT}MEMORY · ${state.memories.length}${RESET}`);
-    for (const memory of state.memories.slice(0, 4)) lines.push(`  ${MUTED}◆${RESET} ${shorten(memory.title || memory.summary, width - 8)}`);
+    for (const memory of state.memories.slice(0, ACTIVITY_ROW_CAP)) lines.push(`  ${MUTED}◆${RESET} ${shorten(memory.title || memory.summary, width - 8)}`);
   }
   if (state.notices.length) {
     lines.push(`${MUTED}RECENT NOTICES${RESET}`);
-    for (const notice of state.notices.slice(-4)) lines.push(`  ${shorten(notice.text, width - 5)}`);
+    for (const notice of state.notices.slice(-ACTIVITY_ROW_CAP)) lines.push(`  ${shorten(notice.text, width - 5)}`);
   }
   return [...lines, ''];
+}
+
+function appendTaskListSection(lines: string[], tasks: UiState['agentTasks'], width: number): void {
+  const completed = tasks.filter((task) => task.status === 'completed').length;
+  lines.push(`${ACCENT}TASK LIST · ${completed}/${tasks.length} done${RESET}`);
+  for (const task of tasks.slice(0, 6)) {
+    const marker = task.status === 'completed'
+      ? `${SUCCESS}✓${RESET}`
+      : task.status === 'in_progress'
+        ? `${WARNING}›${RESET}`
+        : task.status === 'blocked'
+          ? `${ERROR}×${RESET}`
+          : `${MUTED}·${RESET}`;
+    lines.push(`  ${marker} ${SOFT}${shorten(task.title, Math.max(10, width - 10))}${RESET}`);
+  }
+  if (tasks.length > 6) lines.push(`  ${DIM}⋯ +${tasks.length - 6} more task(s)${RESET}`);
+}
+
+function subAgentStatusPresentation(status: SubAgentView['status']): { glyph: string; color: AnsiToken } {
+  switch (status) {
+    case 'done': return { glyph: '●', color: SUCCESS };
+    case 'error': return { glyph: '×', color: ERROR };
+    case 'cancelled': return { glyph: '○', color: MUTED };
+    case 'queued': return { glyph: '◌', color: WARNING };
+    default: return { glyph: '●', color: ACCENT };
+  }
+}
+
+function subAgentElapsed(agent: SubAgentView, now: number): string {
+  return formatToolDuration(Math.max(0, (agent.endedAt ?? now) - agent.startedAt));
+}
+
+function shortTokens(totalTokens: number | undefined): string {
+  if (!totalTokens || totalTokens <= 0) return '';
+  return totalTokens < 10_000 ? String(totalTokens) : `${(totalTokens / 1000).toFixed(1)}k`;
+}
+
+/** One-line projection used by both the activity summary and the panel list. */
+function subAgentRow(agent: SubAgentView, state: UiState, width: number): string {
+  const { glyph, color } = subAgentStatusPresentation(agent.status);
+  const runningCount = state.subagents.filter((candidate) => candidate.status === 'running').length;
+  const maxConcurrent = state.capabilities?.subAgentMaxConcurrent ?? 0;
+  const metaParts: string[] = [];
+  if (agent.status === 'queued') metaParts.push(`slot wait · ${runningCount}/${maxConcurrent ?? '?'} active`);
+  else metaParts.push(subAgentElapsed(agent, Date.now()));
+  if (agent.toolIds.length) metaParts.push(`${agent.toolIds.length} tool(s)`);
+  const tokens = shortTokens(agent.tokenUsage?.totalTokens);
+  if (tokens) metaParts.push(`${tokens} tok`);
+  if (agent.status !== 'running' && agent.status !== 'queued') metaParts.push(agent.stopReason ?? agent.status);
+  if (agent.status === 'running') metaParts.push('running');
+  const label = agent.task || agent.ownerId;
+  return `  ${color}${glyph}${RESET} ${BOLD}${shorten(String(agent.mode), 9)}${RESET} ${SOFT}${shorten(label, Math.max(10, width - 30))}${RESET} ${DIM}${metaParts.join(' · ')}${RESET}`;
+}
+
+function subagentsPanel(state: UiState, width: number): string[] {
+  if (state.subagents.length === 0) return [`${MUTED}No delegated agents in this session. The agent delegates with spawn_subagent.${RESET}`, ''];
+  if (state.subagentDetail !== null) {
+    const agent = state.subagents[Math.min(state.subagentDetail, state.subagents.length - 1)];
+    if (agent) return [...subAgentDetailFrame(agent, state, width), ''];
+  }
+  const selected = Math.min(state.selectedSubagent, state.subagents.length - 1);
+  const lines = [`${ACCENT}${BOLD}SUB-AGENTS · ${state.subagents.length}${RESET}`];
+  for (const row of windowedRows(state.subagents.length, selected, SUBAGENT_SUMMARY_ROWS)) {
+    if (row.ellipsis) {
+      lines.push(`  ${DIM}⋯ ${row.above ? `${row.count} above` : `${row.count} below`} · /subagents ${row.count ?? 1} jumps by number${RESET}`);
+      continue;
+    }
+    const pointer = row.index === selected ? `${ACCENT}▸${RESET}` : ' ';
+    const body = subAgentRow(state.subagents[row.index], state, width).trimStart();
+    lines.push(`${pointer} ${body}`);
+  }
+  lines.push(`${DIM}↑↓ select · enter details · esc close · /subagents cancel stops a run${RESET}`, '');
+  return lines;
+}
+
+function subAgentDetailFrame(agent: SubAgentView, state: UiState, width: number): string[] {
+  const innerWidth = Math.max(16, width - 8);
+  const { glyph, color } = subAgentStatusPresentation(agent.status);
+  const title = [
+    `${color}${BOLD}${glyph}${RESET}`,
+    `${SOFT}${BOLD}SUB-AGENT${RESET}`,
+    `${BOLD}${agent.mode}${RESET}`,
+    `${DIM}${agent.status}${agent.stopReason && agent.status !== 'done' ? ` (${agent.stopReason})` : ''}${RESET}`,
+  ].join(' ');
+  const body: string[] = [];
+  const meta = [`elapsed ${subAgentElapsed(agent, Date.now())}`, `${agent.toolIds.length} tool call(s)`];
+  const tokens = shortTokens(agent.tokenUsage?.totalTokens);
+  if (tokens) meta.push(`${tokens} tokens`);
+  body.push(`${MUTED}${meta.join(' · ')}${RESET}`);
+  if (agent.task) body.push(...wrapText(agent.task, innerWidth).slice(0, 4).map((line) => `${SOFT}${line}${RESET}`));
+  if (agent.thinking.trim()) {
+    body.push(`${MUTED}thinking${RESET}`);
+    body.push(...appendTailLines(agent.thinking.split(/\r?\n/u), innerWidth, SUBAGENT_DETAIL_THINKING));
+  }
+  if (agent.output.trim()) {
+    body.push(`${MUTED}output${RESET}`);
+    body.push(...appendTailLines(agent.output.split(/\r?\n/u), innerWidth, SUBAGENT_DETAIL_TAIL));
+  } else if (agent.status === 'running') {
+    body.push(`${DIM}streaming… output appears as the child produces it${RESET}`);
+  }
+  const tools = agent.toolIds
+    .map((toolId) => state.tools.find((tool) => tool.id === toolId))
+    .filter((tool): tool is ToolView => Boolean(tool))
+    .slice(-8);
+  if (tools.length) {
+    body.push(`${MUTED}tools${RESET}`);
+    for (const tool of tools) {
+      const { glyph: toolGlyph, color: toolColor } = toolStatusPresentation(tool.status);
+      body.push(`  ${toolColor}${toolGlyph}${RESET} ${shorten(inlineText(summarizeToolInput(tool.name, tool.input)) || tool.name, innerWidth - 6)} ${DIM}${formatToolDuration(tool.durationMs)}${RESET}`);
+    }
+    const hiddenTools = agent.toolIds.length - tools.length;
+    if (hiddenTools > 0) body.push(`  ${DIM}⋯ +${hiddenTools} earlier tool call(s)${RESET}`);
+  }
+  const cancellable = agent.status === 'running' || agent.status === 'queued';
+  body.push(cancellable
+    ? `${DIM}/subagents cancel to stop this run${RESET}`
+    : `${DIM}esc back to list${RESET}`);
+  return roundedFrame(title, body, width);
+}
+
+function appendTailLines(source: string[], width: number, cap: number): string[] {
+  const meaningful = source.filter((line) => line.trim() !== '');
+  const visible = meaningful.slice(-cap);
+  const lines = visible.map((line) => `  ${SOFT}${shorten(line.trimEnd(), width)}${RESET}`);
+  if (meaningful.length > visible.length) lines.push(`  ${DIM}⋯ first ${(meaningful.length - visible.length).toLocaleString()} line(s) hidden${RESET}`);
+  return lines;
 }
 
 type DiffRow = { type: 'context' | 'add' | 'del'; text: string };
@@ -628,8 +840,18 @@ function composerLines(state: UiState, width: number): string[] {
   ];
 }
 
-function workingIndicator(): string {
-  return `${ACCENT}${workingFrame()}${RESET} ${SOFT}Working...${RESET}`;
+function workingIndicator(state: UiState): string {
+  const activeCount = activeSubAgentCount(state);
+  return `${ACCENT}${workingFrame()}${RESET} ${SOFT}${activeCount ? `Working · ${activeCount} sub-agent(s) active` : 'Working...'}${RESET}`;
+}
+
+function activeSubAgentCount(state: UiState): number {
+  return state.subagents.filter((agent) => agent.status === 'running' || agent.status === 'queued').length;
+}
+
+function activeDelegationChip(state: UiState): string {
+  const count = activeSubAgentCount(state);
+  return count ? `${WARNING}${BOLD}⚙${count}${RESET}` : '';
 }
 
 function workingFrame(): string {
@@ -937,6 +1159,7 @@ function helpLines(): string[] {
   const lines: string[] = [
     `${DIM}Slash commands are searchable. Type / in the composer, Tab completes, Enter executes.${RESET}`,
     `${DIM}Shift-Tab cycles modes · Ctrl-T cycles thinking · Ctrl-K opens the palette · Ctrl-O expands the latest tool card.${RESET}`,
+    `${DIM}/subagents and /sdd open panels: ↑↓ select, Enter toggles details, Esc goes back. /subagents cancel stops a run.${RESET}`,
   ];
   for (const group of groups) {
     lines.push(`${ACCENT}${BOLD}${group.toUpperCase()}${RESET}`);

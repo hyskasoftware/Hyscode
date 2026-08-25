@@ -1,6 +1,6 @@
 import { isSensitiveTerminalPrompt, normalizeTerminalOutput } from '@hyscode/agent-harness';
 import type { AgentType, FileChangePending, HarnessEvent, SddTask } from '@hyscode/agent-harness';
-import type { Message, ThinkingConfig } from '@hyscode/ai-providers';
+import type { Message, ThinkingConfig, TokenUsage } from '@hyscode/ai-providers';
 import type {
   BridgeMessage,
   BridgeRequest,
@@ -20,7 +20,8 @@ import type {
 import { BUILTIN_THEMES, CliUpdaterError, DEFAULT_THEME_ID, normalizeTerminalViewport } from '@hyscode/tui-runtime';
 import { MODE_OPTIONS, commandArgument, matchingCommands, parseSlashCommand, resolveCommandName, selectionOptions } from './commands';
 import { AGENT_TYPES } from './types';
-import type { CliOptions, CommandFlow, ContextView, InteractionState, Key, MemoryView, RuleView, RuntimeNotice, SkillView, SubAgentView, ToolView, TranscriptItem, TranscriptKind, UiState } from './types';
+import type { AgentTaskListItem, CliOptions, CommandFlow, ContextView, InteractionState, Key, MemoryView, RuleView, RuntimeNotice, SkillView, SubAgentView, ToolView, TranscriptItem, TranscriptKind, UiState } from './types';
+import { SUBAGENT_OUTPUT_CAP, SUBAGENT_THINKING_CAP, appendCappedText, createSubAgentView, mergeTokenUsage } from './subagent-state';
 
 const SELECTION_PAGE_SIZE = 8;
 const MOUSE_SCROLL_LINES = 3;
@@ -88,6 +89,9 @@ export class TuiController {
       activeTerminalId: null,
       terminalInput: null,
       sdd: emptySdd(),
+      selectedSubagent: 0,
+      subagentDetail: null,
+      agentTasks: [],
       subagents: [],
       usage: emptyUsage(),
       notices: [],
@@ -217,7 +221,8 @@ export class TuiController {
         this.insertText(key.value);
         break;
       case 'enter':
-        await this.submitInput();
+        if (this.panelSelectionActive()) this.togglePanelDetail();
+        else await this.submitInput();
         break;
       case 'shift_enter':
         this.insertText('\n');
@@ -265,8 +270,12 @@ export class TuiController {
         await this.cycleMode();
         break;
       case 'escape':
-        this.clearInput();
-        this.state.status = 'Input cleared';
+        if (this.closePanelDetail()) {
+          this.state.status = 'Returned to list';
+        } else {
+          this.clearInput();
+          this.state.status = 'Input cleared';
+        }
         break;
       case 'f1':
         this.state.overlay = 'help';
@@ -503,6 +512,9 @@ export class TuiController {
     this.state.tools = [];
     this.state.fileChanges = [];
     this.state.subagents = [];
+    this.state.selectedSubagent = 0;
+    this.state.subagentDetail = null;
+    this.state.agentTasks = [];
     this.state.sdd = emptySdd();
     this.state.terminalInput = null;
     this.terminalRawOutput.clear();
@@ -691,6 +703,7 @@ export class TuiController {
   private applySdd(payload: SddStatePayload): void {
     this.state.sdd = {
       ...payload,
+      expandedTask: this.state.sdd.sessionId === payload.sessionId ? this.state.sdd.expandedTask : false,
       selectedTask: Math.min(this.state.sdd.selectedTask, Math.max(0, payload.tasks.length - 1)),
     };
     if (payload.phase) this.state.status = `SDD · ${payload.phase}`;
@@ -771,6 +784,7 @@ export class TuiController {
         if (ownerId) {
           if (event.chunk.type === 'text_delta') this.upsertSubAgent(ownerId, { outputAppend: event.chunk.text });
           else if (event.chunk.type === 'thinking_delta') this.upsertSubAgent(ownerId, { thinkingAppend: event.chunk.text });
+          else if (event.chunk.type === 'usage') this.upsertSubAgent(ownerId, { usageMerge: event.chunk.usage });
         } else if (event.chunk.type === 'text_delta') this.appendLive('assistant', event.chunk.text);
         else if (event.chunk.type === 'thinking_delta') this.appendLive('thinking', event.chunk.text);
         else if (event.chunk.type === 'usage') this.applyUsage(event.chunk.usage);
@@ -832,15 +846,25 @@ export class TuiController {
         break;
       case 'tool_call_result': {
         const linkedToTranscript = this.state.transcript.some((item) => item.toolId === event.toolCallId);
+        const expanded = event.toolName === 'spawn_subagent' && event.result.success && !ownerId ? true : undefined;
         this.updateTool(event.toolCallId, {
           status: event.result.success ? 'success' : 'error',
           output: event.result.output,
           error: event.result.error,
           durationMs: event.durationMs,
+          ...(expanded !== undefined ? { expanded } : {}),
         });
         if (ownerId) this.upsertSubAgent(ownerId, { toolId: event.toolCallId });
-        else if (!linkedToTranscript) {
-          this.append('result', `${event.toolName} → ${(event.result.error ?? event.result.output) || formatValue(event.result)}`);
+        else {
+          this.applyToolResultMetadata(event.toolName, event.result.metadata);
+          if (event.toolName === 'spawn_subagent') {
+            const agent = this.state.subagents.find((candidate) => candidate.ownerId === event.toolCallId);
+            this.addNotice('info', agent
+              ? `Sub-agent finished · ${inlineText(agent.task || agent.mode)}`
+              : 'Sub-agent finished · report expanded in transcript');
+          } else if (!linkedToTranscript) {
+            this.append('result', `${event.toolName} → ${(event.result.error ?? event.result.output) || formatValue(event.result)}`);
+          }
         }
         break;
       }
@@ -874,7 +898,11 @@ export class TuiController {
       case 'turn_end':
         this.applyUsage(event.tokenUsage);
         if (ownerId) {
-          this.upsertSubAgent(ownerId, { status: event.reason === 'error' ? 'error' : event.reason === 'cancelled' || event.reason === 'cancelled_partial' ? 'cancelled' : 'done', endedAt: Date.now() });
+          this.upsertSubAgent(ownerId, {
+            status: event.reason === 'error' ? 'error' : event.reason === 'cancelled' || event.reason === 'cancelled_partial' ? 'cancelled' : 'done',
+            stopReason: event.reason,
+            endedAt: Date.now(),
+          });
         } else {
           this.state.running = false;
           this.state.status = event.error ? `${event.reason}: ${event.error}` : event.reason;
@@ -895,11 +923,11 @@ export class TuiController {
         break;
       case 'sdd_task_start':
         this.upsertSddTask(event.task, 'in_progress');
-        this.state.mainPanel = 'sdd';
+        this.notifySddProgress(`started · ${event.task.title}`);
         break;
       case 'sdd_task_complete':
         this.upsertSddTask(event.task, event.task.status);
-        this.state.mainPanel = 'sdd';
+        this.notifySddProgress(`${event.task.status} · ${event.task.title}`);
         break;
       case 'context_gathered':
         this.state.context.gatheredTokens += event.tokenEstimate;
@@ -1018,14 +1046,14 @@ export class TuiController {
     if (this.state.notices.length > 80) this.state.notices.splice(0, this.state.notices.length - 80);
   }
 
-  private applyUsage(usage: import('@hyscode/ai-providers').TokenUsage): void {
+  private applyUsage(usage: TokenUsage): void {
     this.state.usage.current = usage;
     this.state.usage.inputTokens = usage.inputTokens;
     this.state.usage.outputTokens = usage.outputTokens;
     this.state.usage.totalTokens = usage.totalTokens;
     this.state.usage.requestCount = usage.requestCount ?? this.state.usage.requestCount;
     this.state.usage.estimatedCost = usage.estimatedCostUsd ?? this.state.usage.estimatedCost;
-    this.state.usage.session = mergeUsage(this.state.usage.session, usage);
+    this.state.usage.session = mergeTokenUsage(this.state.usage.session, usage);
   }
 
   private upsertSddTask(task: SddTask, status: SddTask['status']): void {
@@ -1037,27 +1065,40 @@ export class TuiController {
     this.state.sdd = { ...this.state.sdd, tasks, selectedTask: Math.min(this.state.sdd.selectedTask, Math.max(0, tasks.length - 1)) };
   }
 
-  private upsertSubAgent(ownerId: string, patch: Partial<SubAgentView> & { outputAppend?: string; thinkingAppend?: string; toolId?: string }): void {
+  private upsertSubAgent(ownerId: string, patch: Partial<SubAgentView> & { outputAppend?: string; thinkingAppend?: string; toolId?: string; usageMerge?: TokenUsage }): void {
     let agent = this.state.subagents.find((candidate) => candidate.ownerId === ownerId);
     if (!agent) {
-      agent = {
-        ownerId,
-        mode: 'agent',
-        task: '',
-        status: 'queued',
-        output: '',
-        thinking: '',
-        toolIds: [],
-        startedAt: Date.now(),
-        endedAt: null,
-      };
+      agent = createSubAgentView(ownerId);
       this.state.subagents.push(agent);
     }
-    const { outputAppend, thinkingAppend, toolId, ...rest } = patch;
+    const { outputAppend, thinkingAppend, toolId, usageMerge, ...rest } = patch;
     Object.assign(agent, rest);
-    if (outputAppend) agent.output += outputAppend;
-    if (thinkingAppend) agent.thinking += thinkingAppend;
+    agent.output = appendCappedText(agent.output, outputAppend, SUBAGENT_OUTPUT_CAP);
+    agent.thinking = appendCappedText(agent.thinking, thinkingAppend, SUBAGENT_THINKING_CAP);
     if (toolId && !agent.toolIds.includes(toolId)) agent.toolIds.push(toolId);
+    if (usageMerge) agent.tokenUsage = mergeTokenUsage(agent.tokenUsage, usageMerge);
+  }
+
+  /** Projects turn-local checklist and skill metadata carried on tool results. */
+  private applyToolResultMetadata(toolName: string, metadata: Record<string, unknown> | undefined): void {
+    if (toolName !== 'manage_tasks' || !metadata) return;
+    const tasks = Array.isArray(metadata.tasks) ? metadata.tasks : [];
+    this.state.agentTasks = tasks
+      .map((task): AgentTaskListItem | null => {
+        const record = asRecord(task);
+        return typeof record.id === 'number' && typeof record.title === 'string'
+          ? { id: record.id, title: record.title, status: typeof record.status === 'string' ? record.status : 'not_started' }
+          : null;
+      })
+      .filter((task): task is AgentTaskListItem => task !== null);
+  }
+
+  private notifySddProgress(detail: string): void {
+    if (this.state.mainPanel === 'sdd') {
+      this.state.status = `SDD · ${detail}`;
+      return;
+    }
+    this.addNotice('info', `SDD task ${detail} · open with /sdd`);
   }
 
   private appendLive(kind: TranscriptKind, text: string): void {
@@ -1177,6 +1218,8 @@ export class TuiController {
       case '/new':
         await this.request('session_new', {});
         this.state.transcript = [];
+        this.state.agentTasks = [];
+        this.state.subagentDetail = null;
         this.state.status = 'New session';
         break;
       case '/sessions':
@@ -1215,8 +1258,7 @@ export class TuiController {
         else await this.runTabCommand(args);
         break;
       case '/subagents':
-        this.state.mainPanel = 'activity';
-        this.state.status = this.state.subagents.length ? `${this.state.subagents.length} sub-agent(s)` : 'No delegated agents in this session';
+        await this.runSubagentsCommand(args);
         break;
       case '/usage':
         this.state.mainPanel = 'activity';
@@ -1299,7 +1341,7 @@ export class TuiController {
     }
   }
 
-  private openActionFlow(action: 'approval' | 'context' | 'terminal' | 'diffs' | 'sdd' | 'tab'): void {
+  private openActionFlow(action: 'approval' | 'context' | 'terminal' | 'diffs' | 'sdd' | 'tab' | 'subagents'): void {
     this.state.overlay = 'commands';
     const flow = { kind: 'action' as const, action, selected: 0 };
     if (action === 'approval') {
@@ -1463,6 +1505,68 @@ export class TuiController {
     else if (trimmed === 'resume') await this.request('sdd_action', { action: 'resume' });
     else await this.request('sdd_start', { description: trimmed });
     this.state.mainPanel = 'sdd';
+  }
+
+  private async runSubagentsCommand(args: string): Promise<void> {
+    const tokens = args.trim().split(/\s+/u).filter(Boolean);
+    const action = tokens[0] ?? 'list';
+    if (action === 'cancel') {
+      const target = this.resolveSubAgentTarget(tokens.slice(1).join(' '));
+      if (!target) {
+        if (this.state.subagents.some((agent) => agent.status === 'queued' || agent.status === 'running')) {
+          this.state.overlay = 'commands';
+          this.state.commandFlow = { kind: 'subagent_cancel', selected: 0 };
+        } else {
+          this.state.status = 'No active sub-agent to cancel';
+        }
+        return;
+      }
+      await this.requestSubAgentCancel(target);
+      return;
+    }
+    if (/^\d+$/u.test(action)) {
+      const index = Number(action) - 1;
+      if (index >= 0 && index < this.state.subagents.length) {
+        this.state.mainPanel = 'subagents';
+        this.state.selectedSubagent = index;
+        this.state.subagentDetail = index;
+        this.state.status = `Sub-agent · ${this.state.subagents[index]?.mode}`;
+      } else {
+        this.state.status = `No sub-agent #${action} · ${this.state.subagents.length} recorded`;
+      }
+      return;
+    }
+    if (this.state.subagentDetail !== null && this.state.subagentDetail >= this.state.subagents.length) this.state.subagentDetail = null;
+    this.state.mainPanel = 'subagents';
+    this.state.selectedSubagent = Math.min(this.state.selectedSubagent, Math.max(0, this.state.subagents.length - 1));
+    const active = this.state.subagents.filter((agent) => agent.status === 'queued' || agent.status === 'running').length;
+    this.state.status = this.state.subagents.length
+      ? `${active} active of ${this.state.subagents.length} sub-agent(s) · ↑↓ select · enter details`
+      : 'No delegated agents in this session';
+  }
+
+  private resolveSubAgentTarget(token: string): SubAgentView | null {
+    if (!token) return null;
+    const agents = this.state.subagents;
+    const byId = agents.find((agent) => agent.ownerId === token);
+    if (byId) return byId;
+    if (/^\d+$/u.test(token)) {
+      const index = Number(token) - 1;
+      return agents[index] ?? null;
+    }
+    return agents.find((agent) => (agent.status === 'queued' || agent.status === 'running') && (agent.task.startsWith(token) || agent.mode === token)) ?? null;
+  }
+
+  private async requestSubAgentCancel(target: SubAgentView): Promise<void> {
+    if (target.status !== 'queued' && target.status !== 'running') {
+      this.state.status = `Sub-agent already ${target.status}`;
+      return;
+    }
+    await this.request('subagent_cancel', { ownerId: target.ownerId });
+    target.status = 'cancelled';
+    target.stopReason = 'cancelled';
+    target.endedAt = Date.now();
+    this.state.status = `Cancellation requested for ${target.mode} sub-agent`;
   }
 
   private async runTabCommand(args: string): Promise<void> {
@@ -1941,6 +2045,13 @@ export class TuiController {
       this.closeCommandFlow();
       return;
     }
+    if (flow.kind === 'subagent_cancel') {
+      const option = selectionOptions(this.state, flow)[flow.selected];
+      const target = option ? this.resolveSubAgentTarget(option.id) : null;
+      if (target) await this.requestSubAgentCancel(target);
+      this.closeCommandFlow();
+      return;
+    }
     if (flow.kind === 'mode') {
       const option = MODE_OPTIONS[flow.selected];
       if (option) await this.setMode(option.value);
@@ -2099,6 +2210,15 @@ export class TuiController {
         return;
       }
       await this.runSddCommand(option.id);
+      this.closeCommandFlow();
+      return;
+    }
+    if (flow.action === 'subagents') {
+      if (option.id === 'cancel') {
+        this.state.commandFlow = { kind: 'subagent_cancel', selected: 0 };
+        return;
+      }
+      await this.runSubagentsCommand('');
       this.closeCommandFlow();
       return;
     }
@@ -2265,6 +2385,35 @@ export class TuiController {
     this.state.inputCursor = cursor;
   }
 
+  /** Enter opens the selected entry's detail view; enter again closes it. */
+  private togglePanelDetail(): void {
+    if (this.state.mainPanel === 'sdd') {
+      if (this.state.sdd.tasks.length === 0) return;
+      this.state.sdd = { ...this.state.sdd, expandedTask: !this.state.sdd.expandedTask };
+      this.state.status = this.state.sdd.expandedTask ? 'Task details expanded' : 'Task details collapsed';
+      return;
+    }
+    if (this.state.subagents.length === 0) return;
+    this.state.subagentDetail = this.state.subagentDetail === null
+      ? Math.min(this.state.selectedSubagent, this.state.subagents.length - 1)
+      : null;
+    const agent = this.state.subagents[this.state.selectedSubagent];
+    this.state.status = agent ? (this.state.subagentDetail === null ? 'Closed sub-agent details' : `Sub-agent details · ${agent.mode}`) : this.state.status;
+  }
+
+  private closePanelDetail(): boolean {
+    if (this.state.mainPanel === 'sdd' && this.state.sdd.expandedTask) {
+      this.state.sdd = { ...this.state.sdd, expandedTask: false };
+      return true;
+    }
+    if (this.state.mainPanel === 'subagents' && this.state.subagentDetail !== null) {
+      this.state.subagentDetail = null;
+      return true;
+    }
+    return false;
+  }
+
+
   private clearInput(): void {
     this.state.input = '';
     this.state.inputCursor = 0;
@@ -2280,6 +2429,10 @@ export class TuiController {
       this.state.scroll += 1;
       return;
     }
+    if (this.panelSelectionActive()) {
+      this.movePanelSelection(-1);
+      return;
+    }
     if (this.state.inputHistory.length === 0) return;
     const index = this.state.historyIndex === null ? this.state.inputHistory.length - 1 : Math.max(0, this.state.historyIndex - 1);
     this.state.historyIndex = index;
@@ -2292,18 +2445,44 @@ export class TuiController {
       this.state.scroll = Math.max(0, this.state.scroll - 1);
       return;
     }
+    if (this.panelSelectionActive()) {
+      this.movePanelSelection(1);
+      return;
+    }
     if (this.state.historyIndex === null) return;
     if (this.state.historyIndex + 1 >= this.state.inputHistory.length) {
       this.clearInput();
       return;
     }
-    this.state.historyIndex += 1;
-    this.state.input = this.state.inputHistory[this.state.historyIndex];
+    const index = this.state.historyIndex + 1;
+    this.state.historyIndex = index;
+    this.state.input = this.state.inputHistory[index];
     this.state.inputCursor = Array.from(this.state.input).length;
   }
 
+  /** Arrow keys browse the focused side panel while the composer draft is empty. */
+  private panelSelectionActive(): boolean {
+    if (this.state.input.trim()) return false;
+    return this.state.mainPanel === 'sdd' || this.state.mainPanel === 'subagents';
+  }
+
+  private movePanelSelection(delta: number): void {
+    if (this.state.mainPanel === 'sdd') {
+      const total = this.state.sdd.tasks.length;
+      if (total === 0) return;
+      const next = this.state.sdd.selectedTask + delta;
+      this.state.sdd = { ...this.state.sdd, selectedTask: Math.min(Math.max(next, 0), total - 1), expandedTask: false };
+      return;
+    }
+    const total = this.state.subagents.length;
+    if (total === 0) return;
+    this.state.selectedSubagent = Math.min(Math.max(this.state.selectedSubagent + delta, 0), total - 1);
+  }
+
+  /** Collapses the newest expanded card first, else expands the newest card. */
   private toggleLastToolExpansion(): void {
-    const tool = this.state.tools[this.state.tools.length - 1];
+    const newestExpanded = [...this.state.tools].reverse().find((tool) => tool.expanded);
+    const tool = newestExpanded ?? this.state.tools[this.state.tools.length - 1];
     if (!tool) {
       this.state.status = 'No tool activity to expand yet';
       return;
@@ -2389,6 +2568,7 @@ function emptySdd(): UiState['sdd'] {
     review: null,
     failedTask: null,
     selectedTask: 0,
+    expandedTask: false,
   };
 }
 
@@ -2420,22 +2600,6 @@ function emptyUpdates(): UiState['updates'] {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-}
-
-function mergeUsage(previous: import('@hyscode/ai-providers').TokenUsage | null, current: import('@hyscode/ai-providers').TokenUsage): import('@hyscode/ai-providers').TokenUsage {
-  if (!previous) return { ...current };
-  return {
-    ...current,
-    inputTokens: previous.inputTokens + current.inputTokens,
-    outputTokens: previous.outputTokens + current.outputTokens,
-    totalTokens: previous.totalTokens + current.totalTokens,
-    requestCount: (previous.requestCount ?? 0) + (current.requestCount ?? 0),
-    cacheReadTokens: (previous.cacheReadTokens ?? 0) + (current.cacheReadTokens ?? 0),
-    cacheWriteTokens: (previous.cacheWriteTokens ?? 0) + (current.cacheWriteTokens ?? 0),
-    reasoningTokens: (previous.reasoningTokens ?? 0) + (current.reasoningTokens ?? 0),
-    retryCount: (previous.retryCount ?? 0) + (current.retryCount ?? 0),
-    estimatedCostUsd: (previous.estimatedCostUsd ?? 0) + (current.estimatedCostUsd ?? 0),
-  };
 }
 
 function parseContextMention(input: string): { path: string; message: string } | null {

@@ -34,7 +34,10 @@ function state(overrides: Partial<UiState> = {}): UiState {
     context: { attachments: [], gathered: [], gatheredTokens: 0, activeRulePaths: [], activeSkillNames: [], capabilities: null },
     terminals: [],
     activeTerminalId: null,
-    sdd: { sessionId: null, session: null, tasks: [], phase: null, spec: null, review: null, failedTask: null, selectedTask: 0 },
+    sdd: { sessionId: null, session: null, tasks: [], phase: null, spec: null, review: null, failedTask: null, selectedTask: 0, expandedTask: false },
+    selectedSubagent: 0,
+    subagentDetail: null,
+    agentTasks: [],
     subagents: [],
     usage: { current: null, session: null, requestCount: 0, estimatedCost: 0, contextWindow: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     notices: [],
@@ -658,5 +661,174 @@ describe('TUI renderer improvements', () => {
     expect(stripped[terminalIndex]).toContain('╭─');
     expect(stripped.slice(terminalIndex).some((line) => line.includes('build ok'))).toBe(true);
     expect(stripped.every((line) => terminalCellWidth(line) <= 120)).toBe(true);
+  });
+
+  function subAgentFixture(overrides: Partial<UiState['subagents'][number]> = {}): UiState['subagents'][number] {
+    const now = Date.now();
+    return {
+      ownerId: 'tool-call-1',
+      mode: 'review',
+      task: 'Audit the auth middleware for token expiry bugs',
+      status: 'running',
+      stopReason: undefined,
+      output: 'Found two issues:\n1. expiry skew ignored\n2. default leeway 0',
+      thinking: 'Considering clock skew between services',
+      toolIds: ['child-tool-1'],
+      startedAt: now - 1500,
+      endedAt: null,
+      tokenUsage: { inputTokens: 900, outputTokens: 300, totalTokens: 1200 },
+      ...overrides,
+    };
+  }
+
+  it('renders rich sub-agent rows with mode, tools, tokens, and queue metadata', () => {
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'activity',
+      transcript: [{ kind: 'assistant', text: 'delegating' }],
+      capabilities: { slashCommands: true, contextMentions: true, fileAttachments: true, directoryAttachments: true, terminalAttachments: true, imageAttachments: true, interactiveTerminal: true, approvals: true, fileReview: true, sdd: true, subAgents: true, sessionManagement: true, subAgentMaxConcurrent: 2 },
+      subagents: [
+        subAgentFixture({ status: 'queued' }),
+        subAgentFixture({ ownerId: 'tool-call-2', status: 'done', endedAt: Date.now() - 500 }),
+      ],
+    }));
+    const plain = plainOf(rendered);
+    expect(plain).toContain('SUB-AGENTS · 1 active of 2');
+    expect(plain).toContain('review');
+    expect(plain).toContain('slot wait · 0/2 active');
+    expect(plain).toContain('1200 tok');
+    expect(plain).toContain('/subagents opens the panel');
+  });
+
+  it('marks hidden older sub-agents instead of silently truncating the list', () => {
+    const agents = Array.from({ length: 8 }, (_, index) => subAgentFixture({ ownerId: `agent-${index}`, task: `Task ${index}` }));
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'activity',
+      transcript: [{ kind: 'assistant', text: 'delegating' }],
+      subagents: agents,
+    }));
+    const plain = plainOf(rendered);
+    expect(plain).toContain('⋯ 2 earlier sub-agent(s)');
+    expect(plain).toContain('Task 7');
+    expect(plain).not.toContain('Task 1 ·');
+  });
+
+  it('opens a sub-agents panel with selection and a detail frame with tails and tool rows', () => {
+    const tool = {
+      id: 'child-tool-1',
+      name: 'read_file',
+      input: { path: 'src/auth/middleware.ts' },
+      status: 'success' as const,
+      liveOutput: '',
+      outputSequence: 1,
+      expanded: false,
+      ownerId: 'tool-call-1',
+      durationMs: 12,
+    };
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'subagents',
+      transcript: [{ kind: 'assistant', text: 'delegating' }],
+      tools: [tool],
+      subagents: [subAgentFixture({ status: 'done', endedAt: Date.now() - 100 })],
+      selectedSubagent: 0,
+      subagentDetail: 0,
+    }));
+    const plain = plainOf(rendered);
+    expect(plain).toContain('SUB-AGENT');
+    expect(plain).toContain('elapsed');
+    expect(plain).toContain('expiry skew ignored');
+    expect(plain).toContain('src/auth/middleware.ts');
+    expect(plain).toContain('Considering clock skew');
+  });
+
+  it('shows sdd progress counts, failed task, review, and expanded task detail', () => {
+    const baseTask = { id: 't1', sessionId: 's1', ordinal: 1, title: 'Wire the store', description: 'Create the reducer and wire it into the panel.', files: ['src/store.ts'], dependencies: [], status: 'completed' as const, agentOutput: null, toolCalls: [], createdAt: '', updatedAt: '' };
+    const failed = { ...baseTask, id: 't2', ordinal: 2, title: 'Render tasks', status: 'failed' as const };
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'sdd',
+      transcript: [{ kind: 'assistant', text: 'executing' }],
+      sdd: {
+        sessionId: 'sdd-1',
+        session: null,
+        phase: 'executing',
+        spec: null,
+        review: 'Overall the plan is sound but the retry path is untested.',
+        failedTask: failed,
+        tasks: [baseTask, failed],
+        selectedTask: 0,
+        expandedTask: true,
+      },
+    }));
+    const plain = plainOf(rendered);
+    expect(plain).toContain('TASKS · 1/2 completed');
+    expect(plain).toContain('FAILED · #2 Render tasks');
+    expect(plain).toContain('REVIEW');
+    expect(plain).toContain('retry path is untested');
+    expect(plain).toContain('Create the reducer and wire it into the panel.');
+    expect(plain).toContain('files · src/store.ts');
+  });
+
+  it('windows long sdd task lists with ellipsis rows around the selection', () => {
+    const tasks = Array.from({ length: 14 }, (_, index) => ({
+      id: `t${index}`,
+      sessionId: 's1',
+      ordinal: index + 1,
+      title: `Task number ${index}`,
+      description: '',
+      files: [],
+      dependencies: [],
+      status: 'pending' as const,
+      agentOutput: null,
+      toolCalls: [],
+      createdAt: '',
+      updatedAt: '',
+    }));
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'sdd',
+      transcript: [{ kind: 'assistant', text: 'plan' }],
+      sdd: { sessionId: 'sdd-1', session: null, phase: 'executing', spec: null, review: null, failedTask: null, tasks, selectedTask: 7, expandedTask: false },
+    }));
+    const plain = plainOf(rendered);
+    expect(plain).toMatch(/⋯ \d+ above/);
+    expect(plain).toMatch(/below/);
+    expect(plain).toContain('Task number 7');
+    expect(plain).not.toContain('Task number 13\n');
+  });
+
+  it('attributes terminal tools owned by sub-agents and renders the turn-local task list', () => {
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'activity',
+      transcript: [{ kind: 'assistant', text: 'running suite' }],
+      tools: [{
+        id: 'term-tool',
+        name: 'run_terminal_command',
+        input: {},
+        status: 'running',
+        liveOutput: '',
+        outputSequence: 1,
+        expanded: false,
+        ownerId: 'sub-agent-owner',
+        terminalId: 'term-9',
+      }],
+      agentTasks: [
+        { id: 1, title: 'Reproduce bug', status: 'completed' },
+        { id: 2, title: 'Patch parser', status: 'in_progress' },
+      ],
+    }));
+    const plain = plainOf(rendered);
+    expect(plain).toContain('↳ sub-agent');
+    expect(plain).toContain('TASK LIST · 1/2 done');
+    expect(plain).toContain('Patch parser');
+  });
+
+  it('surfaces delegation pressure in the header chip and working banner', () => {
+    const runningState = state({
+      running: true,
+      transcript: [],
+      subagents: [subAgentFixture(), subAgentFixture({ ownerId: 'second', status: 'queued' })],
+    });
+    const rendered = new TerminalRenderer().render(runningState);
+    const plain = plainOf(rendered);
+    expect(plain).toContain('⚙2');
+    expect(plain).toContain('Working · 2 sub-agent(s) active');
   });
 });

@@ -100,6 +100,14 @@ export type ContextView = ContextStatePayload & {
 
 export type SddView = SddStatePayload & {
   selectedTask: number;
+  /** Whether the currently selected task renders its detail block. */
+  expandedTask: boolean;
+};
+
+export type AgentTaskListItem = {
+  id: number;
+  title: string;
+  status: string;
 };
 
 export type SubAgentView = {
@@ -107,11 +115,14 @@ export type SubAgentView = {
   mode: AgentType | string;
   task: string;
   status: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
+  /** Harness terminal reason for the child turn (max_iterations, loop_detected, ...). */
+  stopReason?: string;
   output: string;
   thinking: string;
   toolIds: string[];
   startedAt: number;
   endedAt: number | null;
+  tokenUsage: TokenUsage | null;
 };
 
 export type RuntimeNotice = {
@@ -190,11 +201,9 @@ export type InteractionState =
 
 export type Overlay = 'none' | 'help' | 'sessions' | 'projects' | 'commands';
 
-export type MainPanel = 'chat' | 'terminal' | 'sdd' | 'activity';
-
+export type MainPanel = 'chat' | 'terminal' | 'sdd' | 'activity' | 'subagents';
+export type SelectionFlowAction = 'approval' | 'context' | 'terminal' | 'diffs' | 'sdd' | 'tab' | 'subagents';
 export type RecoveryView = { action: 'continue' | 'retry'; partialText: string; retryCount: number; possibleDuplicateCharge: boolean };
-
-export type SelectionFlowAction = 'approval' | 'context' | 'terminal' | 'diffs' | 'sdd' | 'tab';
 
 export type CommandFlow =
   | { kind: 'root'; query: string; selected: number; inputDriven: boolean }
@@ -206,6 +215,7 @@ export type CommandFlow =
   | { kind: 'update'; selected: number }
   | { kind: 'action'; action: SelectionFlowAction; selected: number }
   | { kind: 'context_remove'; selected: number }
+  | { kind: 'subagent_cancel'; selected: number }
   | { kind: 'terminal_attach'; selected: number }
   | { kind: 'terminal_select'; selected: number }
   | { kind: 'terminal_handoff'; selected: number }
@@ -248,6 +258,10 @@ export type UiState = {
   tools: ToolView[];
   fileChanges: FileChangeView[];
   context: ContextView;
+  selectedSubagent: number;
+  /** Index into `subagents` when the detail view is open, else null. */
+  subagentDetail: number | null;
+  agentTasks: AgentTaskListItem[];
   terminals: TerminalSummary[];
   activeTerminalId: string | null;
   terminalInput?: TerminalInputState | null;

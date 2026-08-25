@@ -592,3 +592,163 @@ describe('TUI controller tool projection', () => {
     expect(controller.state.tools[0]).toMatchObject({ id: 'r1', status: 'success', output: 'file content' });
   });
 });
+
+describe('TUI controller delegation and task surfaces', () => {
+  function scoped(controller: TuiController, ownerId: string, event: import('@hyscode/agent-harness').HarnessEvent): void {
+    controller.handleRuntimeMessage({ type: 'event', event: 'scoped_harness_event', payload: { ownerId, event } });
+  }
+
+  function delegate(controller: TuiController): void {
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: { type: 'tool_call_start', toolCallId: 'spawn-1', toolName: 'spawn_subagent', input: { task: 'Audit the parser', mode: 'review' } },
+    });
+    scoped(controller, 'spawn-1', { type: 'turn_start', conversationId: 'conv-child', iteration: 1 });
+  }
+
+  it('merges scoped usage into the sub-agent projection and caps streaming buffers', async () => {
+    const controller = new TuiController({ workspace: 'C:/workspace' }, new FakeRuntime());
+    await controller.start();
+    delegate(controller);
+
+    scoped(controller, 'spawn-1', { type: 'stream_chunk', chunk: { type: 'usage', usage: { inputTokens: 500, outputTokens: 100, totalTokens: 600 } } });
+    scoped(controller, 'spawn-1', { type: 'stream_chunk', chunk: { type: 'text_delta', text: 'x'.repeat(40_000) } });
+
+    expect(controller.state.subagents[0]?.tokenUsage).toMatchObject({ inputTokens: 500, totalTokens: 600 });
+    expect(controller.state.subagents[0]?.output.length).toBe(32_768);
+  });
+
+  it('records the child stop reason on scoped turn end and cancels through the bridge', async () => {
+    const runtime = new FakeRuntime();
+    const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
+    await controller.start();
+    delegate(controller);
+
+    scoped(controller, 'spawn-1', { type: 'turn_end', reason: 'max_iterations', tokenUsage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } });
+    expect(controller.state.subagents[0]).toMatchObject({ status: 'done', stopReason: 'max_iterations' });
+  });
+
+  it('cancels an active sub-agent by list position and refuses finished ones', async () => {
+    const runtime = new FakeRuntime();
+    const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
+    await controller.start();
+    delegate(controller);
+
+    await controller.handleKey({ type: 'character', value: '/subagents cancel 1' });
+    await controller.handleKey({ type: 'enter' });
+    expect(runtime.requests.filter((request) => request.method === 'subagent_cancel')).toHaveLength(1);
+    expect(runtime.requests.at(-1)?.params).toEqual({ ownerId: 'spawn-1' });
+    expect(controller.state.subagents[0]).toMatchObject({ status: 'cancelled' });
+
+    await controller.handleKey({ type: 'character', value: '/subagents cancel 1' });
+    await controller.handleKey({ type: 'enter' });
+    expect(controller.state.status).toContain('already cancelled');
+    expect(runtime.requests.filter((request) => request.method === 'subagent_cancel')).toHaveLength(1);
+  });
+
+  it('projects manage_tasks metadata and clears it with /new', async () => {
+    const runtime = new FakeRuntime();
+    const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
+    await controller.start();
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'tool_call_start',
+        toolCallId: 'tasks-1',
+        toolName: 'manage_tasks',
+        input: {},
+      },
+    });
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'tool_call_result',
+        toolCallId: 'tasks-1',
+        toolName: 'manage_tasks',
+        durationMs: 4,
+        result: {
+          success: true,
+          output: 'ok',
+          metadata: { action: 'manage_tasks', tasks: [{ id: 1, title: 'Reproduce', status: 'completed' }, { id: 2, title: 'Patch', status: 'in_progress' }] },
+        },
+      },
+    });
+    expect(controller.state.agentTasks).toEqual([
+      { id: 1, title: 'Reproduce', status: 'completed' },
+      { id: 2, title: 'Patch', status: 'in_progress' },
+    ]);
+
+    await controller.handleKey({ type: 'character', value: '/new' });
+    await controller.handleKey({ type: 'enter' });
+    expect(controller.state.agentTasks).toEqual([]);
+  });
+
+  it('notifies about SDD task progress without stealing the active panel', async () => {
+    const controller = new TuiController({ workspace: 'C:/workspace' }, new FakeRuntime());
+    await controller.start();
+    controller.state.mainPanel = 'terminal';
+    const before = controller.state.notices.length;
+
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: { type: 'sdd_task_start', task: { id: 't1', sessionId: 's1', ordinal: 1, title: 'Wire store', description: '', files: [], dependencies: [], status: 'pending', agentOutput: null, toolCalls: [], createdAt: '', updatedAt: '' } },
+    });
+
+    expect(controller.state.mainPanel).toBe('terminal');
+    expect(controller.state.notices.length).toBe(before + 1);
+    expect(controller.state.sdd.tasks[0]?.status).toBe('in_progress');
+  });
+
+  it('navigates sdd tasks and toggles details with keyboard while the composer is empty', async () => {
+    const controller = new TuiController({ workspace: 'C:/workspace' }, new FakeRuntime());
+    await controller.start();
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'sdd_updated',
+      payload: {
+        sessionId: 'sdd-1',
+        session: null,
+        phase: 'executing',
+        spec: null,
+        review: null,
+        failedTask: null,
+        tasks: [
+          { id: 't1', sessionId: 's1', ordinal: 1, title: 'First', description: 'd1', files: [], dependencies: [], status: 'completed', agentOutput: null, toolCalls: [], createdAt: '', updatedAt: '' },
+          { id: 't2', sessionId: 's1', ordinal: 2, title: 'Second', description: 'd2', files: [], dependencies: [], status: 'pending', agentOutput: null, toolCalls: [], createdAt: '', updatedAt: '' },
+        ],
+      },
+    });
+    controller.state.mainPanel = 'sdd';
+
+    await controller.handleKey({ type: 'down' });
+    expect(controller.state.sdd.selectedTask).toBe(1);
+    await controller.handleKey({ type: 'enter' });
+    expect(controller.state.sdd.expandedTask).toBe(true);
+    await controller.handleKey({ type: 'escape' });
+    expect(controller.state.sdd.expandedTask).toBe(false);
+
+    controller.state.input = 'draft text';
+    await controller.handleKey({ type: 'up' });
+    expect(controller.state.sdd.selectedTask).toBe(1);
+  });
+
+  it('auto-expands the delegation report card on success and collapses newest-expanded first', async () => {
+    const controller = new TuiController({ workspace: 'C:/workspace' }, new FakeRuntime());
+    await controller.start();
+    delegate(controller);
+
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: { type: 'tool_call_result', toolCallId: 'spawn-1', toolName: 'spawn_subagent', result: { success: true, output: 'report body' }, durationMs: 900 },
+    });
+    expect(controller.state.tools.find((tool) => tool.id === 'spawn-1')?.expanded).toBe(true);
+
+    await controller.handleKey({ type: 'ctrl', value: 'o' });
+    expect(controller.state.tools.find((tool) => tool.id === 'spawn-1')?.expanded).toBe(false);
+  });
+});

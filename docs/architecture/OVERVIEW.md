@@ -78,7 +78,11 @@ The repository ships a standalone TypeScript client in `tools/hyscode-tui`.
 The client owns terminal rendering, keyboard input, structured transcript
 projection, session/project/tab commands, context attachments, persistent
 terminal interaction, cancellation, resize, recovery, and approval/question
-prompts.
+prompts. Delegated sub-agents get a first-class `/subagents` panel with live
+status, detail view, and cancellation, the SDD panel exposes task progress,
+failure, review, and per-task details, and the turn-local `manage_tasks`
+checklist is projected next to session activity.
+
 The interactive shell uses a fullscreen, keyboard-first layout: a contextual
 header and adaptive session sidebar frame the transcript, while the composer
 and action panels stay anchored at the bottom. Typing `/` opens a filtered

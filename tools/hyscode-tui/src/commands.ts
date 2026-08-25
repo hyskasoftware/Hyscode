@@ -27,7 +27,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   { name: '/export', aliases: [], category: 'session', description: 'Export the current session as Markdown', usage: '/export' },
   { name: '/delete-session', aliases: ['/delete'], category: 'session', description: 'Choose a saved session to delete', usage: '/delete-session' },
   { name: '/tab', aliases: ['/tabs'], category: 'session', description: 'Choose a conversation tab action', usage: '/tab' },
-  { name: '/subagents', aliases: ['/delegations'], category: 'session', description: 'Inspect delegated child agents', usage: '/subagents' },
+  { name: '/subagents', aliases: ['/delegations'], category: 'session', description: 'Inspect delegated child agents', usage: '/subagents [cancel] [n|id]' },
   { name: '/usage', aliases: ['/tokens'], category: 'runtime', description: 'Show token usage and request telemetry', usage: '/usage' },
   { name: '/projects', aliases: ['/workspaces'], category: 'workspace', description: 'List workspaces with saved sessions', usage: '/projects' },
   { name: '/project', aliases: ['/cd'], category: 'workspace', description: 'Choose another workspace', usage: '/project' },
@@ -117,12 +117,18 @@ const TAB_ACTIONS: readonly SelectionOption[] = [
   { id: 'select', label: 'Choose a tab' },
 ];
 
+const SUBAGENT_ACTIONS: readonly SelectionOption[] = [
+  { id: 'list', label: 'Open the sub-agents panel' },
+  { id: 'cancel', label: 'Cancel a running sub-agent' },
+];
+
 const ACTION_FLOW_TITLES: Record<SelectionFlowAction, string> = {
   approval: 'APPROVAL',
   context: 'CONTEXT ACTION',
   terminal: 'TERMINAL ACTION',
   diffs: 'FILE CHANGES',
   sdd: 'SDD ACTION',
+  subagents: 'SUB-AGENTS',
   tab: 'TAB ACTION',
 };
 
@@ -169,6 +175,10 @@ export function selectionOptions(state: UiState, flow: CommandFlow): readonly Se
         .map((change) => ({ id: change.toolCallId, label: `${change.filePath} · ${change.toolName}` }));
     case 'tab_select':
       return state.tabs.map((tab) => ({ id: tab.sessionId, label: `${tab.active ? 'Current' : 'Tab'} · ${tab.title}` }));
+    case 'subagent_cancel':
+      return state.subagents
+        .filter((agent) => agent.status === 'queued' || agent.status === 'running')
+        .map((agent, index) => ({ id: agent.ownerId, label: `#${index + 1} ${typeof agent.mode === 'string' ? agent.mode : 'agent'} · ${agent.task.replace(/\s+/gu, ' ').slice(0, 80) || agent.ownerId}` }));
     case 'session_delete':
       return state.sessions.map((session) => ({ id: session.id, label: `${session.title} · ${session.messageCount} message(s)` }));
     case 'root':
@@ -199,6 +209,8 @@ function actionOptions(state: UiState, action: SelectionFlowAction): readonly Se
       return state.sdd.sessionId ? SDD_ACTIONS : [{ id: 'start', label: 'Start an SDD session · describe it next' }];
     case 'tab':
       return state.tabs.length > 0 ? TAB_ACTIONS : [TAB_ACTIONS[0]];
+    case 'subagents':
+      return state.subagents.length ? SUBAGENT_ACTIONS : [SUBAGENT_ACTIONS[0]];
   }
 }
 

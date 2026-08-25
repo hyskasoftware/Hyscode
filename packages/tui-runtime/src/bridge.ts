@@ -1319,6 +1319,7 @@ export class TuiBridge {
         fileReview: true,
         sdd: harness.getSddEngine() !== null,
         subAgents: this.requireSettings().subAgentEnabled,
+        subAgentMaxConcurrent: Math.max(1, Math.min(4, Math.floor(this.requireSettings().subAgentMaxConcurrent))),
         sessionManagement: true,
         terminalEvents: true,
         terminalInput: true,

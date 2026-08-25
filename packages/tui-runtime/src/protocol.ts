@@ -133,6 +133,8 @@ export type RuntimeCapabilities = {
   fileReview: boolean;
   sdd: boolean;
   subAgents: boolean;
+  /** Configured concurrent sub-agent slot limit (1-4) for queue projections. */
+  subAgentMaxConcurrent?: number;
   sessionManagement: boolean;
   terminalEvents?: boolean;
   terminalInput?: boolean;
