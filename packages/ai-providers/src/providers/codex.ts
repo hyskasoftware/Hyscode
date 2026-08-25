@@ -26,6 +26,13 @@ const CODEX_REASONING_VARIANTS = {
   defaultLevel: 'medium' as const,
 };
 
+/** GPT 5.6 Luna: shared Codex ladder plus the max effort tier. */
+const CODEX_REASONING_VARIANTS_MAX = {
+  kind: 'openai' as const,
+  levels: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const,
+  defaultLevel: 'medium' as const,
+};
+
 export const CODEX_MODELS: AIModel[] = [
   {
     id: 'gpt-5.6-sol',
@@ -67,7 +74,7 @@ export const CODEX_MODELS: AIModel[] = [
     inputPricePerMToken: 0.2,
     outputPricePerMToken: 1.2,
     cachedInputPricePerMToken: 0.02,
-    thinkingVariants: CODEX_REASONING_VARIANTS,
+    thinkingVariants: CODEX_REASONING_VARIANTS_MAX,
   },
   {
     id: 'gpt-5.5',
@@ -113,7 +120,7 @@ export const CODEX_MODELS: AIModel[] = [
   },
 ];
 
-export type CodexReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+export type CodexReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export type CodexSandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 
@@ -157,6 +164,7 @@ const REASONING_EFFORT_LEVELS: ReadonlySet<string> = new Set([
   'medium',
   'high',
   'xhigh',
+  'max',
 ]);
 
 function resolveReasoningEffort(thinking?: ThinkingConfig): CodexReasoningEffort | undefined {

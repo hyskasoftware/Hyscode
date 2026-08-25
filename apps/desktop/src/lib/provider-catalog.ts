@@ -1302,7 +1302,7 @@ export const PROVIDERS: ProviderInfo[] = [
         name: 'GPT 5.6 Luna (Codex)',
         supportsThinking: true,
         thinkingType: 'openai',
-        thinkingLevels: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+        thinkingLevels: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
       },
       {
         id: 'gpt-5.5',

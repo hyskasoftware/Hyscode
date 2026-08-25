@@ -306,7 +306,7 @@ Tier **Batch** oferece 50% de desconto sobre o Standard; tier **Priority** (ex.:
 
 ## 6. Codex (provedor sidecar)
 
-Agente de codificação da OpenAI rodando via **Codex CLI instalado pelo usuário** (`npm install -g @openai/codex` — não é embutido no instalador do HysCode; o app detecta no PATH/`~/.codex/bin` e exibe o comando de instalação se ausente). Autenticação: API key OpenAI (pay-as-you-go) **ou** login ChatGPT via `codex login` (planos Plus/Pro/Business/Edu/Enterprise). Reasoning effort: `minimal` / `low` / `medium` / `high` / `xhigh`. Preços oficiais da API OpenAI (USD por 1M tokens, consultados em 2026-08 na [documentação de modelos](https://developers.openai.com/api/docs/models)).
+Agente de codificação da OpenAI rodando via **Codex CLI instalado pelo usuário** (`npm install -g @openai/codex` — não é embutido no instalador do HysCode; o app detecta no PATH/`~/.codex/bin` e exibe o comando de instalação se ausente). Autenticação: API key OpenAI (pay-as-you-go) **ou** login ChatGPT via `codex login` (planos Plus/Pro/Business/Edu/Enterprise). Reasoning effort: `minimal` / `low` / `medium` / `high` / `xhigh` / `max` (o tier `max` disponível no GPT 5.6 Luna). Preços oficiais da API OpenAI (USD por 1M tokens, consultados em 2026-08 na [documentação de modelos](https://developers.openai.com/api/docs/models)).
 
 | Nome | ID do modelo | Janela de contexto | Entrada | Cache read | Saída |
 |---|---|---|---|---|---|
