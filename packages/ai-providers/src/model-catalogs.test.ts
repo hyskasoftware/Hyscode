@@ -96,21 +96,39 @@ describe('provider model catalogs', () => {
         'claude-opus-4-8',
         'claude-sonnet-5',
         'gemini-3.5-flash',
+        'gemini-3.7-flash',
+        'gpt-5.2-codex',
         'glm-5.2',
         'grok-4.5',
+        'grok-4.6',
         'kimi-k3',
+        'kimi-k2.5',
+        'minimax-m2.5',
+        'muse-spark-1.2',
+        'x-preview-f-free',
       ]),
+    );
+    // Free stealth rotations retired upstream must not linger in the static fallback.
+    expect(modelIds(new OpenCodeZenProvider('key'))).not.toEqual(
+      expect.arrayContaining(['ling-3.0-flash-free', 'north-mini-code-free']),
     );
     expect(modelIds(new OpenCodeGoProvider('key'))).toEqual(
       expect.arrayContaining([
         'grok-4.5',
+        'grok-4.6',
         'gpt-5.6-luna',
         'glm-5.2',
+        'glm-5.3',
+        'longcat-2.0',
         'kimi-k3',
         'kimi-k2.7-code',
+        'deepseek-v4-flash-vision-exp',
         'minimax-m3',
+        'muse-spark-1.2-contributor',
         'qwen3.7-max',
         'qwen3.7-plus',
+        'qwen3.8-max',
+        'ox-alpha-free',
         'hy3',
       ]),
     );

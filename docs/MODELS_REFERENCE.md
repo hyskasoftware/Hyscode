@@ -6,30 +6,36 @@ Referência consolidada de todos os modelos listados nas documentações oficiai
 
 ## 1. OpenCode Go
 
-Assinatura de baixo custo: **US$ 5 no primeiro mês, depois US$ 10/mês**. Acesso a modelos abertos selecionados, hospedados em US, UE e Singapura. Os preços abaixo são os **preços de referência por 1M tokens** usados para calcular os limites de uso (5h = US$ 12, semanal = US$ 30, mensal = US$ 60).
+Assinatura de baixo custo: **US$ 10/mês**. Acesso a modelos abertos selecionados, hospedados em US, UE e Singapura. Os preços abaixo são os **preços de referência por 1M tokens** usados para calcular os limites de uso (5h = US$ 12, semanal = US$ 30, mensal = US$ 60).
 
 | Nome | ID do modelo | Janela de contexto | Entrada | Saída | Cache read | Cache write | Tipos de pensamento |
 |---|---|---|---|---|---|---|---|
-| Grok 4.5 | `grok-4.5` | 500K | $2.00 | $6.00 | $0.30 | – | reasoning model (low/medium/high) |
+| Grok 4.6 | `grok-4.6` | 200K–500K | $2.00 / $4.00 (>200K) | $6.00 / $12.00 | $0.50 / $1.00 | – | reasoning (low/medium/high) — Responses API |
 | GPT 5.6 Luna | `gpt-5.6-luna` | 1.05M | $0.20 | $1.20 | $0.02 | $0.25 | none/low/med/high/xhigh/max + standard/pro |
+| GLM-5.3 | `glm-5.3` | 200K | $1.40 | $4.40 | $0.26 | – | thinking model |
 | GLM-5.2 | `glm-5.2` | 1M | $1.40 | $4.40 | $0.26 | – | thinking model |
 | GLM-5.1 | `glm-5.1` | 1M | $1.40 | $4.40 | $0.26 | – | thinking model |
 | Kimi K3 | `kimi-k3` | 1M | $3.00 | $15.00 | $0.30 | – | reasoning (low/medium/high) |
 | Kimi K2.7 Code | `kimi-k2.7-code` | 256K | $0.95 | $4.00 | $0.19 | – | thinking |
 | Kimi K2.6 | `kimi-k2.6` | 256K | $0.95 | $4.00 | $0.16 | – | thinking |
+| LongCat-2.0 | `longcat-2.0` | 1M | $0.30 | $1.20 | $0.006 | – | hybrid thinking toggle (enabled/disabled) |
 | MiMo-V2.5 | `mimo-v2.5` | 1M | $0.14 | $0.28 | $0.0028 | – | thinking |
 | MiMo-V2.5-Pro | `mimo-v2.5-pro` | 1M | $0.435 | $0.87 | $0.003625 | – | thinking |
 | MiniMax M3 | `minimax-m3` | 1M | $0.30 | $1.20 | $0.06 | – | hybrid thinking |
 | MiniMax M2.7 | `minimax-m2.7` | 1M | $0.30 | $1.20 | $0.06 | $0.375 | hybrid thinking |
 | MiniMax M2.5 | `minimax-m2.5` | 1M | $0.30 | $1.20 | $0.06 | $0.375 | hybrid thinking |
+| Qwen3.8 Max | `qwen3.8-max` | 1M | $2.00 | $6.00 | $0.25 | $2.50 | thinking (low/medium/high) |
 | Qwen3.7 Max | `qwen3.7-max` | 1M | $2.50 | $7.50 | $0.50 | $3.125 | thinking (low/medium/high) |
 | Qwen3.7 Plus | `qwen3.7-plus` | 256K–1M | $0.40 / $1.20 (>256K) | $1.60 / $4.80 | $0.04 / $0.12 | $0.50 / $1.50 | thinking |
 | Qwen3.6 Plus | `qwen3.6-plus` | 256K–1M | $0.50 / $2.00 (>256K) | $3.00 / $6.00 | $0.05 / $0.20 | $0.625 / $2.50 | thinking |
 | DeepSeek V4 Pro | `deepseek-v4-pro` | 1M | $0.435 | $0.87 | $0.003625 | – | reasoning (low/medium/high) |
 | DeepSeek V4 Flash | `deepseek-v4-flash` | 1M | $0.14 | $0.28 | $0.0028 | – | reasoning (low/medium/high) |
 | Hy3 | `hy3` | 1M | $0.14 | $0.58 | $0.035 | – | thinking |
+| DeepSeek V4 Flash Vision Exp | `deepseek-v4-flash-vision-exp` | 1M | $0.22 / $0.44 (pico) | $0.66 / $1.32 | $0.007 / $0.014 | – | reasoning + visão |
+| Muse Spark 1.2 Contributor | `muse-spark-1.2-contributor` | 1M | $0.10 | $0.20 | $0.002 | – | reasoning (default/minimal/low/medium/high/xhigh) — Responses API (regiões limitadas) |
+| Ox Alpha Free | `ox-alpha-free` | – | Free | Free | – | – | reasoning (default/low/high/max) — stealth, grátis por tempo limitado |
 
-**Endpoint unificado:** `https://opencode.ai/zen/go/v1/chat/completions` (modelos OpenAI-compatible), `https://opencode.ai/zen/go/v1/messages` (modelos Anthropic-compatible) ou `https://opencode.ai/zen/go/v1/responses` (GPT 5.6 Luna). No config do OpenCode, o ID usa o prefixo `opencode-go/<model-id>`.
+**Endpoint unificado:** `https://opencode.ai/zen/go/v1/chat/completions` (modelos OpenAI-compatible), `https://opencode.ai/zen/go/v1/messages` (modelos Anthropic-compatible) ou `https://opencode.ai/zen/go/v1/responses` (GPT 5.6 Luna, Grok 4.6 e Muse Spark 1.2 Contributor). No config do OpenCode, o ID usa o prefixo `opencode-go/<model-id>`.
 
 ---
 
@@ -42,12 +48,14 @@ Gateway de IA curado pela equipe OpenCode, **pay-as-you-go** por 1M tokens. Incl
 | Nome | ID do modelo | Entrada | Saída | Cache read |
 |---|---|---|---|---|
 | Big Pickle (stealth) | `big-pickle` | Free | Free | Free |
-| DeepSeek V4 Flash Free | `deepseek-v4-flash-free` | Free | Free | Free |
+| Ox Alpha Free (stealth) | `x-preview-f-free` | Free | Free | Free |
 | MiMo-V2.5 Free | `mimo-v2.5-free` | Free | Free | Free |
-| Laguna S 2.1 Free | `laguna-s-2.1-free` | Free | Free | Free |
-| Ling-3.0-flash Free | `ling-3.0-flash-free` | Free | Free | Free |
-| North Mini Code Free | `north-mini-code-free` | Free | Free | Free |
+| Hy3 Free | `hy3-free` | Free | Free | Free |
 | Nemotron 3 Ultra Free | `nemotron-3-ultra-free` | Free | Free | Free |
+| Nemotron 3.5 Lightning Free | `nemotron-3.5-lightning-free` | Free | Free | Free |
+| Muse Spark 1.2 Contributor Free | `muse-spark-1.2-contributor-free` | Free | Free | Free |
+
+*Nota: os IDs `laguna-s-2.1-free` e `deepseek-v4-flash-free` não aparecem mais na documentação oficial, mas ainda são retornados pela API de discovery; o catálogo estático do app os mantém como fallback.*
 
 ### 2.2 Modelos abertos pagos
 
@@ -88,6 +96,7 @@ Gateway de IA curado pela equipe OpenCode, **pay-as-you-go** por 1M tokens. Incl
 
 | Nome | ID do modelo | Janela de contexto | Entrada | Saída | Cache read | Tipos de pensamento |
 |---|---|---|---|---|---|---|
+| Gemini 3.7 Flash | `gemini-3.7-flash` | 1M | $1.50 | $7.50 | $0.15 | thinking (low/med/high) |
 | Gemini 3.6 Flash | `gemini-3.6-flash` | 1M | $1.50 | $7.50 | $0.15 | thinking (low/med/high) |
 | Gemini 3.5 Flash | `gemini-3.5-flash` | 1M | $1.50 | $9.00 | $0.15 | thinking (low/med/high) |
 | Gemini 3.5 Flash Lite | `gemini-3.5-flash-lite` | 1M | $0.30 | $2.50 | $0.03 | thinking (low/med) |
@@ -98,6 +107,7 @@ Gateway de IA curado pela equipe OpenCode, **pay-as-you-go** por 1M tokens. Incl
 
 | Nome | ID do modelo | Janela de contexto | Entrada | Saída | Cache read | Tipos de pensamento |
 |---|---|---|---|---|---|---|
+| Grok 4.6 | `grok-4.6` | 200K–500K | $2.00 / $4.00 (>200K) | $6.00 / $12.00 | $0.50 / $1.00 | reasoning (low/med/high) — servido via `/responses` |
 | Grok 4.5 | `grok-4.5` | 200K–500K | $2.00 / $4.00 (>200K) | $6.00 / $12.00 | $0.30 / $0.60 | reasoning (low/med/high) |
 | Grok Build 0.1 | `grok-build-0.1` | 200K | $1.00 | $2.00 | $0.20 | reasoning |
 
@@ -125,6 +135,14 @@ Gateway de IA curado pela equipe OpenCode, **pay-as-you-go** por 1M tokens. Incl
 | GPT 5 | `gpt-5` | 272K | $1.07 | $8.50 | $0.107 | – | none/low/med/high/xhigh |
 | GPT 5 Codex | `gpt-5-codex` | 272K | $1.07 | $8.50 | $0.107 | – | none/low/med/high/xhigh |
 | GPT 5 Nano | `gpt-5-nano` | 200K | $0.05 | $0.40 | $0.005 | – | none/low/med |
+
+### 2.7 Modelos Meta Muse (via Zen)
+
+| Nome | ID do modelo | Janela de contexto | Entrada | Saída | Cache read | Tipos de pensamento |
+|---|---|---|---|---|---|---|
+| Muse Spark 1.2 | `muse-spark-1.2` | 1M | $1.25 | $4.25 | $0.15 | reasoning (default/minimal/low/medium/high/xhigh) — servido via `/responses` |
+
+A variante gratuita `muse-spark-1.2-contributor-free` está listada em §2.1.
 
 *Nota: modelos marcados como obsoletos no Zen incluem GPT 5.2 Codex, GPT 5.1 Codex/Max/Mini, GPT 5 Codex (descontinuados em 23/07/2026), Claude Opus 4.1 (05/08/2026), Claude Sonnet 4 (15/06/2026), Claude Haiku 3.5 (16/02/2026), Gemini 3 Pro (09/03/2026), MiniMax M2.5 (05/08/2026), GLM 5 (14/05/2026), Kimi K2.5 (05/08/2026), entre outros.*
 

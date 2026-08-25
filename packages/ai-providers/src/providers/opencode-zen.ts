@@ -14,52 +14,64 @@ import { chatResponsesAPI } from './openai-responses';
 // ─── Model Routing ──────────────────────────────────────────────────────────
 // Claude models use the Anthropic message format at /zen/v1/messages.
 // Gemini models use the Google Gemini API format at /zen/v1/models/<model>.
-// GPT models use the OpenAI Responses API at /zen/v1/responses.
+// GPT, Grok and Muse Spark models use the OpenAI Responses API at /zen/v1/responses.
 // All other models use OpenAI-compatible chat completions at /zen/v1/chat/completions.
-// Source: https://dev.opencode.ai/docs/zen (last updated Jul 31, 2026)
+// Source: https://dev.opencode.ai/docs/zen (last updated Aug 25, 2026)
 
-const ZEN_ANTHROPIC_MODELS = new Set([
-  'claude-fable-5',
-  'claude-opus-5',
-  'claude-opus-4-8',
-  'claude-opus-4-7',
-  'claude-opus-4-6',
-  'claude-opus-4-5',
-  'claude-sonnet-5',
-  'claude-sonnet-4-6',
-  'claude-sonnet-4-5',
-  'claude-haiku-4-5',
-  'qwen3.7-max',
-  'qwen3.7-plus',
-  'qwen3.6-plus',
-  'qwen3.5-plus',
-]);
+const ZEN_ANTHROPIC_MODELS: Record<string, true> = {
+  'claude-fable-5': true,
+  'claude-opus-5': true,
+  'claude-opus-4-8': true,
+  'claude-opus-4-7': true,
+  'claude-opus-4-6': true,
+  'claude-opus-4-5': true,
+  'claude-sonnet-5': true,
+  'claude-sonnet-4-6': true,
+  'claude-sonnet-4-5': true,
+  'claude-haiku-4-5': true,
+  'qwen3.7-max': true,
+  'qwen3.7-plus': true,
+  'qwen3.6-plus': true,
+  'qwen3.5-plus': true,
+};
 
-const ZEN_GPT_MODELS = new Set([
-  'gpt-5.6-sol',
-  'gpt-5.6-terra',
-  'gpt-5.6-luna',
-  'gpt-5.5',
-  'gpt-5.5-pro',
-  'gpt-5.4',
-  'gpt-5.4-pro',
-  'gpt-5.4-mini',
-  'gpt-5.4-nano',
-  'gpt-5.3-codex',
-  'gpt-5.3-codex-spark',
-  'gpt-5.2',
-  'gpt-5.1',
-  'gpt-5',
-  'gpt-5-nano',
-]);
+const ZEN_RESPONSES_MODELS: Record<string, true> = {
+  'gpt-5.6-sol': true,
+  'gpt-5.6-terra': true,
+  'gpt-5.6-luna': true,
+  'gpt-5.5': true,
+  'gpt-5.5-pro': true,
+  'gpt-5.4': true,
+  'gpt-5.4-pro': true,
+  'gpt-5.4-mini': true,
+  'gpt-5.4-nano': true,
+  'gpt-5.3-codex': true,
+  'gpt-5.3-codex-spark': true,
+  'gpt-5.2': true,
+  'gpt-5.2-codex': true,
+  'gpt-5.1': true,
+  'gpt-5.1-codex': true,
+  'gpt-5.1-codex-max': true,
+  'gpt-5.1-codex-mini': true,
+  'gpt-5': true,
+  'gpt-5-codex': true,
+  'gpt-5-nano': true,
+  // Grok and Muse Spark models are served through the Responses endpoint per docs.
+  'grok-4.5': true,
+  'grok-4.6': true,
+  'grok-build-0.1': true,
+  'muse-spark-1.2': true,
+  'muse-spark-1.2-contributor-free': true,
+};
 
-const ZEN_GEMINI_MODELS = new Set([
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-pro',
-  'gemini-3-flash',
-]);
+const ZEN_GEMINI_MODELS: Record<string, true> = {
+  'gemini-3.7-flash': true,
+  'gemini-3.6-flash': true,
+  'gemini-3.5-flash': true,
+  'gemini-3.5-flash-lite': true,
+  'gemini-3.1-pro': true,
+  'gemini-3-flash': true,
+};
 
 // ─── Thinking variant presets ────────────────────────────────────────────────
 // Per docs/MODELS_REFERENCE.md §2 — exact per-model thinking ladders.
@@ -196,6 +208,27 @@ const THINKING_MINIMAX_M3: ThinkingVariants = {
   defaultLevel: 'adaptive',
 };
 
+/** Hy3 Free: OpenAI-compatible hybrid thinking via reasoning_effort (none = off) */
+const THINKING_HY3: ThinkingVariants = {
+  kind: 'openai',
+  levels: ['none', 'low', 'medium', 'high'],
+  defaultLevel: 'medium',
+};
+
+/** Muse Spark 1.2: reasoning effort default/minimal/low/medium/high/xhigh (per OpenCode TUI) */
+const THINKING_MUSE: ThinkingVariants = {
+  kind: 'openai',
+  levels: ['default', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+  defaultLevel: 'default',
+};
+
+/** Ox Alpha Free: reasoning effort default/low/high/max (per OpenCode TUI) */
+const THINKING_OX_ALPHA: ThinkingVariants = {
+  kind: 'openai',
+  levels: ['default', 'low', 'high', 'max'],
+  defaultLevel: 'default',
+};
+
 /** Always-on thinking (cannot disable): Kimi K2.7-code, MiniMax M2.x */
 const THINKING_ALWAYS_ON: ThinkingVariants = {
   kind: 'kimi',
@@ -204,7 +237,7 @@ const THINKING_ALWAYS_ON: ThinkingVariants = {
 };
 
 // ─── Static Model List ──────────────────────────────────────────────────────
-// Sourced from https://dev.opencode.ai/docs/zen — models and pricing as of July 2026.
+// Sourced from https://dev.opencode.ai/docs/zen — models and pricing as of August 2026.
 // The listModels() method attempts to refresh this list from the live API.
 
 const ZEN_MODELS: AIModel[] = [
@@ -518,6 +551,20 @@ const ZEN_MODELS: AIModel[] = [
     thinkingVariants: THINKING_OPENAI_XHIGH,
   },
   {
+    id: 'gpt-5.2-codex',
+    name: 'GPT 5.2 Codex (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 272_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.75,
+    outputPricePerMToken: 14,
+    cachedInputPricePerMToken: 0.175,
+    thinkingVariants: THINKING_OPENAI_XHIGH,
+  },
+  {
     id: 'gpt-5.1',
     name: 'GPT 5.1 (Zen)',
     provider: 'opencode-zen',
@@ -532,8 +579,64 @@ const ZEN_MODELS: AIModel[] = [
     thinkingVariants: THINKING_OPENAI_XHIGH,
   },
   {
+    id: 'gpt-5.1-codex',
+    name: 'GPT 5.1 Codex (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 272_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.07,
+    outputPricePerMToken: 8.5,
+    cachedInputPricePerMToken: 0.107,
+    thinkingVariants: THINKING_OPENAI_XHIGH,
+  },
+  {
+    id: 'gpt-5.1-codex-max',
+    name: 'GPT 5.1 Codex Max (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 272_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.25,
+    outputPricePerMToken: 10,
+    cachedInputPricePerMToken: 0.125,
+    thinkingVariants: THINKING_OPENAI_FULL,
+  },
+  {
+    id: 'gpt-5.1-codex-mini',
+    name: 'GPT 5.1 Codex Mini (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 272_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 0.25,
+    outputPricePerMToken: 2,
+    cachedInputPricePerMToken: 0.025,
+    thinkingVariants: THINKING_OPENAI_LOW,
+  },
+  {
     id: 'gpt-5',
     name: 'GPT 5 (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 272_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.07,
+    outputPricePerMToken: 8.5,
+    cachedInputPricePerMToken: 0.107,
+    thinkingVariants: THINKING_OPENAI_XHIGH,
+  },
+  {
+    id: 'gpt-5-codex',
+    name: 'GPT 5 Codex (Zen)',
     provider: 'opencode-zen',
     contextWindow: 272_000,
     maxOutputTokens: 128_000,
@@ -561,6 +664,20 @@ const ZEN_MODELS: AIModel[] = [
   },
 
   // ── Gemini models (/zen/v1/models/<model>) ────────────────────────────────
+  {
+    id: 'gemini-3.7-flash',
+    name: 'Gemini 3.7 Flash (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 65_536,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.5,
+    outputPricePerMToken: 7.5,
+    cachedInputPricePerMToken: 0.15,
+    thinkingVariants: THINKING_GEMINI_LMH,
+  },
   {
     id: 'gemini-3.6-flash',
     name: 'Gemini 3.6 Flash (Zen)',
@@ -720,6 +837,20 @@ const ZEN_MODELS: AIModel[] = [
     thinkingVariants: THINKING_ALWAYS_ON,
   },
   {
+    id: 'minimax-m2.5',
+    name: 'MiniMax M2.5 (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0.3,
+    outputPricePerMToken: 1.2,
+    cachedInputPricePerMToken: 0.06,
+    thinkingVariants: THINKING_ALWAYS_ON,
+  },
+  {
     id: 'glm-5.2',
     name: 'GLM 5.2 (Zen)',
     provider: 'opencode-zen',
@@ -745,6 +876,20 @@ const ZEN_MODELS: AIModel[] = [
     inputPricePerMToken: 1.4,
     outputPricePerMToken: 4.4,
     cachedInputPricePerMToken: 0.26,
+    thinkingVariants: THINKING_KIMI,
+  },
+  {
+    id: 'glm-5',
+    name: 'GLM 5 (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 200_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 1,
+    outputPricePerMToken: 3.2,
+    cachedInputPricePerMToken: 0.2,
     thinkingVariants: THINKING_KIMI,
   },
   {
@@ -776,6 +921,20 @@ const ZEN_MODELS: AIModel[] = [
     thinkingVariants: THINKING_KIMI,
   },
   {
+    id: 'kimi-k2.5',
+    name: 'Kimi K2.5 (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 262_144,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0.6,
+    outputPricePerMToken: 3,
+    cachedInputPricePerMToken: 0.1,
+    thinkingVariants: THINKING_KIMI,
+  },
+  {
     id: 'deepseek-v4-pro',
     name: 'DeepSeek V4 Pro (Zen)',
     provider: 'opencode-zen',
@@ -804,6 +963,20 @@ const ZEN_MODELS: AIModel[] = [
     thinkingVariants: THINKING_DEEPSEEK,
   },
   {
+    id: 'grok-4.6',
+    name: 'Grok 4.6 (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 500_000,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 2,
+    outputPricePerMToken: 6,
+    cachedInputPricePerMToken: 0.5,
+    thinkingVariants: THINKING_GROK,
+  },
+  {
     id: 'grok-4.5',
     name: 'Grok 4.5 (Zen)',
     provider: 'opencode-zen',
@@ -816,6 +989,20 @@ const ZEN_MODELS: AIModel[] = [
     outputPricePerMToken: 6,
     cachedInputPricePerMToken: 0.3,
     thinkingVariants: THINKING_GROK,
+  },
+  {
+    id: 'muse-spark-1.2',
+    name: 'Muse Spark 1.2 (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 1.25,
+    outputPricePerMToken: 4.25,
+    cachedInputPricePerMToken: 0.15,
+    thinkingVariants: THINKING_MUSE,
   },
   {
     id: 'kimi-k3',
@@ -881,30 +1068,6 @@ const ZEN_MODELS: AIModel[] = [
     outputPricePerMToken: 0,
   },
   {
-    id: 'ling-3.0-flash-free',
-    name: 'Ling-3.0-flash Free (Zen)',
-    provider: 'opencode-zen',
-    contextWindow: 128_000,
-    maxOutputTokens: 8_192,
-    supportsTools: true,
-    supportsStreaming: true,
-    supportsVision: false,
-    inputPricePerMToken: 0,
-    outputPricePerMToken: 0,
-  },
-  {
-    id: 'north-mini-code-free',
-    name: 'North Mini Code Free (Zen)',
-    provider: 'opencode-zen',
-    contextWindow: 128_000,
-    maxOutputTokens: 8_192,
-    supportsTools: true,
-    supportsStreaming: true,
-    supportsVision: false,
-    inputPricePerMToken: 0,
-    outputPricePerMToken: 0,
-  },
-  {
     id: 'nemotron-3-ultra-free',
     name: 'Nemotron 3 Ultra Free (Zen)',
     provider: 'opencode-zen',
@@ -929,6 +1092,57 @@ const ZEN_MODELS: AIModel[] = [
     outputPricePerMToken: 0,
     thinkingVariants: THINKING_DEEPSEEK,
   },
+  {
+    id: 'x-preview-f-free',
+    name: 'Ox Alpha Free (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0,
+    outputPricePerMToken: 0,
+    thinkingVariants: THINKING_OX_ALPHA,
+  },
+  {
+    id: 'hy3-free',
+    name: 'Hy3 Free (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0,
+    outputPricePerMToken: 0,
+    thinkingVariants: THINKING_HY3,
+  },
+  {
+    id: 'nemotron-3.5-lightning-free',
+    name: 'Nemotron 3.5 Lightning Free (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0,
+    outputPricePerMToken: 0,
+  },
+  {
+    id: 'muse-spark-1.2-contributor-free',
+    name: 'Muse Spark 1.2 Contributor Free (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0,
+    outputPricePerMToken: 0,
+    thinkingVariants: THINKING_MUSE,
+  },
 ];
 
 // ─── Provider Implementation ────────────────────────────────────────────────
@@ -944,14 +1158,14 @@ export class OpenCodeZenProvider extends OpenAIProvider {
       promptCache: 'automatic-keyed',
       acceptsPromptCacheKey: true,
       promptCacheModeForModel: (modelId) => {
-        if (ZEN_ANTHROPIC_MODELS.has(modelId)) return 'explicit-breakpoints';
-        if (ZEN_GPT_MODELS.has(modelId) && supportsExplicitPromptCaching(modelId)) {
+        if (modelId in ZEN_ANTHROPIC_MODELS) return 'explicit-breakpoints';
+        if (modelId in ZEN_RESPONSES_MODELS && supportsExplicitPromptCaching(modelId)) {
           return 'explicit-breakpoints';
         }
         return 'automatic-keyed';
       },
       acceptsPromptCacheKeyForModel: (modelId) =>
-        ZEN_GPT_MODELS.has(modelId) && supportsExplicitPromptCaching(modelId),
+        modelId in ZEN_RESPONSES_MODELS && supportsExplicitPromptCaching(modelId),
     };
   }
 
@@ -1022,13 +1236,13 @@ export class OpenCodeZenProvider extends OpenAIProvider {
   }
 
   override async *chat(params: ChatParams): AsyncIterable<StreamChunk> {
-    if (ZEN_ANTHROPIC_MODELS.has(params.model)) {
+    if (params.model in ZEN_ANTHROPIC_MODELS) {
       // Route Claude and Anthropic-compatible Qwen models through the Anthropic message format
       yield* this.anthropicDelegate.chat(params);
-    } else if (ZEN_GEMINI_MODELS.has(params.model)) {
+    } else if (params.model in ZEN_GEMINI_MODELS) {
       // Route Gemini models through the Gemini API format
       yield* this.geminiDelegate.chat(params);
-    } else if (ZEN_GPT_MODELS.has(params.model)) {
+    } else if (params.model in ZEN_RESPONSES_MODELS) {
       // Route GPT models through the OpenAI Responses API
       yield* chatResponsesAPI(params, {
         providerId: this.id,
@@ -1039,7 +1253,7 @@ export class OpenCodeZenProvider extends OpenAIProvider {
         supportsExplicitPromptCaching: supportsExplicitPromptCaching(params.model),
       });
     } else {
-      // All other models (Kimi, MiniMax, GLM, DeepSeek, Grok, free tier) use OpenAI-compatible chat completions
+      // All other models (Kimi, MiniMax, GLM, DeepSeek, free tier) use OpenAI-compatible chat completions
       yield* super.chat(params);
     }
   }

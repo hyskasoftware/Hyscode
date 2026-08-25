@@ -11,27 +11,33 @@ import { AnthropicProvider } from './anthropic';
 import { chatResponsesAPI } from './openai-responses';
 
 // ─── Model Routing ──────────────────────────────────────────────────────────
-// GPT models use the OpenAI Responses API at /zen/go/v1/responses.
+// GPT, Grok 4.6 and Muse Spark 1.2 Contributor use the OpenAI Responses API at
+// /zen/go/v1/responses.
 // MiniMax and Qwen models use the Anthropic message format at /zen/go/v1/messages.
 // All other models use OpenAI-compatible chat completions at /zen/go/v1/chat/completions.
-// Source: https://dev.opencode.ai/docs/go (last updated Jul 31, 2026)
+// Source: https://dev.opencode.ai/docs/go (last updated Aug 25, 2026)
 
-const GO_GPT_MODELS = new Set(['gpt-5.6-luna']);
+const GO_RESPONSES_MODELS: Record<string, true> = {
+  'gpt-5.6-luna': true,
+  'grok-4.6': true,
+  'muse-spark-1.2-contributor': true,
+};
 
-const GO_ANTHROPIC_MODELS = new Set([
-  'minimax-m3',
-  'minimax-m2.7',
-  'minimax-m2.5',
-  'qwen3.7-max',
-  'qwen3.7-plus',
-  'qwen3.6-plus',
-]);
+const GO_ANTHROPIC_MODELS: Record<string, true> = {
+  'minimax-m3': true,
+  'minimax-m2.7': true,
+  'minimax-m2.5': true,
+  'qwen3.8-max': true,
+  'qwen3.7-max': true,
+  'qwen3.7-plus': true,
+  'qwen3.6-plus': true,
+};
 
 // ─── Thinking variant presets ────────────────────────────────────────────────
 // Per official provider docs (MiniMax, Moonshot, Zhipu/GLM, DeepSeek, Xiaomi/MiMo,
 // xAI, Tencent/Hunyuan) — verified against vendor API references.
 
-/** Toggle thinking (enable_thinking / thinking.type): GLM, MiMo, Qwen */
+/** Toggle thinking (enable_thinking / thinking.type): GLM, MiMo, Qwen, LongCat */
 const THINKING_KIMI: ThinkingVariants = {
   kind: 'kimi',
   levels: ['enabled', 'disabled'],
@@ -52,7 +58,7 @@ const THINKING_QWEN: ThinkingVariants = {
   defaultLevel: 'max',
 };
 
-/** Reasoning models with low/medium/high effort: grok-4.5 (xAI) */
+/** Reasoning models with low/medium/high effort: grok-4.5, grok-4.6 (xAI) */
 const THINKING_REASONING_LMH: ThinkingVariants = {
   kind: 'openai',
   levels: ['low', 'medium', 'high'],
@@ -95,6 +101,20 @@ const THINKING_HY3: ThinkingVariants = {
   defaultLevel: 'medium',
 };
 
+/** Muse Spark 1.2 Contributor: reasoning effort default/minimal/low/medium/high/xhigh (per OpenCode TUI) */
+const THINKING_MUSE: ThinkingVariants = {
+  kind: 'openai',
+  levels: ['default', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+  defaultLevel: 'default',
+};
+
+/** Ox Alpha Free: reasoning effort default/low/high/max (per OpenCode TUI) */
+const THINKING_OX_ALPHA: ThinkingVariants = {
+  kind: 'openai',
+  levels: ['default', 'low', 'high', 'max'],
+  defaultLevel: 'default',
+};
+
 /** GPT full ladder + standard/pro mode: gpt-5.6-luna (Responses API) */
 const THINKING_OPENAI_FULL_PRO: ThinkingVariants = {
   kind: 'openai',
@@ -120,6 +140,28 @@ const GO_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsVision: false,
     thinkingVariants: THINKING_REASONING_LMH,
+  },
+  {
+    id: 'grok-4.6',
+    name: 'Grok 4.6 (Go)',
+    provider: 'opencode-go',
+    contextWindow: 500_000,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_REASONING_LMH,
+  },
+  {
+    id: 'glm-5.3',
+    name: 'GLM 5.3 (Go)',
+    provider: 'opencode-go',
+    contextWindow: 200_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_GLM,
   },
   {
     id: 'glm-5.2',
@@ -177,6 +219,17 @@ const GO_MODELS: AIModel[] = [
     thinkingVariants: THINKING_KIMI,
   },
   {
+    id: 'longcat-2.0',
+    name: 'LongCat 2.0 (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 131_072,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_KIMI,
+  },
+  {
     id: 'mimo-v2.5',
     name: 'MiMo V2.5 (Go)',
     provider: 'opencode-go',
@@ -211,13 +264,24 @@ const GO_MODELS: AIModel[] = [
   },
   {
     id: 'deepseek-v4-flash',
-    name: 'DeepSeek V4 Flash NEW (Go)',
+    name: 'DeepSeek V4 Flash (Go)',
     provider: 'opencode-go',
     contextWindow: 1_000_000,
     maxOutputTokens: 8_192,
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: false,
+    thinkingVariants: THINKING_DEEPSEEK_TOGGLE,
+  },
+  {
+    id: 'deepseek-v4-flash-vision-exp',
+    name: 'DeepSeek V4 Flash Vision Exp (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
     thinkingVariants: THINKING_DEEPSEEK_TOGGLE,
   },
   {
@@ -231,6 +295,17 @@ const GO_MODELS: AIModel[] = [
     supportsVision: false,
     thinkingVariants: THINKING_HY3,
   },
+  {
+    id: 'ox-alpha-free',
+    name: 'Ox Alpha Free (Go)',
+    provider: 'opencode-go',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_OX_ALPHA,
+  },
 
   // ── OpenAI Responses API models (/zen/go/v1/responses) ───────────────────
   {
@@ -243,6 +318,17 @@ const GO_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsVision: true,
     thinkingVariants: THINKING_OPENAI_FULL_PRO,
+  },
+  {
+    id: 'muse-spark-1.2-contributor',
+    name: 'Muse Spark 1.2 Contributor (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_MUSE,
   },
 
   // ── Anthropic-compatible models (/zen/go/v1/messages) ────────────────────
@@ -278,6 +364,17 @@ const GO_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsVision: false,
     thinkingVariants: THINKING_ALWAYS_ON,
+  },
+  {
+    id: 'qwen3.8-max',
+    name: 'Qwen3.8 Max (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 32_768,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_QWEN,
   },
   {
     id: 'qwen3.7-max',
@@ -327,14 +424,14 @@ export class OpenCodeGoProvider extends OpenAIProvider {
       promptCache: 'automatic-keyed',
       acceptsPromptCacheKey: true,
       promptCacheModeForModel: (modelId) => {
-        if (GO_ANTHROPIC_MODELS.has(modelId)) return 'explicit-breakpoints';
-        if (GO_GPT_MODELS.has(modelId) && supportsExplicitPromptCaching(modelId)) {
+        if (modelId in GO_ANTHROPIC_MODELS) return 'explicit-breakpoints';
+        if (modelId in GO_RESPONSES_MODELS && supportsExplicitPromptCaching(modelId)) {
           return 'explicit-breakpoints';
         }
         return 'automatic-keyed';
       },
       acceptsPromptCacheKeyForModel: (modelId) =>
-        GO_GPT_MODELS.has(modelId) && supportsExplicitPromptCaching(modelId),
+        modelId in GO_RESPONSES_MODELS && supportsExplicitPromptCaching(modelId),
     };
   }
 
@@ -389,7 +486,7 @@ export class OpenCodeGoProvider extends OpenAIProvider {
   }
 
   override async *chat(params: ChatParams): AsyncIterable<StreamChunk> {
-    if (GO_GPT_MODELS.has(params.model)) {
+    if (params.model in GO_RESPONSES_MODELS) {
       // Route GPT models through the OpenAI Responses API
       yield* chatResponsesAPI(params, {
         providerId: this.id,
@@ -399,11 +496,11 @@ export class OpenCodeGoProvider extends OpenAIProvider {
         fetchImpl: this.fetchImpl,
         supportsExplicitPromptCaching: supportsExplicitPromptCaching(params.model),
       });
-    } else if (GO_ANTHROPIC_MODELS.has(params.model)) {
+    } else if (params.model in GO_ANTHROPIC_MODELS) {
       // Route MiniMax and Qwen models through the Anthropic message format
       yield* this.anthropicDelegate.chat(params);
     } else {
-      // All other models (GLM, Kimi, MiMo, DeepSeek) use OpenAI-compatible chat completions
+      // All other models (GLM, Kimi, MiMo, LongCat, DeepSeek, Hy3) use OpenAI-compatible chat completions
       yield* super.chat(params);
     }
   }
