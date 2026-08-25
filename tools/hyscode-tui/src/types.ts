@@ -50,6 +50,8 @@ export type TranscriptKind = 'user' | 'assistant' | 'thinking' | 'tool' | 'resul
 export type TranscriptItem = {
   kind: TranscriptKind;
   text: string;
+  /** Present on `tool` items: links the card to its live ToolView by tool-call id. */
+  toolId?: string;
 };
 
 export type ToolViewStatus = 'pending' | 'approved' | 'running' | 'awaiting_input' | 'success' | 'error' | 'cancelled';
@@ -163,6 +165,7 @@ export type InteractionState =
       description: string;
       risk: string;
       input: Record<string, unknown>;
+      toolCallId: string;
       externalAccess?: NonNullable<
         Extract<InteractionRequest, { kind: 'approval' }>['toolCall']['externalAccess']
       >;
@@ -216,7 +219,7 @@ export type Key =
   | { type: 'character'; value: string }
   | { type: 'enter' | 'shift_enter' | 'escape' | 'backspace' | 'delete' | 'tab' | 'shift_tab' | 'up' | 'down' | 'left' | 'right' | 'home' | 'end' | 'page_up' | 'page_down' | 'f1' }
   | { type: 'mouse'; action: 'scroll_up' | 'scroll_down'; x: number; y: number }
-  | { type: 'ctrl'; value: 'c' | 'k' | 't' | 'u' | 'w' };
+  | { type: 'ctrl'; value: 'c' | 'k' | 'o' | 't' | 'u' | 'w' };
 
 export type UiState = {
   input: string;
@@ -257,14 +260,12 @@ export type UiState = {
   recovery: RecoveryView | null;
   mainPanel: MainPanel;
   capabilities: RuntimeCapabilities | null;
-  selectedToolIndex: number;
   rules: RuleView[];
   skills: SkillView[];
   memories: MemoryView[];
   scroll: number;
   lastError: string | null;
   currentSessionId: string | null;
-  lastUserMessage: string | null;
   sessions: SessionSummary[];
   projects: ProjectSummary[];
   providers: ProviderOption[];

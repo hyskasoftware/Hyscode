@@ -43,14 +43,12 @@ function state(overrides: Partial<UiState> = {}): UiState {
     recovery: null,
     mainPanel: 'chat',
     capabilities: null,
-    selectedToolIndex: 0,
     rules: [],
     skills: [],
     memories: [],
     scroll: 0,
     lastError: null,
     currentSessionId: 'session-123456',
-    lastUserMessage: null,
     sessions: [],
     projects: [],
     providers: [],
@@ -72,6 +70,7 @@ describe('TUI renderer', () => {
         kind: 'approval',
         requestId: 'external-1',
         toolName: 'write_file',
+        toolCallId: 'call-external-1',
         description: 'edit external file',
         risk: 'destructive',
         input: { path: 'C:/external/file.txt' },
@@ -434,5 +433,230 @@ describe('TUI renderer', () => {
 
     const composerWorkingLine = plainLines.find((line) => line.includes('╭─ WORKING')) ?? '';
     expect(composerWorkingLine).toMatch(/WORKING\s+[· ]+\s+Working/u);
+  });
+});
+
+
+describe('TUI renderer improvements', () => {
+  const plainOf = (rendered: string): string =>
+    rendered.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '').replace(/\r/g, '');
+
+  it('renders linked tool cards with status glyph, semantic headline, and duration', () => {
+    const rendered = new TerminalRenderer().render(state({
+      transcript: [{ kind: 'tool', text: 'npm test', toolId: 't1' }],
+      tools: [{
+        id: 't1',
+        name: 'run_terminal_command',
+        input: { command: 'npm test' },
+        status: 'success',
+        liveOutput: '',
+        outputSequence: 0,
+        durationMs: 1500,
+        expanded: false,
+      }],
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toContain('✓');
+    expect(plain).toContain('run_terminal_command');
+    expect(plain).toContain('npm test');
+    expect(plain).toContain('1.5s');
+  });
+
+  it('expands the tool card body with input and tail output', () => {
+    const rendered = new TerminalRenderer().render(state({
+      transcript: [{ kind: 'tool', text: 'src/a.ts', toolId: 't2' }],
+      tools: [{
+        id: 't2',
+        name: 'edit_file',
+        input: { path: 'src/a.ts', old_string: 'a', new_string: 'b' },
+        status: 'success',
+        output: 'first line\nsecond line',
+        liveOutput: '',
+        outputSequence: 2,
+        expanded: true,
+      }],
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toContain('input');
+    expect(plain).toContain('output');
+    expect(plain).toContain('second line');
+    expect(plain).toContain('"old_string"');
+  });
+
+  it('routes standalone result items through the markdown pipeline', () => {
+    const rendered = new TerminalRenderer().render(state({
+      sidebarVisible: false,
+      transcript: [{ kind: 'result', text: '```ts\nconst value = 1;\n```' }],
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toContain('╭─ ts');
+    expect(plain).toContain('const value = 1;');
+  });
+
+  it('aligns diff previews instead of pairing lines by index', () => {
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'activity',
+      transcript: [{ kind: 'assistant', text: 'reviewing' }],
+      fileChanges: [{
+        toolCallId: 'c1',
+        toolName: 'edit_file',
+        filePath: 'src/a.ts',
+        originalContent: 'a\nb\nc',
+        newContent: 'a\nx\nb\nc',
+        status: 'pending',
+        expanded: false,
+      }],
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toContain('+ x');
+    expect(plain).not.toContain('- b');
+    expect(plain).not.toContain('- c');
+  });
+
+  it('presents approval inputs semantically with a proposed-change preview', () => {
+    const rendered = new TerminalRenderer().render(state({
+      interaction: {
+        kind: 'approval',
+        requestId: 'approval-1',
+        toolName: 'edit_file',
+        toolCallId: 'call-edit-1',
+        description: 'update greeting',
+        risk: 'moderate',
+        input: { path: 'src/greet.ts', old_string: 'Hello', new_string: 'Hi' },
+      },
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toContain('src/greet.ts');
+    expect(plain).toContain('proposed change');
+    expect(plain).toContain('+ Hi');
+    expect(plain).not.toContain('"old_string"');
+  });
+
+  it('skips identical frames until the renderer is invalidated', () => {
+    const renderer = new TerminalRenderer();
+    const first = renderer.render(state());
+    expect(first).not.toBe('');
+    expect(renderer.render(state())).toBe('');
+    renderer.invalidate();
+    expect(renderer.render(state())).not.toBe('');
+  });
+
+  it('repaints when theme or viewport changes between frames', () => {
+    const renderer = new TerminalRenderer();
+    expect(renderer.render(state({ themeId: 'hyscode-dark' }))).not.toBe('');
+    expect(renderer.render(state({ themeId: 'hyscode-light' }))).not.toBe('');
+    expect(renderer.render(state({ width: 90, height: 24, sidebarVisible: false }))).not.toBe('');
+  });
+
+  it('colors the composer frame by focus so the active pane is visible', () => {
+    const accent = '\u001b[38;2;16;163;127m';
+    const headerOf = (focus: UiState['focus']): string => {
+      const rendered = new TerminalRenderer().render(state({ focus }));
+      const rawLines = rendered.split('\n');
+      const index = rawLines.findIndex((line) => line.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '').includes('╭─ MESSAGE'));
+      return index >= 0 ? rawLines[index] : '';
+    };
+    const composerLine = headerOf('composer');
+    const transcriptLine = headerOf('transcript');
+
+    expect(composerLine).toContain(`${accent}╭─ `);
+    expect(transcriptLine).not.toContain(`${accent}╭─ `);
+    expect(composerLine).not.toEqual(transcriptLine);
+  });
+
+  it('shows a scroll position hint anchored to the viewport while scrolled', () => {
+    const rendered = new TerminalRenderer().render(state({
+      height: 40,
+      scroll: 5,
+      transcript: Array.from({ length: 60 }, (_, index) => ({ kind: 'assistant' as const, text: `paragraph ${index}` })),
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toContain('↑ 5/');
+    expect(plain).toContain('line(s) above · PgDn/Wheel returns to live output');
+  });
+
+  it('adapts the composer placeholder to the active mode and terminal guard', () => {
+    const review = plainOf(new TerminalRenderer().render(state({ mode: 'review' })));
+    const maskedTerminal = plainOf(new TerminalRenderer().render(state({
+      input: '',
+      terminalInput: { terminalId: 'term-1', masked: true },
+    })));
+
+    expect(review).toContain('Point at the code or diff that should be reviewed');
+    expect(maskedTerminal).toContain('Type the sensitive value the terminal is asking for');
+  });
+
+  it('windows very large prompts around the cursor with overflow markers', () => {
+    const lines = Array.from({ length: 20 }, (_, index) => `line-${index}`);
+    const rendered = new TerminalRenderer().render(state({
+      width: 80,
+      input: lines.join('\n'),
+      inputCursor: 150,
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toMatch(/⋯ \+\d+ line\(s\) above/);
+    expect(plain).toContain(`line-${20 - 1}`);
+    expect(plain).not.toContain('line-0\n');
+  });
+
+  it('surfaces the latest attention notice or last error above the composer', () => {
+    const noticed = plainOf(new TerminalRenderer().render(state({
+      notices: [{ id: 'n1', level: 'warning', text: 'Runtime reconnected', createdAt: Date.now() }],
+    })));
+    const errored = plainOf(new TerminalRenderer().render(state({ lastError: 'boom' })));
+
+    expect(noticed).toContain('▲ Runtime reconnected');
+    expect(errored).toContain('× boom');
+  });
+
+  it('wraps file tool cards and the terminal panel in a discreet rounded frame', () => {
+    const rendered = new TerminalRenderer().render(state({
+      transcript: [{ kind: 'tool', text: 'src/app.ts', toolId: 'f1' }],
+      tools: [{
+        id: 'f1',
+        name: 'read_file',
+        input: { path: 'src/app.ts' },
+        status: 'success',
+        output: 'export const app = 1;',
+        liveOutput: '',
+        outputSequence: 1,
+        expanded: false,
+      }],
+      mainPanel: 'terminal',
+      terminals: [{
+        terminalId: 'term-1',
+        ptyId: 'pty-1',
+        name: 'Agent Terminal',
+        alive: true,
+        sequence: 2,
+        outputPreview: 'build ok',
+        frameLanguage: 'powershell' as const,
+        role: 'agent' as const,
+        awaitingInput: false,
+      }],
+      activeTerminalId: 'term-1',
+    }));
+    const rawLines = rendered.split('\n');
+    const stripped = rawLines.map((line) => line.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '').replace(/\r/g, ''));
+
+    const cardIndex = stripped.findIndex((line) => line.includes('read_file'));
+    expect(cardIndex).toBeGreaterThan(-1);
+    expect(stripped[cardIndex]).toContain('╭─');
+    expect(stripped[cardIndex]).toContain('src/app.ts');
+    expect(stripped.slice(cardIndex, cardIndex + 3).some((line) => line.trimEnd().endsWith('╯'))).toBe(true);
+    expect(stripped.some((line) => line.includes('│') && line.includes('export const app = 1;'))).toBe(true);
+
+    const terminalIndex = stripped.findIndex((line) => line.includes('TERMINAL'));
+    expect(terminalIndex).toBeGreaterThan(cardIndex);
+    expect(stripped[terminalIndex]).toContain('╭─');
+    expect(stripped.slice(terminalIndex).some((line) => line.includes('build ok'))).toBe(true);
+    expect(stripped.every((line) => terminalCellWidth(line) <= 120)).toBe(true);
   });
 });

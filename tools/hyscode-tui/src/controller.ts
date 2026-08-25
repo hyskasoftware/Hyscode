@@ -96,14 +96,12 @@ export class TuiController {
       recovery: null,
       mainPanel: 'chat',
       capabilities: null,
-      selectedToolIndex: 0,
       rules: [],
       skills: [],
       memories: [],
       scroll: 0,
       lastError: null,
       currentSessionId: null,
-      lastUserMessage: null,
       sessions: [],
       projects: [],
       providers: [],
@@ -202,6 +200,8 @@ export class TuiController {
         } else {
           this.state.shouldQuit = true;
         }
+      } else if (key.value === 'o') {
+        this.toggleLastToolExpansion();
       } else if (key.value === 'u') {
         this.state.input = this.state.input.slice(this.state.inputCursor);
         this.state.inputCursor = 0;
@@ -235,10 +235,12 @@ export class TuiController {
         this.state.inputCursor = Math.min(Array.from(this.state.input).length, this.state.inputCursor + 1);
         break;
       case 'home':
-        this.state.inputCursor = 0;
+        if (this.state.focus === 'transcript') this.state.scroll = Number.MAX_SAFE_INTEGER;
+        else this.state.inputCursor = 0;
         break;
       case 'end':
-        this.state.inputCursor = Array.from(this.state.input).length;
+        if (this.state.focus === 'transcript') this.state.scroll = 0;
+        else this.state.inputCursor = Array.from(this.state.input).length;
         break;
       case 'up':
         this.moveUp();
@@ -247,10 +249,10 @@ export class TuiController {
         this.moveDown();
         break;
       case 'page_up':
-        this.state.scroll += 5;
+        this.state.scroll += this.scrollPageLines();
         break;
       case 'page_down':
-        this.state.scroll = Math.max(0, this.state.scroll - 5);
+        this.state.scroll = Math.max(0, this.state.scroll - this.scrollPageLines());
         break;
       case 'tab':
         if (!this.state.sidebarVisible) {
@@ -506,28 +508,52 @@ export class TuiController {
     this.terminalRawOutput.clear();
     this.terminalOutputSequence.clear();
     this.liveStreamStart = null;
-    this.state.lastUserMessage = null;
+    const replayedToolIds = new Set<string>();
     for (const message of session.messages) {
       if (message.role === 'user') {
         const text = message.content.filter((block) => block.type === 'text').map((block) => block.text).join('\n');
-        if (text) {
-          this.state.lastUserMessage = text;
-          this.append('user', text);
-        }
+        if (text) this.append('user', text);
       } else {
-        for (const item of this.contentItems(message.content)) this.append(item.kind, item.text);
+        for (const item of this.contentItems(message.content, replayedToolIds)) this.appendItem(item);
       }
     }
+    for (const tool of this.state.tools) {
+      if (!replayedToolIds.has(tool.id)) continue;
+      if (tool.status === 'running' || tool.status === 'pending') tool.status = 'cancelled';
+    }
+    if (this.state.tools.length > REPLAYED_TOOL_LIMIT) this.state.tools = this.state.tools.slice(-REPLAYED_TOOL_LIMIT);
     this.state.scroll = 0;
   }
 
-  private contentItems(content: Message['content']): TranscriptItem[] {
+  private contentItems(content: Message['content'], replayedToolIds?: Set<string>): TranscriptItem[] {
     return content.flatMap((block): TranscriptItem[] => {
       switch (block.type) {
         case 'text': return [{ kind: 'assistant', text: block.text }];
         case 'thinking': return [{ kind: 'thinking', text: block.thinking }];
-        case 'tool_call': return [{ kind: 'tool', text: `${block.name} ${formatValue(block.input)}` }];
-        case 'tool_result': return [{ kind: 'result', text: block.output }];
+        case 'tool_call': {
+          replayedToolIds?.add(block.id);
+          this.upsertTool({
+            id: block.id,
+            name: block.name,
+            input: block.input,
+            status: 'running',
+            liveOutput: '',
+            outputSequence: 0,
+            expanded: false,
+          });
+          return [{ kind: 'tool', text: summarizeToolInput(block.name, block.input), toolId: block.id }];
+        }
+        case 'tool_result': {
+          const existing = this.state.tools.some((tool) => tool.id === block.toolCallId);
+          if (existing) {
+            this.updateTool(block.toolCallId, {
+              status: block.isError ? 'error' : 'success',
+              output: block.output,
+            });
+            return [];
+          }
+          return [{ kind: 'result', text: block.output }];
+        }
         case 'image': return [];
       }
     });
@@ -687,6 +713,7 @@ export class TuiController {
         description: payload.toolCall.description,
         risk: payload.toolCall.riskLevel ?? 'moderate',
         input: payload.toolCall.input,
+        toolCallId: payload.toolCall.id,
         ...(payload.toolCall.externalAccess
           ? { externalAccess: payload.toolCall.externalAccess }
           : {}),
@@ -753,9 +780,9 @@ export class TuiController {
         if (event.role === 'assistant') {
           if (this.liveStreamStart !== null) this.state.transcript.splice(this.liveStreamStart);
           this.liveStreamStart = this.state.transcript.length;
-          for (const item of this.contentItems(event.blocks)) this.append(item.kind, item.text);
+          for (const item of this.contentItems(event.blocks)) this.appendItem(item);
         } else {
-          for (const item of this.contentItems(event.blocks)) this.append(item.kind, item.text);
+          for (const item of this.contentItems(event.blocks)) this.appendItem(item);
         }
         break;
       case 'assistant_segment_end':
@@ -782,7 +809,7 @@ export class TuiController {
               toolId: event.toolCallId,
             });
           }
-          this.append('tool', `${event.toolName} ${formatValue(event.input)}`);
+          this.appendItem({ kind: 'tool', text: summarizeToolInput(event.toolName, event.input), toolId: event.toolCallId });
         }
         break;
       case 'tool_call_pending':
@@ -803,7 +830,8 @@ export class TuiController {
         this.updateTool(event.toolCallId, { description: event.description, status: 'approved' });
         this.state.status = event.description;
         break;
-      case 'tool_call_result':
+      case 'tool_call_result': {
+        const linkedToTranscript = this.state.transcript.some((item) => item.toolId === event.toolCallId);
         this.updateTool(event.toolCallId, {
           status: event.result.success ? 'success' : 'error',
           output: event.result.output,
@@ -811,8 +839,11 @@ export class TuiController {
           durationMs: event.durationMs,
         });
         if (ownerId) this.upsertSubAgent(ownerId, { toolId: event.toolCallId });
-        else this.append('result', `${event.toolName} → ${(event.result.error ?? event.result.output) || formatValue(event.result)}`);
+        else if (!linkedToTranscript) {
+          this.append('result', `${event.toolName} → ${(event.result.error ?? event.result.output) || formatValue(event.result)}`);
+        }
         break;
+      }
       case 'terminal_progress':
         if (!this.acceptsCurrentTerminalEvent(event)) break;
         this.applyTerminalProgress(event.progress, ownerId);
@@ -905,7 +936,6 @@ export class TuiController {
     const existing = this.state.tools.find((candidate) => candidate.id === tool.id);
     if (!existing) {
       this.state.tools.push(tool);
-      this.state.selectedToolIndex = this.state.tools.length - 1;
       return;
     }
     Object.assign(existing, tool, {
@@ -1043,10 +1073,14 @@ export class TuiController {
   }
 
   private append(kind: TranscriptKind, text: string): void {
-    if (!text) return;
-    this.state.transcript.push({ kind, text });
-    if (this.state.transcript.length > 500) {
-      const removed = this.state.transcript.length - 500;
+    this.appendItem({ kind, text });
+  }
+
+  private appendItem(item: TranscriptItem): void {
+    if (!item.text && item.kind !== 'tool') return;
+    this.state.transcript.push(item);
+    if (this.state.transcript.length > TRANSCRIPT_LIMIT) {
+      const removed = this.state.transcript.length - TRANSCRIPT_LIMIT;
       this.state.transcript.splice(0, removed);
       if (this.liveStreamStart !== null) this.liveStreamStart = Math.max(0, this.liveStreamStart - removed);
     }
@@ -1091,14 +1125,12 @@ export class TuiController {
         this.state.status = `Attached ${mention.path}`;
         return;
       }
-      this.state.lastUserMessage = mention.message;
       this.append('user', mention.message);
       this.state.running = true;
       this.state.status = 'Working…';
       await this.request('send_message', { message: mention.message });
       return;
     }
-    this.state.lastUserMessage = input;
     this.append('user', input);
     this.state.running = true;
     this.state.status = 'Working…';
@@ -1145,7 +1177,6 @@ export class TuiController {
       case '/new':
         await this.request('session_new', {});
         this.state.transcript = [];
-        this.state.lastUserMessage = null;
         this.state.status = 'New session';
         break;
       case '/sessions':
@@ -2271,6 +2302,20 @@ export class TuiController {
     this.state.inputCursor = Array.from(this.state.input).length;
   }
 
+  private toggleLastToolExpansion(): void {
+    const tool = this.state.tools[this.state.tools.length - 1];
+    if (!tool) {
+      this.state.status = 'No tool activity to expand yet';
+      return;
+    }
+    tool.expanded = !tool.expanded;
+    this.state.status = tool.expanded ? `Expanded ${tool.name} details` : `Collapsed ${tool.name} details`;
+  }
+
+  private scrollPageLines(): number {
+    return Math.max(3, Math.floor(this.state.height / 4));
+  }
+
   setViewport(width: number, height: number): void {
     const viewport = normalizeTerminalViewport(width, height);
     this.state.width = viewport.cols;
@@ -2397,4 +2442,49 @@ function parseContextMention(input: string): { path: string; message: string } |
   const match = /^@(?:"([^"]+)"|(\S+))(?:\s+([\s\S]*))?$/.exec(input.trim());
   if (!match) return null;
   return { path: match[1] ?? match[2] ?? '', message: match[3]?.trim() ?? '' };
+}
+
+const REPLAYED_TOOL_LIMIT = 120;
+const TRANSCRIPT_LIMIT = 500;
+
+export function summarizeToolInput(toolName: string, input: Record<string, unknown>): string {
+  const firstString = (...keys: readonly string[]): string | null => {
+    for (const key of keys) {
+      const value = input[key];
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+    return null;
+  };
+  const command = firstString('command', 'cmd', 'script');
+  if (command) return inlineText(command);
+  if (toolName === 'rename_file') {
+    const from = firstString('path', 'filePath', 'from');
+    const to = firstString('newPath', 'new_path', 'to');
+    if (from && to) return `${inlineText(from)} → ${inlineText(to)}`;
+  }
+  if (toolName === 'spawn_subagent') {
+    const mode = firstString('mode') ?? 'review';
+    const task = firstString('task');
+    return task ? `${mode}: ${inlineText(task)}` : mode;
+  }
+  const paths = [...new Set(['filePath', 'file_path', 'path', 'notebookPath', 'notebook_path']
+    .map((key) => input[key])
+    .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    .map(inlineText))];
+  if (paths.length === 1) return paths[0];
+  if (paths.length > 1) return `${paths[0]} (+${paths.length - 1} more)`;
+  const query = firstString('pattern', 'query', 'search', 'url', 'question', 'symbol');
+  if (query) return inlineText(query);
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(input) ?? '';
+  } catch {
+    serialized = '<unserializable>';
+  }
+  if (!serialized || serialized === '{}') return '';
+  return inlineText(serialized.length > 160 ? `${serialized.slice(0, 160)}…` : serialized);
+}
+
+export function inlineText(value: string): string {
+  return value.replace(/\s+/gu, ' ').trim();
 }

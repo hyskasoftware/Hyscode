@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BridgeRequest, BridgeResponse, RuntimeReadyPayload } from '@hyscode/tui-runtime';
 import { CliUpdater } from '@hyscode/tui-runtime';
-import { TuiController, type RuntimeClient } from './controller';
+import { TuiController, summarizeToolInput, type RuntimeClient } from './controller';
 
 function readyPayload(workspacePath: string, includeThinkingModel = false): RuntimeReadyPayload {
   const thinkingModel = {
@@ -518,5 +518,77 @@ describe('TUI controller', () => {
     await controller.handleKey({ type: 'enter' });
     expect(attachedTerminalId).toBe('manual-terminal');
     expect(controller.state.status).toContain('Agent terminals remain projected');
+  });
+});
+
+describe('TUI controller tool projection', () => {
+  it('summarizes tool inputs into semantic headlines', () => {
+    expect(summarizeToolInput('run_terminal_command', { command: 'npm\n  test' })).toBe('npm test');
+    expect(summarizeToolInput('edit_file', { path: 'src/a.ts', old_string: 'a', new_string: 'b' })).toBe('src/a.ts');
+    expect(summarizeToolInput('rename_file', { path: 'a.ts', newPath: 'b.ts' })).toBe('a.ts → b.ts');
+    expect(summarizeToolInput('spawn_subagent', { mode: 'review', task: 'check diff' })).toBe('review: check diff');
+    expect(summarizeToolInput('list_directory', {})).toBe('');
+  });
+
+  it('pairs a live tool call and its result into one linked transcript card', async () => {
+    const runtime = new FakeRuntime();
+    const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
+    await controller.start();
+
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: { type: 'tool_call_start', toolCallId: 't1', toolName: 'run_terminal_command', input: { command: 'npm test' } },
+    });
+    expect(controller.state.transcript.at(-1)).toEqual({ kind: 'tool', text: 'npm test', toolId: 't1' });
+
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'tool_call_result',
+        toolCallId: 't1',
+        toolName: 'run_terminal_command',
+        result: { success: true, output: 'tests passed' },
+        durationMs: 1200,
+      },
+    });
+
+    expect(controller.state.transcript).toHaveLength(1);
+    expect(controller.state.tools[0]).toMatchObject({ id: 't1', status: 'success', durationMs: 1200, output: 'tests passed' });
+
+    await controller.handleKey({ type: 'ctrl', value: 'o' });
+    expect(controller.state.tools[0]?.expanded).toBe(true);
+    await controller.handleKey({ type: 'ctrl', value: 'o' });
+    expect(controller.state.tools[0]?.expanded).toBe(false);
+  });
+
+  it('pairs replayed message blocks into cards without duplicate result rows', () => {
+    const runtime = new FakeRuntime();
+    const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
+    void controller.start();
+
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'transcript_message',
+        role: 'assistant',
+        blocks: [{ type: 'tool_call', id: 'r1', name: 'read_file', input: { path: 'src/b.ts' } }],
+      },
+    });
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'transcript_message',
+        role: 'tool',
+        blocks: [{ type: 'tool_result', toolCallId: 'r1', output: 'file content', isError: false }],
+      },
+    });
+
+    expect(controller.state.transcript).toHaveLength(1);
+    expect(controller.state.transcript[0]).toMatchObject({ kind: 'tool', toolId: 'r1' });
+    expect(controller.state.tools[0]).toMatchObject({ id: 'r1', status: 'success', output: 'file content' });
   });
 });

@@ -80,7 +80,8 @@ async function main(): Promise<void> {
 
   const repaint = (): void => {
     controller.setViewport(process.stdout.columns ?? 120, process.stdout.rows ?? 32);
-    process.stdout.write(renderer.render(controller.state));
+    const frame = renderer.render(controller.state);
+    if (frame) process.stdout.write(frame);
   };
   const pauseOuter = (): void => {
     if (repaintTimer) clearInterval(repaintTimer);
@@ -93,6 +94,7 @@ async function main(): Promise<void> {
   const resumeOuter = (): void => {
     if (!input || outerLoopActive) return;
     input.start();
+    renderer.invalidate();
     repaint();
     repaintTimer = setInterval(repaint, 80);
     gitRefreshTimer = setInterval(() => { void controller.refreshGitSummary(); }, 2000);

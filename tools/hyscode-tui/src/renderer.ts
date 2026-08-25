@@ -1,8 +1,9 @@
 import { DEFAULT_THEME_ID } from '@hyscode/tui-runtime';
+import { inlineText, summarizeToolInput } from './controller';
 import { COMMANDS, flowTitle, matchingCommands, selectionOptions } from './commands';
 import { getCliLogo } from './logo';
 import { dynamicAnsiToken, resolveAnsiTheme, type AnsiToken, type AnsiTheme } from './theme';
-import type { CommandFlow, InteractionState, TranscriptItem, UiState } from './types';
+import type { CommandFlow, InteractionState, TranscriptItem, ToolView, UiState } from './types';
 
 let activeAnsiTheme: AnsiTheme = resolveAnsiTheme(DEFAULT_THEME_ID, []);
 
@@ -26,8 +27,19 @@ const COMPOSER_HORIZONTAL_PADDING = 2;
 const COMPOSER_SECTION_GAP = 1;
 const WORKING_FRAME_INTERVAL_MS = 160;
 const WORKING_FRAMES = ['·  ', '·· ', '···', ' ··', '  ·', ' ··'] as const;
+const MAX_INPUT_ROWS = 7;
+const TOOL_EXPANDED_LINE_CAP = 24;
 
 export class TerminalRenderer {
+  private lastFrameKey: string | null = null;
+  private lastFrame: string | null = null;
+
+  /** Forces the next render to repaint the whole screen (theme change, handoff resume, resize). */
+  invalidate(): void {
+    this.lastFrameKey = null;
+    this.lastFrame = null;
+  }
+
   render(state: UiState): string {
     const previousTheme = activeAnsiTheme;
     activeAnsiTheme = resolveAnsiTheme(state.themeId, state.themes);
@@ -47,6 +59,9 @@ export class TerminalRenderer {
       const transcript = transcriptView(state.transcript, Math.max(1, mainWidth - 2), state);
       const start = Math.max(0, transcript.length - transcriptHeight - state.scroll);
       const visibleTranscript = transcript.slice(start, start + transcriptHeight);
+      if (state.scroll > 0 && visibleTranscript.length > 0) {
+        visibleTranscript[visibleTranscript.length - 1] = scrollHintLine(state, transcript.length);
+      }
       const body = layoutBody([...executionBanner, ...visibleTranscript], state, width, bodyHeight, sidebarWidth);
       const lines = [...header, ...body, ...panel, ...composer];
       while (lines.length < height) lines.push('');
@@ -54,14 +69,19 @@ export class TerminalRenderer {
         .slice(0, height)
         .map((line) => `\u001b[2K\r${fitAnsi(line, width)}`)
         .join('\n');
-      return `${activeAnsiTheme.reset}\u001b[2J\u001b[H${frame}${RESET}`;
+      const frameKey = `${width}x${height}:${state.themeId}`;
+      if (frameKey === this.lastFrameKey && frame === this.lastFrame) return '';
+      const resetScreen = frameKey !== this.lastFrameKey;
+      this.lastFrameKey = frameKey;
+      this.lastFrame = frame;
+      return `${activeAnsiTheme.reset}${resetScreen ? '\u001b[H\u001b[0J' : '\u001b[H'}${frame}${RESET}`;
     } finally {
       activeAnsiTheme = previousTheme;
     }
   }
 
   private overlayLines(state: UiState, width: number, maxHeight: number): string[] {
-    if (state.interaction) return makePanel('ACTION REQUIRED', interactionLines(state.interaction, width), width);
+    if (state.interaction) return makePanel('ACTION REQUIRED', interactionLines(state.interaction, state, width), width);
     if (state.commandFlow) return makePanel(commandPanelTitle(state.commandFlow), commandFlowLines(state, width, maxHeight), width);
     if (state.overlay === 'help') return makePanel('HELP · KEYBOARD FIRST', helpLines(), width);
     if (state.overlay === 'sessions') {
@@ -110,7 +130,7 @@ function layoutBody(lines: string[], state: UiState, width: number, height: numb
   return Array.from({ length: height }, (_, index) => {
     const sidebarLine = padAnsi(sidebar[index] ?? '', sidebarWidth - 1);
     const mainLine = padAnsi(paddedMain[index] ?? '', mainWidth);
-    return `${sidebarLine}${PANEL}│${RESET}${mainLine}`;
+    return `${sidebarLine}${state.focus === 'sidebar' ? ACCENT : PANEL}│${RESET}${mainLine}`;
   });
 }
 
@@ -146,6 +166,7 @@ function sidebarLines(state: UiState, width: number, height: number): string[] {
     ` Tab     focus`,
     ` Wheel   history scroll`,
     ` PgUp    scroll up`,
+    ` Ctrl-O   expand last tool`,
     ` Ctrl-C  cancel / quit`,
     ` !cmd    terminal command`,
     ` @path   attach context`,
@@ -153,13 +174,40 @@ function sidebarLines(state: UiState, width: number, height: number): string[] {
   return lines.slice(0, height);
 }
 
+function scrollHintLine(state: UiState, totalLines: number): string {
+  const hint = `↑ ${state.scroll}/${totalLines} line(s) above · PgDn/Wheel returns to live output`;
+  const color = state.focus === 'transcript' ? ACCENT : MUTED;
+  return `${color}${hint}${RESET}`;
+}
+
+type MarkdownCacheEntry = { sig: string; lines: string[] };
+
+const markdownCache = new WeakMap<TranscriptItem, MarkdownCacheEntry>();
+
+function cachedMarkdownLines(item: TranscriptItem, width: number): string[] {
+  const sig = `${item.kind}|${item.toolId ?? ''}|${width}|${item.text.length}|${item.text.slice(-80)}`;
+  const hit = markdownCache.get(item);
+  if (hit && hit.sig === sig) return hit.lines;
+  const lines = renderMarkdown(item.text, item.kind, width);
+  markdownCache.set(item, { sig, lines });
+  return lines;
+}
+
 function transcriptView(items: TranscriptItem[], width: number, state: UiState): string[] {
   if (items.length === 0) return emptyTranscript(state, width);
   const lines: string[] = [];
   for (const item of items) {
+    const tool = item.toolId ? state.tools.find((candidate) => candidate.id === item.toolId) : undefined;
+    if (tool) {
+      lines.push(...toolCardLines(tool, width));
+      lines.push('');
+      continue;
+    }
     const [label, marker, color] = transcriptStyle(item.kind);
     lines.push(`${color}${BOLD}${marker} ${label}${RESET}`);
-    const itemLines = renderMarkdown(item.text, item.kind, Math.max(12, width - 4));
+    const itemLines = item.kind === 'tool'
+      ? wrapText(item.text, Math.max(12, width - 4))
+      : cachedMarkdownLines(item, Math.max(12, width - 4));
     for (const itemLine of itemLines) {
       const prefix = item.kind === 'user' ? `${ACCENT}  ${itemLine}${RESET}` : `  ${itemLine}`;
       lines.push(prefix);
@@ -169,19 +217,40 @@ function transcriptView(items: TranscriptItem[], width: number, state: UiState):
   if (state.mainPanel === 'terminal') lines.push(...terminalPanel(state, width));
   else if (state.mainPanel === 'sdd') lines.push(...sddPanel(state, width));
   else if (state.mainPanel === 'activity') lines.push(...activityPanel(state, width));
-  if (state.scroll > 0) lines.push(`${MUTED}↑ ${state.scroll} line(s) above · Wheel/PgDn returns to live output${RESET}`);
+  return lines;
+}
+
+function roundedFrame(title: string, bodyLines: string[], width: number): string[] {
+  const safeWidth = Math.max(12, width);
+  const innerWidth = Math.max(6, safeWidth - 4);
+  const titleText = fitAnsi(title, Math.max(4, innerWidth - 2));
+  const dashCount = Math.max(1, innerWidth - visibleLength(titleText) - 1);
+  const lines = [`${PANEL}╭─${RESET} ${titleText} ${PANEL}${'─'.repeat(dashCount)}╮${RESET}`];
+  for (const body of bodyLines) {
+    lines.push(`${PANEL}│${RESET} ${padAnsi(fitAnsi(body, innerWidth), innerWidth)} ${PANEL}│${RESET}`);
+  }
+  lines.push(`${PANEL}╰${'─'.repeat(innerWidth + 2)}╯${RESET}`);
   return lines;
 }
 
 function terminalPanel(state: UiState, width: number): string[] {
   const terminal = state.terminals.find((candidate) => candidate.terminalId === state.activeTerminalId) ?? state.terminals[0];
   if (!terminal) return [`${MUTED}No terminal open. Use /terminal to choose an action or !command.${RESET}`, ''];
-  return [
-    `${ACCENT}${BOLD}TERMINAL · ${shorten(terminal.name, width - 24)}${RESET} ${DIM}${terminal.frameLanguage} · ${terminal.alive ? 'alive' : 'exited'} · seq ${terminal.sequence}${RESET}`,
-    ...wrapText(terminal.outputPreview || 'Terminal is ready for input.', Math.max(12, width - 4)).slice(-10).map((line) => `${SOFT}${line}${RESET}`),
-    `${terminal.awaitingInput ? `${WARNING}Input is required${RESET} · type a response and press Enter` : `${DIM}Type !command to send input`}${RESET} · /terminal focus preview · /terminal attach ${terminal.terminalId} for fullscreen · Ctrl-] detaches${RESET}`,
-    '',
-  ];
+  const innerWidth = Math.max(6, Math.max(12, width) - 4);
+  const title = [
+    `${SOFT}${BOLD}TERMINAL${RESET}`,
+    `${MUTED}·${RESET}`,
+    shorten(terminal.name, Math.max(8, innerWidth - 14)),
+    `${DIM}· ${terminal.frameLanguage} · ${terminal.alive ? 'alive' : 'exited'} · seq ${terminal.sequence}${RESET}`,
+  ].join(' ');
+  const outputRows = wrapText(terminal.outputPreview || 'Terminal is ready for input.', innerWidth)
+    .slice(-10)
+    .map((line) => `${SOFT}${line}${RESET}`);
+  const hint = terminal.awaitingInput
+    ? `${WARNING}Input is required${RESET} · type a response and press Enter`
+    : `${DIM}Type !command to send input${RESET}`;
+  const hints = `${hint} ${DIM}· /terminal focus preview · /terminal attach ${shorten(terminal.terminalId ?? '', 18)} for fullscreen · Ctrl-] detaches${RESET}`;
+  return [...roundedFrame(title, [...outputRows, hints], width), ''];
 }
 
 function sddPanel(state: UiState, width: number): string[] {
@@ -249,17 +318,89 @@ function activityPanel(state: UiState, width: number): string[] {
   return [...lines, ''];
 }
 
-function changeDiff(original: string | null, next: string, width: number): string[] {
-  const before = (original ?? '').split(/\r?\n/);
-  const after = next.split(/\r?\n/);
-  const lines: string[] = [];
-  const limit = Math.max(before.length, after.length);
-  for (let index = 0; index < limit && lines.length < 8; index += 1) {
-    if (before[index] === after[index]) continue;
-    if (before[index] !== undefined) lines.push(`${ERROR}- ${shorten(before[index], width - 5)}${RESET}`);
-    if (after[index] !== undefined) lines.push(`${SUCCESS}+ ${shorten(after[index], width - 5)}${RESET}`);
+type DiffRow = { type: 'context' | 'add' | 'del'; text: string };
+
+const DIFF_ALIGNMENT_CAP = 600;
+
+function diffLines(before: string[], after: string[]): DiffRow[] {
+  const rows: DiffRow[] = [];
+  let start = 0;
+  while (start < before.length && start < after.length && before[start] === after[start]) {
+    rows.push({ type: 'context', text: before[start] });
+    start += 1;
   }
-  return lines.length ? lines : [`${DIM}  no textual diff${RESET}`];
+  let endBefore = before.length;
+  let endAfter = after.length;
+  const tail: DiffRow[] = [];
+  while (endBefore > start && endAfter > start && before[endBefore - 1] === after[endAfter - 1]) {
+    tail.unshift({ type: 'context', text: before[endBefore - 1] });
+    endBefore -= 1;
+    endAfter -= 1;
+  }
+  rows.push(...alignDiffMiddle(before.slice(start, endBefore), after.slice(start, endAfter)), ...tail);
+  return rows;
+}
+
+function alignDiffMiddle(before: string[], after: string[]): DiffRow[] {
+  if (before.length === 0) return after.map((text) => ({ type: 'add' as const, text }));
+  if (after.length === 0) return before.map((text) => ({ type: 'del' as const, text }));
+  if (before.length > DIFF_ALIGNMENT_CAP || after.length > DIFF_ALIGNMENT_CAP) {
+    return [
+      ...before.map((text) => ({ type: 'del' as const, text })),
+      ...after.map((text) => ({ type: 'add' as const, text })),
+    ];
+  }
+  const stride = after.length + 1;
+  const table = new Uint32Array((before.length + 1) * stride);
+  for (let i = before.length - 1; i >= 0; i -= 1) {
+    for (let j = after.length - 1; j >= 0; j -= 1) {
+      table[i * stride + j] = before[i] === after[j]
+        ? table[(i + 1) * stride + j + 1] + 1
+        : Math.max(table[(i + 1) * stride + j], table[i * stride + j + 1]);
+    }
+  }
+  const rows: DiffRow[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < before.length && j < after.length) {
+    if (before[i] === after[j]) {
+      rows.push({ type: 'context', text: before[i] });
+      i += 1;
+      j += 1;
+    } else if (table[(i + 1) * stride + j] >= table[i * stride + j + 1]) {
+      rows.push({ type: 'del', text: before[i] });
+      i += 1;
+    } else {
+      rows.push({ type: 'add', text: after[j] });
+      j += 1;
+    }
+  }
+  while (i < before.length) { rows.push({ type: 'del', text: before[i] }); i += 1; }
+  while (j < after.length) { rows.push({ type: 'add', text: after[j] }); j += 1; }
+  return rows;
+}
+
+function changeDiff(original: string | null, next: string, width: number): string[] {
+  const rows = diffLines((original ?? '').split(/\r?\n/), next.split(/\r?\n/));
+  const changedIndexes = rows.reduce<number[]>((indexes, row, index) => {
+    if (row.type !== 'context') indexes.push(index);
+    return indexes;
+  }, []);
+  if (changedIndexes.length === 0) return [`${DIM}  no textual diff${RESET}`];
+  const output: string[] = [];
+  let previousChangedIndex = -2;
+  for (const index of changedIndexes) {
+    if (output.length >= 8) {
+      output.push(`${DIM}  ⋯ ${changedIndexes.length - 8} more changed line(s)${RESET}`);
+      break;
+    }
+    const row = rows[index];
+    if (index !== previousChangedIndex + 1 && output.length > 0) output.push(`${PANEL}  ⋯${RESET}`);
+    const color = row.type === 'del' ? ERROR : SUCCESS;
+    output.push(`${color}${row.type === 'del' ? '-' : '+'} ${shorten(row.text, Math.max(8, width - 4))}${RESET}`);
+    previousChangedIndex = index;
+  }
+  return output;
 }
 
 function emptyTranscript(state: UiState, width: number): string[] {
@@ -358,6 +499,94 @@ function transcriptStyle(kind: TranscriptItem['kind']): [string, string, AnsiTok
   }
 }
 
+function toolStatusPresentation(status: ToolView['status']): { glyph: string; color: AnsiToken; label: string } {
+  switch (status) {
+    case 'success': return { glyph: '✓', color: SUCCESS, label: '' };
+    case 'error': return { glyph: '×', color: ERROR, label: 'failed' };
+    case 'cancelled': return { glyph: '○', color: MUTED, label: 'cancelled' };
+    case 'awaiting_input': return { glyph: '›', color: WARNING, label: 'awaiting input' };
+    case 'pending': return { glyph: '›', color: WARNING, label: 'approval required' };
+    case 'approved': return { glyph: '›', color: WARNING, label: 'approved' };
+    default: return { glyph: '›', color: WARNING, label: 'running' };
+  }
+}
+
+function formatToolDuration(durationMs: number | undefined): string {
+  if (durationMs === undefined || !Number.isFinite(durationMs) || durationMs <= 0) return '';
+  if (durationMs < 1000) return `${Math.max(1, Math.round(durationMs))}ms`;
+  if (durationMs < 60_000) return `${(durationMs / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(durationMs / 60_000);
+  const seconds = Math.round((durationMs % 60_000) / 1000);
+  return seconds ? `${minutes}m${String(seconds).padStart(2, '0')}s` : `${minutes}m`;
+}
+
+function toolCardLines(tool: ToolView, width: number): string[] {
+  const { glyph, color, label } = toolStatusPresentation(tool.status);
+  const duration = formatToolDuration(tool.durationMs);
+  const meta = [label, duration].filter(Boolean).join(' · ');
+  const innerWidth = Math.max(6, Math.max(12, width) - 4);
+  const headline = shorten(inlineText(summarizeToolInput(tool.name, tool.input)), innerWidth);
+  const title = [
+    `${color}${BOLD}${glyph}${RESET}`,
+    `${SOFT}${BOLD}${tool.name}${RESET}`,
+    headline ? `${MUTED}·${RESET} ${headline}` : '',
+    meta ? `${DIM}${meta}${RESET}` : '',
+  ].filter(Boolean)
+    .join(' ');
+  const body = tool.expanded ? expandedToolBody(tool, innerWidth) : collapsedToolTail(tool, innerWidth);
+  return roundedFrame(title, body, width);
+}
+
+function collapsedToolTail(tool: ToolView, innerWidth: number): string[] {
+  const tailSource = tool.error || tool.output || tool.liveOutput;
+  const tailLines = tailSource.split(/\r?\n/u);
+  for (let index = tailLines.length - 1; index >= 0; index -= 1) {
+    if (tailLines[index].trim() !== '') {
+      return [`${MUTED}${shorten(inlineText(tailLines[index]), innerWidth)}${RESET}`];
+    }
+  }
+  return [];
+}
+
+function expandedToolBody(tool: ToolView, width: number): string[] {
+  const lines: string[] = [];
+  let inputJson = '';
+  try {
+    inputJson = JSON.stringify(tool.input, null, 2) ?? '';
+  } catch {
+    inputJson = '<unserializable>';
+  }
+  if (inputJson && inputJson !== '{}') {
+    lines.push(`${MUTED}input${RESET}`);
+    appendCapped(lines, inputJson.split(/\r?\n/u), width, SOFT);
+  }
+  if (tool.output) {
+    lines.push(`${MUTED}output${RESET}`);
+    appendTail(lines, tool.output.split(/\r?\n/u), width, SOFT);
+  }
+  if (tool.error) {
+    lines.push(`${ERROR}error${RESET}`);
+    appendTail(lines, tool.error.split(/\r?\n/u), width, ERROR);
+  } else if (!tool.output && tool.liveOutput) {
+    lines.push(`${MUTED}live output${RESET}`);
+    appendTail(lines, tool.liveOutput.split(/\r?\n/u), width, SOFT);
+  }
+  return lines;
+}
+
+function appendCapped(target: string[], source: string[], width: number, color: AnsiToken): void {
+  const visible = source.slice(0, TOOL_EXPANDED_LINE_CAP);
+  for (const line of visible) target.push(`${color}${shorten(line, width)}${RESET}`);
+  if (source.length > visible.length) target.push(`${DIM}⋯ +${source.length - visible.length} line(s)${RESET}`);
+}
+
+function appendTail(target: string[], source: string[], width: number, color: AnsiToken): void {
+  const meaningful = source.filter((line, index) => line.trim() !== '' || (index > 0 && index < source.length - 1));
+  const visible = meaningful.slice(-TOOL_EXPANDED_LINE_CAP);
+  for (const line of visible) target.push(`${color}${shorten(line, width)}${RESET}`);
+  if (meaningful.length > visible.length) target.push(`${DIM}⋯ first ${meaningful.length - visible.length} line(s) hidden${RESET}`);
+}
+
 function composerLines(state: UiState, width: number): string[] {
   const composerWidth = Math.max(12, width - COMPOSER_HORIZONTAL_PADDING * 2);
   const label = state.terminalInput
@@ -381,18 +610,21 @@ function composerLines(state: UiState, width: number): string[] {
   const inputWidth = Math.max(12, composerWidth - 6);
   const inputRows = renderInputRows(state, inputWidth);
   const workingFrameText = state.running ? `${WARNING}${workingFrame()}${RESET} ` : '';
-  const composerHeader = `${ACCENT}╭─ ${label}${RESET} ${workingFrameText}${DIM}${status}${RESET}`;
-  const composerTop = `${composerHeader}${ACCENT}${'─'.repeat(Math.max(0, composerWidth - visibleLength(composerHeader) - 1))}╮${RESET}`;
+  const frameColor = state.focus === 'composer' ? ACCENT : PANEL;
+  const composerHeader = `${frameColor}╭─ ${RESET}${ACCENT}${label}${RESET} ${workingFrameText}${DIM}${status}${RESET}`;
+  const composerTop = `${composerHeader}${frameColor}${'─'.repeat(Math.max(0, composerWidth - visibleLength(composerHeader) - 1))}╮${RESET}`;
   const frame = (line: string): string => insetComposerLine(line, width, composerWidth);
+  const noticeStrip = noticeStripLine(state, width);
   return [
+    ...(noticeStrip ? [noticeStrip] : []),
     `${PANEL}${'─'.repeat(width)}${RESET}`,
     frame(contextLine),
     ...Array.from({ length: COMPOSER_SECTION_GAP }, () => ''),
     frame(composerTop),
     ...inputRows.map((line, index) => index === 0
-      ? frame(`${ACCENT}│${RESET} ${BOLD}${prompt}${RESET} ${padAnsi(fitAnsi(line, inputWidth), inputWidth)} ${ACCENT}│${RESET}`)
-      : frame(`${ACCENT}│${RESET}   ${padAnsi(fitAnsi(line, inputWidth), inputWidth)} ${ACCENT}│${RESET}`)),
-    frame(`${ACCENT}╰${'─'.repeat(Math.max(0, composerWidth - 2))}╯${RESET}`),
+      ? frame(`${frameColor}│${RESET} ${BOLD}${prompt}${RESET} ${padAnsi(fitAnsi(line, inputWidth), inputWidth)} ${frameColor}│${RESET}`)
+      : frame(`${frameColor}│${RESET}   ${padAnsi(fitAnsi(line, inputWidth), inputWidth)} ${frameColor}│${RESET}`)),
+    frame(`${frameColor}╰${'─'.repeat(Math.max(0, composerWidth - 2))}╯${RESET}`),
   ];
 }
 
@@ -419,9 +651,33 @@ function composerStatus(state: UiState): string {
 type InputUnit = { value: string; index: number };
 type InputLine = { units: InputUnit[]; segmentStart: number; segmentEnd: number; lastInSegment: boolean };
 
+const COMPOSER_PLACEHOLDERS: Record<UiState['mode'], string> = {
+  chat: 'Describe what you want to build or investigate',
+  build: 'Describe the change to implement in this workspace',
+  review: 'Point at the code or diff that should be reviewed',
+  debug: 'Describe the failure and the expected behavior',
+  plan: 'Describe the goal to turn into an implementation plan',
+};
+
+function composerPlaceholder(state: UiState): string {
+  if (state.terminalInput?.masked) return 'Type the sensitive value the terminal is asking for';
+  if (state.terminalInput) return 'Respond to the terminal prompt and press Enter';
+  return COMPOSER_PLACEHOLDERS[state.mode];
+}
+
+function noticeStripLine(state: UiState, width: number): string | null {
+  const latestAttention = [...state.notices].reverse().find((notice) => notice.level !== 'info');
+  const errorText = latestAttention?.level === 'error' || !latestAttention ? state.lastError : null;
+  const text = latestAttention?.text ?? errorText;
+  if (!text) return null;
+  const color = latestAttention?.level === 'error' || (!latestAttention && errorText) ? ERROR : WARNING;
+  const glyph = color === ERROR ? '×' : '▲';
+  return `${color}${glyph} ${shorten(inlineText(text), Math.max(12, width - 6))}${RESET}`;
+}
+
 function renderInputRows(state: UiState, width: number): string[] {
   const characters = Array.from(state.input).map((value) => state.terminalInput?.masked && value !== '\n' ? '•' : value);
-  if (characters.length === 0) return [`${MUTED}Describe what you want to build or investigate${RESET}`];
+  if (characters.length === 0) return [`${MUTED}${composerPlaceholder(state)}${RESET}`];
   const cursor = Math.min(state.inputCursor, characters.length);
   const lines: InputLine[] = [];
   let segmentStart = 0;
@@ -432,16 +688,32 @@ function renderInputRows(state: UiState, width: number): string[] {
     }
   }
 
-  const rendered = lines.map((line) => {
+  const containsCursor = (line: InputLine): boolean => {
     const lineStart = line.units[0]?.index ?? line.segmentStart;
-    const lineEnd = line.units.at(-1)?.index !== undefined ? (line.units.at(-1)?.index ?? 0) + 1 : line.segmentStart;
-    const cursorBelongs = cursor >= lineStart && (cursor < lineEnd || (line.lastInSegment && cursor <= line.segmentEnd));
+    const lastIndex = line.units.at(-1)?.index;
+    const lineEnd = lastIndex !== undefined ? lastIndex + 1 : line.segmentStart;
+    return cursor >= lineStart && (cursor < lineEnd || (line.lastInSegment && cursor <= line.segmentEnd));
+  };
+  const renderSegment = (line: InputLine): string => {
     const content = line.units.map((unit) => unit.index === cursor ? `${INVERSE}${unit.value}${RESET}` : unit.value).join('');
-    if (!cursorBelongs || line.units.some((unit) => unit.index === cursor)) return content;
+    if (line.units.some((unit) => unit.index === cursor) || !containsCursor(line)) return content;
     if (cursor === line.segmentEnd && line.segmentEnd < characters.length && characters[line.segmentEnd] === '\n') return `${content}${INVERSE}↵${RESET}`;
     return `${INVERSE} ${RESET}${content}`;
-  });
+  };
 
+  const cursorLineIndex = lines.findIndex(containsCursor);
+  const totalLines = lines.length;
+  let windowStart = 0;
+  let windowEnd = totalLines;
+  if (totalLines > MAX_INPUT_ROWS) {
+    const anchor = cursorLineIndex >= 0 ? cursorLineIndex : totalLines - 1;
+    windowStart = Math.min(Math.max(0, anchor - Math.floor(MAX_INPUT_ROWS / 2)), totalLines - MAX_INPUT_ROWS);
+    windowEnd = windowStart + MAX_INPUT_ROWS;
+  }
+
+  const rendered = lines.slice(windowStart, windowEnd).map(renderSegment);
+  if (windowStart > 0) rendered.unshift(`${DIM}⋯ +${windowStart} line(s) above${RESET}`);
+  if (windowEnd < totalLines) rendered.push(`${DIM}⋯ +${totalLines - windowEnd} line(s) below${RESET}`);
   return rendered.length > 0 ? rendered : [`${INVERSE} ${RESET}`];
 }
 
@@ -576,7 +848,7 @@ function flowOptions(state: UiState, flow: CommandFlow): string[] {
   return selectionOptions(state, flow).map((option) => option.label);
 }
 
-function interactionLines(interaction: InteractionState, width: number): string[] {
+function interactionLines(interaction: InteractionState, state: UiState, width: number): string[] {
   if (interaction.kind === 'approval') {
     if (interaction.externalAccess) {
       const operation = interaction.externalAccess.operation === 'write'
@@ -592,7 +864,7 @@ function interactionLines(interaction: InteractionState, width: number): string[
           : []),
         `${DIM}Tool: ${interaction.toolName} · risk: ${interaction.risk}${RESET}`,
         `${DIM}Paths:${RESET}`,
-        ...interaction.externalAccess.paths.map((path) => `  ${path}`),
+        ...interaction.externalAccess.paths.map((path) => `  ${ACCENT}${shorten(path, Math.max(12, width - 6))}${RESET}`),
         `${DIM}Session directories: ${interaction.externalAccess.directories.join(', ')}${RESET}`,
         `${WARNING}Y allow once   D allow directory for this session   N deny${RESET}`,
       ].flatMap((line) => wrapText(line, Math.max(20, width - 8)));
@@ -600,8 +872,8 @@ function interactionLines(interaction: InteractionState, width: number): string[
     return [
       `${WARNING}${BOLD}The agent wants to use ${interaction.toolName}${RESET}`,
       ...wrapText(interaction.description, Math.max(20, width - 8)).map((line) => `${SOFT}${line}${RESET}`),
+      ...approvalDetailLines(interaction, state, width),
       `${DIM}Risk level: ${interaction.risk}${RESET}`,
-      `${DIM}Input: ${shorten(formatValue(interaction.input), width - 8)}${RESET}`,
       `${WARNING}Y allow   N deny   T trust   A approve all${RESET}`,
     ];
   }
@@ -620,16 +892,51 @@ function interactionLines(interaction: InteractionState, width: number): string[
   return [
     `${WARNING}${BOLD}${shorten(interaction.title, width - 8)}${RESET} ${DIM}${questionIndex + 1}/${interaction.questions.length}${RESET}`,
     ...wrapText(question, Math.max(20, width - 8)),
-    ...(questionState?.options ?? []).map((option, index) => `${index === interaction.selectedOption ? `${ACCENT}${BOLD}›${RESET}` : ' '} ${index === interaction.selectedOption ? BOLD : ''}${shorten(option.label, width - 10)}${index === interaction.selectedOption ? RESET : ''}`),
     `${WARNING}Type the answer below and press Enter.${RESET}`,
   ];
+}
+
+const APPROVAL_PATH_KEYS = ['filePath', 'file_path', 'path', 'notebookPath', 'notebook_path'] as const;
+
+function approvalDetailLines(interaction: Extract<InteractionState, { kind: 'approval' }>, state: UiState, width: number): string[] {
+  const contentWidth = Math.max(16, width - 10);
+  const paths = [...new Set(APPROVAL_PATH_KEYS
+    .map((key) => interaction.input[key])
+    .filter((value): value is string => typeof value === 'string' && Boolean(value.trim())))];
+  const command = typeof interaction.input.command === 'string' ? interaction.input.command.trim() : '';
+  const detailLines: string[] = [];
+  for (const path of paths) detailLines.push(`  ${ACCENT}${shorten(inlineText(path), contentWidth)}${RESET}`);
+  if (command) detailLines.push(`  ${SOFT}$ ${shorten(inlineText(command), contentWidth - 2)}${RESET}`);
+  const change = state.fileChanges.find((candidate) => candidate.toolCallId === interaction.toolCallId)
+    ?? null;
+  const before = change?.originalContent ?? stringInput(interaction.input.old_string);
+  const after = change?.newContent ?? stringInput(interaction.input.new_string) ?? stringInput(interaction.input.content);
+  if ((before !== null || after !== null) && !command) {
+    const diffPreview = changeDiff(before, after ?? '', width).slice(0, 10);
+    if (!(diffPreview.length === 1 && diffPreview[0].includes('no textual diff'))) {
+      detailLines.push(`${DIM}  proposed change${RESET}`, ...diffPreview.map((line) => `  ${line.trimEnd()}`));
+    }
+  }
+  if (detailLines.length > 0) return detailLines;
+  let serialized = '';
+  try {
+    serialized = JSON.stringify(interaction.input, null, 2) ?? '';
+  } catch {
+    serialized = '<unserializable>';
+  }
+  const jsonLines = serialized.split(/\r?\n/u).slice(0, 8);
+  return jsonLines.map((line) => `${DIM}  ${shorten(line, contentWidth)}${RESET}`);
+}
+
+function stringInput(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function helpLines(): string[] {
   const groups = ['runtime', 'session', 'context', 'workspace', 'model'] as const;
   const lines: string[] = [
     `${DIM}Slash commands are searchable. Type / in the composer, Tab completes, Enter executes.${RESET}`,
-    `${DIM}Shift-Tab cycles modes · Ctrl-T cycles thinking · Ctrl-K opens the palette anywhere.${RESET}`,
+    `${DIM}Shift-Tab cycles modes · Ctrl-T cycles thinking · Ctrl-K opens the palette · Ctrl-O expands the latest tool card.${RESET}`,
   ];
   for (const group of groups) {
     lines.push(`${ACCENT}${BOLD}${group.toUpperCase()}${RESET}`);
@@ -912,15 +1219,6 @@ function isWideCodePoint(codePoint: number): boolean {
     || (codePoint >= 0x20000 && codePoint <= 0x3fffd);
 }
 
-function formatValue(value: unknown): string {
-  try {
-    const serialized = JSON.stringify(value) ?? 'null';
-    return serialized.length > 500 ? `${serialized.slice(0, 500)}…` : serialized;
-  } catch {
-    return '<unserializable>';
-  }
-}
-
 function contextMeter(state: UiState, width: number): string {
   const contextWindow = state.usage.contextWindow;
   const contextTokens = Math.max(0, state.usage.inputTokens, state.context.gatheredTokens);
@@ -970,14 +1268,8 @@ function renderMarkdown(value: string, kind: TranscriptItem['kind'], width: numb
   const text = stripAnsi(value).replace(/\r\n/g, '\n');
   if (!text) return [''];
 
-  const solidColor = kind === 'thinking' || kind === 'tool'
-    ? WARNING
-    : kind === 'result'
-      ? SUCCESS
-      : kind === 'error'
-        ? ERROR
-        : null;
-  if (solidColor) return wrapText(text, width).map((line) => `${solidColor}${line}${RESET}`);
+  if (kind === 'thinking' || kind === 'tool') return wrapText(text, width).map((line) => `${WARNING}${line}${RESET}`);
+  if (kind === 'error') return wrapText(text, width).map((line) => `${ERROR}${line}${RESET}`);
 
   const source = text.split('\n');
   const lines: string[] = [];

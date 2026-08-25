@@ -48,7 +48,7 @@ function decodeKeys(input: string, preserveIncomplete: boolean): { keys: Key[]; 
     if (code === 3) keys.push({ type: 'ctrl', value: 'c' });
     else if (code === 11) keys.push({ type: 'ctrl', value: 'k' });
     else if (code === 20) keys.push({ type: 'ctrl', value: 't' });
-    else if (code === 21) keys.push({ type: 'ctrl', value: 'u' });
+    else if (code === 15) keys.push({ type: 'ctrl', value: 'o' });
     else if (code === 23) keys.push({ type: 'ctrl', value: 'w' });
     else if (code === 1) keys.push({ type: 'home' });
     else if (code === 5) keys.push({ type: 'end' });
