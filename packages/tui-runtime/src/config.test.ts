@@ -113,4 +113,23 @@ describe('shared desktop configuration compatibility', () => {
     };
     expect(buildThinkingConfig(settings, 'openai', 'gpt-5')).toEqual(settings.thinkingSettings['openai::gpt-5']);
   });
+
+  it('normalizes enabledModels and customModels from the desktop settings payload', async () => {
+    const directory = await temporaryDirectory();
+    const settingsPath = path.join(directory, 'settings.json');
+    await writeFile(settingsPath, JSON.stringify({
+      activeProviderId: 'openrouter',
+      activeModelId: 'vendor/custom',
+      enabledModels: { anthropic: ['claude-opus-5'], openrouter: ['vendor/custom'] },
+      customModels: [
+        { providerId: 'openrouter', modelId: 'vendor/custom', name: 'Custom Model' },
+        { providerId: 'anthropic', modelId: 42 },
+        'garbage',
+      ],
+    }));
+
+    const settings = await new SharedConfigStore(settingsPath).load();
+    expect(settings.enabledModels).toEqual({ anthropic: ['claude-opus-5'], openrouter: ['vendor/custom'] });
+    expect(settings.customModels).toEqual([{ providerId: 'openrouter', modelId: 'vendor/custom', name: 'Custom Model' }]);
+  });
 });

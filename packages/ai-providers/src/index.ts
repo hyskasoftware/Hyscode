@@ -58,6 +58,8 @@ export type { CodexInvoke, CodexReasoningEffort } from './providers/codex';
 export { GitHubCopilotProvider } from './providers/github-copilot';
 export { OpenCodeZenProvider } from './providers/opencode-zen';
 export { OpenCodeGoProvider } from './providers/opencode-go';
+export { getProviderCatalog } from './catalog';
+export type { CatalogEntry } from './catalog';
 
 // ─── Registry ───────────────────────────────────────────────────────────────
 export { ProviderRegistry, getProviderRegistry } from './registry';

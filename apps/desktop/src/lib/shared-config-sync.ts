@@ -1,5 +1,5 @@
 import { tauriInvokeRaw } from './tauri-invoke';
-import { useSettingsStore, type ModelThinkingConfig, type ThemeId, type UpdateChannel } from '@/stores/settings-store';
+import { useSettingsStore, type CustomModel, type ModelThinkingConfig, type ThemeId, type UpdateChannel } from '@/stores/settings-store';
 
 type SharedSettingsPayload = {
   themeId: ThemeId;
@@ -19,6 +19,8 @@ type SharedSettingsPayload = {
   agentRequestTimeoutMs: number;
   agentStreamIdleTimeoutMs: number;
   thinkingSettings: Record<string, unknown>;
+  enabledModels: Record<string, string[]>;
+  customModels: CustomModel[];
   mcpServers: unknown[];
   skillsPath: string;
   globalRulesPath: string;
@@ -38,6 +40,8 @@ type SharedSettingsImport = {
   activeProviderId: string | null;
   activeModelId: string | null;
   thinkingSettings: Record<string, ModelThinkingConfig>;
+  enabledModels?: Record<string, string[]>;
+  customModels?: CustomModel[];
   updateChannel?: UpdateChannel;
   checkForUpdatesOnStartup?: boolean;
   autoDownload?: boolean;
@@ -104,11 +108,25 @@ function parseSharedSettings(value: unknown): SharedSettingsImport | null {
       if (parsed) thinkingSettings[key] = parsed;
     }
   }
+  const enabledModels: Record<string, string[]> = {};
+  if (isRecord(value.enabledModels)) {
+    for (const [providerId, ids] of Object.entries(value.enabledModels)) {
+      if (Array.isArray(ids)) enabledModels[providerId] = ids.map(String);
+    }
+  }
+  const customModels: CustomModel[] = Array.isArray(value.customModels)
+    ? value.customModels.flatMap((candidate) => {
+        if (!isRecord(candidate) || typeof candidate.providerId !== 'string' || typeof candidate.modelId !== 'string' || typeof candidate.name !== 'string') return [];
+        return { providerId: candidate.providerId, modelId: candidate.modelId, name: candidate.name };
+      })
+    : [];
   return {
     ...(typeof value.themeId === 'string' && value.themeId.trim() ? { themeId: value.themeId as ThemeId } : {}),
     activeProviderId: value.activeProviderId,
     activeModelId: value.activeModelId,
     thinkingSettings,
+    ...(Object.keys(enabledModels).length > 0 ? { enabledModels } : {}),
+    ...(customModels.length > 0 ? { customModels } : {}),
     ...(isUpdateChannel(value.updateChannel) ? { updateChannel: value.updateChannel } : {}),
     ...(typeof value.checkForUpdatesOnStartup === 'boolean' ? { checkForUpdatesOnStartup: value.checkForUpdatesOnStartup } : {}),
     ...(typeof value.autoDownload === 'boolean' ? { autoDownload: value.autoDownload } : {}),
@@ -147,6 +165,8 @@ function buildPayload(): SharedSettingsPayload {
     updateChannel: settings.updateChannel,
     checkForUpdatesOnStartup: settings.checkForUpdatesOnStartup,
     autoDownload: settings.autoDownload,
+    enabledModels: settings.enabledModels,
+    customModels: settings.customModels,
   };
 }
 
@@ -190,6 +210,8 @@ export async function hydrateSharedSettings(): Promise<boolean> {
         ...current.thinkingSettings,
         ...imported.thinkingSettings,
       },
+      ...(imported.enabledModels ? { enabledModels: imported.enabledModels } : {}),
+      ...(imported.customModels ? { customModels: imported.customModels } : {}),
       ...(imported.updateChannel ? { updateChannel: imported.updateChannel } : {}),
       ...(imported.checkForUpdatesOnStartup !== undefined ? { checkForUpdatesOnStartup: imported.checkForUpdatesOnStartup } : {}),
       ...(imported.autoDownload !== undefined ? { autoDownload: imported.autoDownload } : {}),

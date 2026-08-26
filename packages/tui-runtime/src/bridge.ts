@@ -52,6 +52,7 @@ import {
   buildThinkingConfig,
   type SharedTuiSettings,
 } from './config';
+import { buildCatalogProviders } from './catalog';
 import { CliHost } from './host';
 import { normalizeTerminalViewport, type TerminalHandoff, type TerminalViewport } from './terminal-handoff';
 import { findTheme, loadThemeCatalog, normalizeThemeId } from './themes';
@@ -294,7 +295,9 @@ export class TuiBridge {
       baseDelayMs: this.settings.agentRetryBaseDelayMs,
       maxDelayMs: this.settings.agentRetryMaxDelayMs,
     });
-
+    // Ollama's catalog is discovered from the local daemon instead of a
+    // static list, so the TUI sees the same models the desktop picker shows.
+    await registry.get('ollama')?.listModels();
     // The standalone TUI runs inside the same TypeScript process as the
     // runtime. CliHost owns the native PTY lifecycle directly, so the
     // production path does not need the former Rust host-request round trip.
@@ -1277,7 +1280,13 @@ export class TuiBridge {
   private async runtimeReady(): Promise<RuntimeReadyPayload> {
     const harness = this.requireHarness();
     const registry = getProviderRegistry();
-    const providers = registry.list().map((provider) => ({ id: provider.id, name: provider.name, configured: provider.isConfigured(), models: provider.models }));
+    const settings = this.requireSettings();
+    const providers = buildCatalogProviders({
+      configuredIds: registry.list().map((provider) => provider.id),
+      dynamicModels: { ollama: registry.get('ollama')?.models ?? [] },
+      enabledModels: settings.enabledModels,
+      customModels: settings.customModels,
+    });
     const models = providers.flatMap((provider) => provider.configured ? provider.models : []);
     return {
       protocolVersion: 1,

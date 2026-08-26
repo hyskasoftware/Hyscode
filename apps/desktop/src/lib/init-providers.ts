@@ -4,6 +4,7 @@
 
 import { getProviderRegistry } from '@hyscode/ai-providers';
 import { tauriKeyStore } from './tauri-key-store';
+import { applyDiscoveredModels } from './provider-catalog';
 import { createTauriFetch } from './tauri-ai-transport';
 import { createCodexInvoke } from './tauri-codex-transport';
 import { tauriInvoke } from './tauri-invoke';
@@ -103,6 +104,10 @@ export async function initProviders(): Promise<void> {
       getCodexInvoke(),
       await getCodexAuthDetected(),
     );
+    // Ollama's models come from the local daemon rather than a static list —
+    // mirror the discovery into the shared desktop catalog picker.
+    const ollama = registry.get('ollama');
+    if (ollama) applyDiscoveredModels('ollama', await ollama.listModels());
   });
 }
 
@@ -117,4 +122,9 @@ export async function reinitProvider(providerId: string): Promise<void> {
     getCodexInvoke(),
     await getCodexAuthDetected(),
   );
+  if (providerId === 'ollama') {
+    const ollama = registry.get('ollama');
+    if (ollama) applyDiscoveredModels('ollama', await ollama.listModels());
+  }
 }
+

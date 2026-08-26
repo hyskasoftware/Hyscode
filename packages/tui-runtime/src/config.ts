@@ -12,6 +12,12 @@ export type CustomApprovalRules = {
 
 export type UpdateChannel = 'stable' | 'pre-release';
 
+export type SharedCustomModel = {
+  providerId: string;
+  modelId: string;
+  name: string;
+};
+
 export type SharedTuiSettings = {
   themeId: string;
   sidebarVisible: boolean;
@@ -31,6 +37,10 @@ export type SharedTuiSettings = {
   agentRequestTimeoutMs: number;
   agentStreamIdleTimeoutMs: number;
   thinkingSettings: Record<string, Record<string, unknown>>;
+  /** Provider id → enabled model ids (shared with the desktop picker). Absent key = all enabled. */
+  enabledModels: Record<string, string[]>;
+  /** User-added custom models shared with the desktop picker. */
+  customModels: SharedCustomModel[];
   mcpServers: Array<McpServerConfig & { enabled?: boolean; agentSafe?: boolean }>;
   skillsPath: string;
   globalRulesPath: string;
@@ -64,6 +74,8 @@ const DEFAULT_SETTINGS: SharedTuiSettings = {
   agentRequestTimeoutMs: 120000,
   agentStreamIdleTimeoutMs: 90000,
   thinkingSettings: {},
+  enabledModels: {},
+  customModels: [],
   mcpServers: [],
   skillsPath: '',
   globalRulesPath: '',
@@ -123,6 +135,18 @@ function normalizeSettings(raw: unknown): SharedTuiSettings {
   const approvalMode = isApprovalMode(raw.approvalMode)
     ? raw.approvalMode
     : DEFAULT_SETTINGS.approvalMode;
+  const enabledModels: Record<string, string[]> = {};
+  if (isObject(raw.enabledModels)) {
+    for (const [providerId, ids] of Object.entries(raw.enabledModels)) {
+      if (Array.isArray(ids)) enabledModels[providerId] = ids.map(String);
+    }
+  }
+  const customModels = Array.isArray(raw.customModels)
+    ? raw.customModels.flatMap((candidate): SharedCustomModel[] => {
+        if (!isObject(candidate) || typeof candidate.providerId !== 'string' || typeof candidate.modelId !== 'string' || typeof candidate.name !== 'string') return [];
+        return [{ providerId: candidate.providerId, modelId: candidate.modelId, name: candidate.name }];
+      })
+    : [];
   return {
     ...DEFAULT_SETTINGS,
     ...raw,
@@ -141,7 +165,6 @@ function normalizeSettings(raw: unknown): SharedTuiSettings {
     temperature: numberOrDefault(raw.temperature, DEFAULT_SETTINGS.temperature),
     maxTokens: numberOrDefault(raw.maxTokens, DEFAULT_SETTINGS.maxTokens),
     topP: typeof raw.topP === 'number' ? raw.topP : null,
-    agentMaxRetries: numberOrDefault(raw.agentMaxRetries, DEFAULT_SETTINGS.agentMaxRetries),
     agentRetryBaseDelayMs: numberOrDefault(raw.agentRetryBaseDelayMs, DEFAULT_SETTINGS.agentRetryBaseDelayMs),
     agentRetryMaxDelayMs: numberOrDefault(raw.agentRetryMaxDelayMs, DEFAULT_SETTINGS.agentRetryMaxDelayMs),
     agentRequestTimeoutMs: numberOrDefault(raw.agentRequestTimeoutMs, DEFAULT_SETTINGS.agentRequestTimeoutMs),
@@ -151,7 +174,8 @@ function normalizeSettings(raw: unknown): SharedTuiSettings {
       : {},
     mcpServers,
     skillsPath: typeof raw.skillsPath === 'string' ? raw.skillsPath : '',
-    globalRulesPath: typeof raw.globalRulesPath === 'string' ? raw.globalRulesPath : '',
+    enabledModels,
+    customModels,
     terminalShell: typeof raw.terminalShell === 'string' ? raw.terminalShell : '',
     subAgentEnabled: raw.subAgentEnabled !== false,
     subAgentDefaultMode: isAgentType(raw.subAgentDefaultMode) && raw.subAgentDefaultMode !== 'chat'

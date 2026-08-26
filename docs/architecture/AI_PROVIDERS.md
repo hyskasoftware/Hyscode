@@ -441,6 +441,7 @@ intersects enabled catalog models with providers and models that are actually co
 An unavailable persisted selection is shown as unavailable and never falls back silently to
 another provider.
 
+
 Generation is a tool-free, single-turn text request (`maxTurns: 1`, `maxTokens: 256`) without
 a forced temperature or thinking mode. The consumer handles `error`, `usage`, and `done`
 chunks explicitly. Cancellation discards all partial text, and `max_tokens`, `tool_use`,
@@ -451,6 +452,18 @@ owned by the registry and Tauri transport.
 Only repository-relative staged-change metadata and bounded staged patches are sent. Prompts
 mark repository content as untrusted data, and neither prompts nor raw model responses are
 logged.
+
+### Canonical Model Catalog
+
+`packages/ai-providers/src/catalog.ts` (`getProviderCatalog`) is the single source of truth
+for provider/model metadata shown on every surface. Each entry is built from the provider
+implementations themselves, so chat-time and UI lists cannot drift. The desktop picker
+(`apps/desktop/src/lib/provider-catalog.ts`) and the TUI runtime bridge
+(`packages/tui-runtime/src/catalog.ts` → `runtime_ready`) both derive from this catalog.
+Ollama is the exception: its models are discovered from the local daemon via
+`listModels()` and replace the static entry at startup. The shared settings file
+also carries the desktop's `enabledModels` and `customModels`, so the TUI renders the
+same enabled subset and user-added models as the desktop app.
 
 ---
 
