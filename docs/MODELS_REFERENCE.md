@@ -1,6 +1,12 @@
 # Compilação Completa de Modelos por Provedor
 
-Referência consolidada de todos os modelos listados nas documentações oficiais de cada provedor, com ID, nome, janela de contexto, custos em USD (por 1M tokens) e tipos de pensamento/esforço suportados. 
+Referência consolidada de todos os modelos listados nas documentações oficiais de cada provedor, com ID, nome, janela de contexto, custos em USD (por 1M tokens) e tipos de pensamento/esforço suportados.
+
+> **Fonte viva (issue #51):** para OpenCode Zen e Go esta tabela é materializada em
+> `packages/ai-providers/src/model-metadata/catalog-corrections.ts`, consumida pelo
+> resolver dinâmico com interseção em `GET /v1/models`. Alterações de catálogo upstream
+> devem atualizar essa tabela (veja `scripts/sync-model-catalog.mjs --check` para drift);
+> as seções abaixo permanecem como referência histórica das fontes oficiais.
 
 ---
 

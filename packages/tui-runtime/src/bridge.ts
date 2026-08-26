@@ -295,9 +295,17 @@ export class TuiBridge {
       baseDelayMs: this.settings.agentRetryBaseDelayMs,
       maxDelayMs: this.settings.agentRetryMaxDelayMs,
     });
-    // Ollama's catalog is discovered from the local daemon instead of a
-    // static list, so the TUI sees the same models the desktop picker shows.
-    await registry.get('ollama')?.listModels();
+    // Ollama's catalog is discovered from the local daemon; Zen/Go publish
+    // live availability via their gateways (issue #51). Refreshing here keeps
+    // the TUI model list in sync with what the desktop picker shows. A failed
+    // refresh keeps the provider's static list.
+    for (const dynamicProviderId of ['ollama', 'opencode-zen', 'opencode-go'] as const) {
+      try {
+        await registry.get(dynamicProviderId)?.listModels();
+      } catch {
+        // Discovery is best-effort; static fallback already loaded.
+      }
+    }
     // The standalone TUI runs inside the same TypeScript process as the
     // runtime. CliHost owns the native PTY lifecycle directly, so the
     // production path does not need the former Rust host-request round trip.

@@ -2,7 +2,7 @@
 // Initializes the ProviderRegistry singleton with API keys from the Tauri keychain.
 // Must be called once at app startup before any agent messages are sent.
 
-import { getProviderRegistry } from '@hyscode/ai-providers';
+import { getProviderRegistry, type ProviderRegistry } from '@hyscode/ai-providers';
 import { tauriKeyStore } from './tauri-key-store';
 import { applyDiscoveredModels } from './provider-catalog';
 import { createTauriFetch } from './tauri-ai-transport';
@@ -104,11 +104,27 @@ export async function initProviders(): Promise<void> {
       getCodexInvoke(),
       await getCodexAuthDetected(),
     );
-    // Ollama's models come from the local daemon rather than a static list —
-    // mirror the discovery into the shared desktop catalog picker.
-    const ollama = registry.get('ollama');
-    if (ollama) applyDiscoveredModels('ollama', await ollama.listModels());
+    // Ollama's models come from the local daemon; Zen/Go publish live
+    // availability via their gateways (issue #51) — refresh each into the
+    // shared desktop catalog picker. Failures keep static lists.
+    await discoverProviderModels(registry, 'ollama');
+    await discoverProviderModels(registry, 'opencode-zen');
+    await discoverProviderModels(registry, 'opencode-go');
   });
+}
+
+/** Runs provider.listModels() and mirrors results into the catalog picker. */
+async function discoverProviderModels(
+  registry: ProviderRegistry,
+  providerId: string,
+): Promise<void> {
+  const provider = registry.get(providerId);
+  if (!provider) return;
+  try {
+    applyDiscoveredModels(providerId, await provider.listModels());
+  } catch (error) {
+    console.warn(`[${providerId}] model discovery failed:`, error);
+  }
 }
 
 export async function reinitProvider(providerId: string): Promise<void> {
@@ -122,9 +138,8 @@ export async function reinitProvider(providerId: string): Promise<void> {
     getCodexInvoke(),
     await getCodexAuthDetected(),
   );
-  if (providerId === 'ollama') {
-    const ollama = registry.get('ollama');
-    if (ollama) applyDiscoveredModels('ollama', await ollama.listModels());
+  if (providerId === 'ollama' || providerId === 'opencode-zen' || providerId === 'opencode-go') {
+    await discoverProviderModels(registry, providerId);
   }
 }
 

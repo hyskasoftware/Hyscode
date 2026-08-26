@@ -1,0 +1,1444 @@
+{
+  "asOf": "2026-08-26T15:52:53.037Z",
+  "models": [
+    {
+      "id": "claude-fable-5",
+      "name": "Claude Fable 5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 10,
+      "outputPricePerMToken": 50,
+      "cachedInputPricePerMToken": 1,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 5,
+      "outputPricePerMToken": 25,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-opus-4-8",
+      "name": "Claude Opus 4.8 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 5,
+      "outputPricePerMToken": 25,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-opus-4-7",
+      "name": "Claude Opus 4.7 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 5,
+      "outputPricePerMToken": 25,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-opus-4-6",
+      "name": "Claude Opus 4.6 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 5,
+      "outputPricePerMToken": 25,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-opus-4-5",
+      "name": "Claude Opus 4.5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 5,
+      "outputPricePerMToken": 25,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "Claude Sonnet 5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 2,
+      "outputPricePerMToken": 10,
+      "cachedInputPricePerMToken": 0.2,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "name": "Claude Sonnet 4.6 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 3,
+      "outputPricePerMToken": 15,
+      "cachedInputPricePerMToken": 0.3,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": true
+      }
+    },
+    {
+      "id": "claude-sonnet-4-5",
+      "name": "Claude Sonnet 4.5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 3,
+      "outputPricePerMToken": 15,
+      "cachedInputPricePerMToken": 0.3,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": false
+      }
+    },
+    {
+      "id": "claude-sonnet-4",
+      "name": "Claude Sonnet 4 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 3,
+      "outputPricePerMToken": 15,
+      "cachedInputPricePerMToken": 0.3,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": false
+      }
+    },
+    {
+      "id": "claude-haiku-4-5",
+      "name": "Claude Haiku 4.5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1,
+      "outputPricePerMToken": 5,
+      "cachedInputPricePerMToken": 0.1,
+      "thinkingVariants": {
+        "kind": "anthropic",
+        "levels": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "high",
+        "supportsAdaptive": false
+      }
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT 5.6 Sol (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 5,
+      "outputPricePerMToken": 30,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium",
+        "modes": [
+          "standard",
+          "pro"
+        ],
+        "defaultMode": "standard"
+      }
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "name": "GPT 5.6 Terra (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 2,
+      "outputPricePerMToken": 12,
+      "cachedInputPricePerMToken": 0.2,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium",
+        "modes": [
+          "standard",
+          "pro"
+        ],
+        "defaultMode": "standard"
+      }
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "name": "GPT 5.6 Luna (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 0.2,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.02,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium",
+        "modes": [
+          "standard",
+          "pro"
+        ],
+        "defaultMode": "standard"
+      }
+    },
+    {
+      "id": "gpt-5.5",
+      "name": "GPT 5.5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 5,
+      "outputPricePerMToken": 30,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.5-pro",
+      "name": "GPT 5.5 Pro (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 30,
+      "outputPricePerMToken": 180,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.4",
+      "name": "GPT 5.4 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 2.5,
+      "outputPricePerMToken": 15,
+      "cachedInputPricePerMToken": 0.25,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.4-pro",
+      "name": "GPT 5.4 Pro (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 30,
+      "outputPricePerMToken": 180,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.4-mini",
+      "name": "GPT 5.4 Mini (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 0.75,
+      "outputPricePerMToken": 4.5,
+      "cachedInputPricePerMToken": 0.075,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.4-nano",
+      "name": "GPT 5.4 Nano (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 0.2,
+      "outputPricePerMToken": 1.25,
+      "cachedInputPricePerMToken": 0.02,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.3-codex",
+      "name": "GPT 5.3 Codex (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.75,
+      "outputPricePerMToken": 14,
+      "cachedInputPricePerMToken": 0.175,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.3-codex-spark",
+      "name": "GPT 5.3 Codex Spark (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.75,
+      "outputPricePerMToken": 14,
+      "cachedInputPricePerMToken": 0.175,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.2",
+      "name": "GPT 5.2 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.75,
+      "outputPricePerMToken": 14,
+      "cachedInputPricePerMToken": 0.175,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.2-codex",
+      "name": "GPT 5.2 Codex (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.75,
+      "outputPricePerMToken": 14,
+      "cachedInputPricePerMToken": 0.175,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.1",
+      "name": "GPT 5.1 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.07,
+      "outputPricePerMToken": 8.5,
+      "cachedInputPricePerMToken": 0.107,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.1-codex",
+      "name": "GPT 5.1 Codex (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.07,
+      "outputPricePerMToken": 8.5,
+      "cachedInputPricePerMToken": 0.107,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.1-codex-max",
+      "name": "GPT 5.1 Codex Max (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.25,
+      "outputPricePerMToken": 10,
+      "cachedInputPricePerMToken": 0.125,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.1-codex-mini",
+      "name": "GPT 5.1 Codex Mini (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 0.25,
+      "outputPricePerMToken": 2,
+      "cachedInputPricePerMToken": 0.025,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5",
+      "name": "GPT 5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.07,
+      "outputPricePerMToken": 8.5,
+      "cachedInputPricePerMToken": 0.107,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5-codex",
+      "name": "GPT 5 Codex (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 272000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.07,
+      "outputPricePerMToken": 8.5,
+      "cachedInputPricePerMToken": 0.107,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5-nano",
+      "name": "GPT 5 Nano (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 0.05,
+      "outputPricePerMToken": 0.4,
+      "cachedInputPricePerMToken": 0.005,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gemini-3.7-flash",
+      "name": "Gemini 3.7 Flash (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.5,
+      "outputPricePerMToken": 7.5,
+      "cachedInputPricePerMToken": 0.15,
+      "thinkingVariants": {
+        "kind": "gemini",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high"
+      }
+    },
+    {
+      "id": "gemini-3.6-flash",
+      "name": "Gemini 3.6 Flash (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.5,
+      "outputPricePerMToken": 7.5,
+      "cachedInputPricePerMToken": 0.15,
+      "thinkingVariants": {
+        "kind": "gemini",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high"
+      }
+    },
+    {
+      "id": "gemini-3.5-flash",
+      "name": "Gemini 3.5 Flash (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 1.5,
+      "outputPricePerMToken": 9,
+      "cachedInputPricePerMToken": 0.15,
+      "thinkingVariants": {
+        "kind": "gemini",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high"
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "name": "Gemini 3.5 Flash Lite (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 2.5,
+      "cachedInputPricePerMToken": 0.03,
+      "thinkingVariants": {
+        "kind": "gemini",
+        "levels": [
+          "low",
+          "medium"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gemini-3.1-pro",
+      "name": "Gemini 3.1 Pro (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 2,
+      "outputPricePerMToken": 12,
+      "cachedInputPricePerMToken": 0.2,
+      "thinkingVariants": {
+        "kind": "gemini",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high"
+      }
+    },
+    {
+      "id": "gemini-3-flash",
+      "name": "Gemini 3 Flash (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "inputPricePerMToken": 0.5,
+      "outputPricePerMToken": 3,
+      "cachedInputPricePerMToken": 0.05,
+      "thinkingVariants": {
+        "kind": "gemini",
+        "levels": [
+          "low",
+          "medium"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "qwen3.7-max",
+      "name": "Qwen3.7 Max (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 2.5,
+      "outputPricePerMToken": 7.5,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.7-plus",
+      "name": "Qwen3.7 Plus (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.4,
+      "outputPricePerMToken": 1.6,
+      "cachedInputPricePerMToken": 0.04,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.6-plus",
+      "name": "Qwen3.6 Plus (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.5,
+      "outputPricePerMToken": 3,
+      "cachedInputPricePerMToken": 0.05,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.5-plus",
+      "name": "Qwen3.5 Plus (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.2,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.02,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "minimax-m3",
+      "name": "MiniMax M3 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.06,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "adaptive",
+          "disabled"
+        ],
+        "defaultLevel": "adaptive"
+      }
+    },
+    {
+      "id": "minimax-m2.7",
+      "name": "MiniMax M2.7 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.06,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "minimax-m2.5",
+      "name": "MiniMax M2.5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.06,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "glm-5.2",
+      "name": "GLM 5.2 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 1.4,
+      "outputPricePerMToken": 4.4,
+      "cachedInputPricePerMToken": 0.26,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "low",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "glm-5.1",
+      "name": "GLM 5.1 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 1.4,
+      "outputPricePerMToken": 4.4,
+      "cachedInputPricePerMToken": 0.26,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "glm-5",
+      "name": "GLM 5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 1,
+      "outputPricePerMToken": 3.2,
+      "cachedInputPricePerMToken": 0.2,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.7-code",
+      "name": "Kimi K2.7 Code (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 262144,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.95,
+      "outputPricePerMToken": 4,
+      "cachedInputPricePerMToken": 0.19,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.6",
+      "name": "Kimi K2.6 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 262144,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.95,
+      "outputPricePerMToken": 4,
+      "cachedInputPricePerMToken": 0.16,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.5",
+      "name": "Kimi K2.5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 262144,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.6,
+      "outputPricePerMToken": 3,
+      "cachedInputPricePerMToken": 0.1,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "name": "DeepSeek V4 Pro (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 1.74,
+      "outputPricePerMToken": 3.48,
+      "cachedInputPricePerMToken": 0.145,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "name": "DeepSeek V4 Flash (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.14,
+      "outputPricePerMToken": 0.28,
+      "cachedInputPricePerMToken": 0.028,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "grok-4.6",
+      "name": "Grok 4.6 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 500000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 2,
+      "outputPricePerMToken": 6,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "grok-4.5",
+      "name": "Grok 4.5 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 500000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 2,
+      "outputPricePerMToken": 6,
+      "cachedInputPricePerMToken": 0.3,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "muse-spark-1.2",
+      "name": "Muse Spark 1.2 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 1.25,
+      "outputPricePerMToken": 4.25,
+      "cachedInputPricePerMToken": 0.15,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "default"
+      }
+    },
+    {
+      "id": "kimi-k3",
+      "name": "Kimi K3 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 3,
+      "outputPricePerMToken": 15,
+      "cachedInputPricePerMToken": 0.3,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "grok-build-0.1",
+      "name": "Grok Build 0.1 (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 200000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 1,
+      "outputPricePerMToken": 2,
+      "cachedInputPricePerMToken": 0.2
+    },
+    {
+      "id": "big-pickle",
+      "name": "Big Pickle (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0
+    },
+    {
+      "id": "mimo-v2.5-free",
+      "name": "MiMo-V2.5 Free (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0
+    },
+    {
+      "id": "laguna-s-2.1-free",
+      "name": "Laguna S 2.1 Free (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0
+    },
+    {
+      "id": "nemotron-3-ultra-free",
+      "name": "Nemotron 3 Ultra Free (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0
+    },
+    {
+      "id": "deepseek-v4-flash-free",
+      "name": "DeepSeek V4 Flash Free (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "hy3-free",
+      "name": "Hy3 Free (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "nemotron-3.5-lightning-free",
+      "name": "Nemotron 3.5 Lightning Free (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0
+    },
+    {
+      "id": "muse-spark-1.2-contributor-free",
+      "name": "Muse Spark 1.2 Contributor Free (Zen)",
+      "provider": "opencode-zen",
+      "contextWindow": 128000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0,
+      "outputPricePerMToken": 0,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "default"
+      }
+    }
+  ]
+}
