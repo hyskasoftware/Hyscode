@@ -1,0 +1,590 @@
+{
+  "asOf": "2026-08-26T15:52:53.039Z",
+  "models": [
+    {
+      "id": "grok-4.5",
+      "name": "Grok 4.5 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 500000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high"
+      }
+    },
+    {
+      "id": "grok-4.6",
+      "name": "Grok 4.6 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 500000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high"
+      }
+    },
+    {
+      "id": "glm-5.3",
+      "name": "GLM 5.3 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "low",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "glm-5.3-flash",
+      "name": "GLM 5.3 Flash (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "low",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "glm-5.2",
+      "name": "GLM 5.2 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "low",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "glm-5.1",
+      "name": "GLM 5.1 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "glm-5",
+      "name": "GLM 5 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 200000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k3",
+      "name": "Kimi K3 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "kimi-k2.7-code",
+      "name": "Kimi K2.7 Code (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 262144,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.6",
+      "name": "Kimi K2.6 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 262144,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.5",
+      "name": "Kimi K2.5 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "longcat-2.0",
+      "name": "LongCat 2.0 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 131072,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "mimo-v2.5",
+      "name": "MiMo V2.5 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "mimo-v2.5-pro",
+      "name": "MiMo V2.5 Pro (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "mimo-v2-pro",
+      "name": "MiMo V2 Pro (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "mimo-v2-omni",
+      "name": "MiMo V2 Omni (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled",
+          "disabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "name": "DeepSeek V4 Pro (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "name": "DeepSeek V4 Flash (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "deepseek-v4-flash-vision-exp",
+      "name": "DeepSeek V4 Flash Vision Exp (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 8192,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "hy3",
+      "name": "Hy3 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "hy3-preview",
+      "name": "Hy3 Preview (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "name": "GPT 5.6 Luna (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": true,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "defaultLevel": "medium",
+        "modes": [
+          "standard",
+          "pro"
+        ],
+        "defaultMode": "standard"
+      }
+    },
+    {
+      "id": "muse-spark-1.2-contributor",
+      "name": "Muse Spark 1.2 Contributor (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "default"
+      }
+    },
+    {
+      "id": "minimax-m3",
+      "name": "MiniMax M3 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "adaptive",
+          "disabled"
+        ],
+        "defaultLevel": "adaptive"
+      }
+    },
+    {
+      "id": "minimax-m2.7",
+      "name": "MiniMax M2.7 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "minimax-m2.5",
+      "name": "MiniMax M2.5 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "kimi",
+        "levels": [
+          "enabled"
+        ],
+        "defaultLevel": "enabled"
+      }
+    },
+    {
+      "id": "qwen3.8-max",
+      "name": "Qwen3.8 Max (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.7-max",
+      "name": "Qwen3.7 Max (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.7-plus",
+      "name": "Qwen3.7 Plus (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.6-plus",
+      "name": "Qwen3.6 Plus (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.5-plus",
+      "name": "Qwen3.5 Plus (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    }
+  ]
+}

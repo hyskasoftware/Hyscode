@@ -428,6 +428,12 @@ export function AgentPanel() {
                 isStreaming && tab.id !== activeTabId && 'cursor-not-allowed opacity-50',
               )}
               onClick={() => switchTab(tab.id)}
+              onMouseDown={(e) => {
+                if (e.button === 1) {
+                  e.preventDefault();
+                  closeTab(tab.id);
+                }
+              }}
             >
               <span className="min-w-0 truncate">{tab.title}</span>
               {openTabs.length > 1 && (

@@ -10,6 +10,7 @@ export default defineConfig({
       '@hyscode/extension-api': path.resolve(__dirname, '../../packages/extension-api/src'),
       '@hyscode/lsp-client': path.resolve(__dirname, '../../packages/lsp-client/src'),
       '@hyscode/ui': path.resolve(__dirname, '../../packages/ui/src'),
+      '@hyscode/theme': path.resolve(__dirname, '../../packages/theme/src'),
       '@hyscode/ai-providers': path.resolve(__dirname, '../../packages/ai-providers/src'),
       '@hyscode/agent-harness': path.resolve(__dirname, '../../packages/agent-harness/src'),
       '@hyscode/mcp-client': path.resolve(__dirname, '../../packages/mcp-client/src'),

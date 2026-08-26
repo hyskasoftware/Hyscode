@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { Terminal, Plus, X, GripVertical, Bot } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTerminalStore } from '../../stores/terminal-store';
@@ -32,6 +32,22 @@ export function TerminalPanel() {
     [closeSession],
   );
 
+  // Translate vertical wheel input into horizontal scrolling once tabs overflow
+  const tabBarRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (delta === 0) return;
+      e.preventDefault();
+      el.scrollLeft += delta;
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // Drag the terminal header to move it to the sidebar
   const handleDragStart = useCallback((e: React.DragEvent) => {
     e.dataTransfer.setData('hyscode/terminal-move', 'to-sidebar');
@@ -42,7 +58,7 @@ export function TerminalPanel() {
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       {/* Tab bar — session tabs always visible; drag grip only in bottom mode */}
       <div className="flex h-8 shrink-0 items-center justify-between bg-surface-raised">
-        <div className="flex items-center gap-0 overflow-x-auto">
+        <div ref={tabBarRef} className="flex min-w-0 items-center gap-0 overflow-x-auto scrollbar-hide">
           {/* Draggable grip to move terminal to sidebar — only in bottom mode */}
           {terminalLocation === 'bottom' && (
             <div
@@ -61,6 +77,12 @@ export function TerminalPanel() {
               <button
                 key={session.id}
                 onClick={() => setActiveSession(session.id)}
+                onMouseDown={(e) => {
+                  if (e.button === 1 && !session.activeToolCallId) {
+                    e.preventDefault();
+                    handleClose(e, session.id, session.ptyId);
+                  }
+                }}
                 className={`group flex h-8 items-center gap-1.5 px-3 text-[11px] transition-colors ${
                   session.id === activeSessionId
                     ? isAgent

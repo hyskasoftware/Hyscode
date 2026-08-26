@@ -148,7 +148,7 @@ export function EditorTabs() {
   if (tabs.length === 0) return null;
 
   return (
-    <div ref={scrollRef} onWheel={handleWheel} className="flex h-8 items-center gap-0.5 bg-surface-raised px-2 overflow-x-auto shrink-0">
+    <div ref={scrollRef} onWheel={handleWheel} className="flex h-8 items-center gap-0.5 bg-sidebar px-2 overflow-x-auto shrink-0">
       {tabs.map((tab, index) => {
         const isActive = activeTabId === tab.id;
         const isDiff = tab.type === 'diff';

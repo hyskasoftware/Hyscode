@@ -465,6 +465,17 @@ Ollama is the exception: its models are discovered from the local daemon via
 also carries the desktop's `enabledModels` and `customModels`, so the TUI renders the
 same enabled subset and user-added models as the desktop app.
 
+OpenCode Zen and Go follow a related model (issue #51): their catalogs are no longer
+hand-maintained literals. `packages/ai-providers/src/model-metadata/` holds a curated
+per-model table (`catalog-corrections.ts`) with wire-format routing, limits, pricing and
+thinking presets — everything no public API exposes — while live availability comes from
+each gateway's `GET /v1/models` intersection at refresh time (`resolveZenCatalog` /
+`resolveGoCatalog`). Unknown live ids bootstrap with conservative defaults; retired ids
+disappear on the next `listModels()` (called at Desktop startup/reinit in
+`init-providers.ts` and TUI bridge initialization). A drift report against models.dev and
+both gateways runs via `node scripts/sync-model-catalog.mjs` (add `--check` to fail CI on
+hard drift, i.e. curated ids absent from the live gateway).
+
 ---
 
 ## API Key Management

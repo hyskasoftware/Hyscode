@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { buildCatalogProviders } from './catalog';
+import type { AIModel } from '@hyscode/ai-providers';
+
+/** Mirrors resolver output shape proven in packages/ai-providers
+ *  (model-metadata/resolver.test.ts): curated rows keep pricing/thinking,
+ *  unknown live ids bootstrap conservatively. */
+const zenResolvedFixture: AIModel[] = [
+  { id: 'claude-fable-5', name: 'Claude Fable 5 (Zen)', provider: 'opencode-zen', contextWindow: 1_000_000, maxOutputTokens: 128_000, supportsTools: true, supportsStreaming: true, supportsVision: true, inputPricePerMToken: 10, outputPricePerMToken: 50 },
+  { id: 'brand-new-upstream', name: 'brand-new-upstream (Zen)', provider: 'opencode-zen', contextWindow: 1_000_000, maxOutputTokens: 16_384, supportsTools: true, supportsStreaming: true, supportsVision: false },
+];
+const goResolvedFixture: AIModel[] = [
+  { id: 'glm-5.3-flash', name: 'GLM 5.3 Flash (Go)', provider: 'opencode-go', contextWindow: 200_000, maxOutputTokens: 128_000, supportsTools: true, supportsStreaming: true, supportsVision: false, inputPricePerMToken: 0.15, outputPricePerMToken: 0.5 },
+];
 
 describe('buildCatalogProviders', () => {
   const configuredIds = ['anthropic', 'ollama'];
@@ -55,5 +67,22 @@ describe('buildCatalogProviders', () => {
       dynamicModels: { ollama: discovered },
     }).find((provider) => provider.id === 'ollama');
     expect(ollama?.models.map((model) => model.id)).toEqual(['llama4:latest']);
+  });
+
+  it('reflects gateway-refreshed zen/go lists via dynamicModels (issue #51)', () => {
+    const configuredWithZenGo = [...configuredIds, 'opencode-zen', 'opencode-go'];
+
+    const providers = buildCatalogProviders({
+      configuredIds: configuredWithZenGo,
+      dynamicModels: { 'opencode-zen': zenResolvedFixture, 'opencode-go': goResolvedFixture },
+    });
+    const zen = providers.find((provider) => provider.id === 'opencode-zen');
+    const go = providers.find((provider) => provider.id === 'opencode-go');
+    expect(zen?.configured).toBe(true);
+    expect(zen?.models.map((m) => m.id)).toEqual(['claude-fable-5', 'brand-new-upstream']);
+    const brandNew = zen?.models.find((m) => m.id === 'brand-new-upstream');
+    expect(brandNew).toMatchObject({ supportsTools: true, contextWindow: 1_000_000 });
+    expect(go?.models.map((m) => m.id)).toEqual(['glm-5.3-flash']);
+    expect(go?.models[0].inputPricePerMToken).toBe(0.15);
   });
 });
