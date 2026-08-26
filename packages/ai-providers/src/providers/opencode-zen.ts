@@ -195,10 +195,10 @@ const THINKING_KIMI_K3: ThinkingVariants = {
   defaultLevel: 'max',
 };
 
-/** GLM-5.2: reasoning effort default/high/max */
+/** GLM-5.2: reasoning effort default/low/high/max */
 const THINKING_GLM: ThinkingVariants = {
   kind: 'openai',
-  levels: ['default', 'high', 'max'],
+  levels: ['default', 'low', 'high', 'max'],
   defaultLevel: 'max',
 };
 
