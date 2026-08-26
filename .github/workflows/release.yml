@@ -572,7 +572,33 @@ jobs:
         if: matrix.architecture == 'x64'
         run: npm rebuild node-pty --foreground-scripts
 
+      # bundle_dmg.sh is flaky on GitHub macOS runners (hdiutil attach/detach
+      # races). Up to 3 attempts, mirroring the Linux job retry pattern.
+      # tauri-action uploads assets only after a full successful bundle, so
+      # failed attempts never leave partial assets on the release.
       - name: Build Tauri (macOS)
+        id: tauri-build
+        continue-on-error: true
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+
+      - name: Retry Build Tauri (macOS, attempt 2)
+        id: tauri-build-retry-2
+        if: steps.tauri-build.outcome == 'failure'
+        continue-on-error: true
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+
+      - name: Retry Build Tauri (macOS, attempt 3)
+        if: steps.tauri-build-retry-2.outcome == 'failure'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
