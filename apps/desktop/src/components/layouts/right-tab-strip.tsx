@@ -102,7 +102,7 @@ export function RightTabStrip({
       onContextMenu={onContextMenu}
       role="toolbar"
       aria-label="Right panel surfaces"
-      className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border/30 bg-surface px-2"
+      className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border/30 bg-sidebar px-2"
     >
       <button
         type="button"

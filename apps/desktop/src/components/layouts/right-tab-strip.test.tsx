@@ -40,8 +40,8 @@ describe('RightTabStrip', () => {
     renderStrip();
 
     const toolbar = screen.getByRole('toolbar', { name: 'Right panel surfaces' });
-    expect(toolbar.className).toContain('bg-surface');
-    expect(toolbar.className).not.toContain('bg-surface-raised');
+    expect(toolbar.className).toContain('bg-sidebar');
+    expect(toolbar.className).not.toContain('bg-surface');
     expect(screen.getAllByRole('tab')).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Close Changes tab' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Close Files tab' })).toBeTruthy();
