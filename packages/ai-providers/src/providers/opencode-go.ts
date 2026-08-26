@@ -31,6 +31,7 @@ const GO_ANTHROPIC_MODELS: Record<string, true> = {
   'qwen3.7-max': true,
   'qwen3.7-plus': true,
   'qwen3.6-plus': true,
+  'qwen3.5-plus': true,
 };
 
 // ─── Thinking variant presets ────────────────────────────────────────────────
@@ -108,12 +109,6 @@ const THINKING_MUSE: ThinkingVariants = {
   defaultLevel: 'default',
 };
 
-/** Ox Alpha Free: reasoning effort default/low/high/max (per OpenCode TUI) */
-const THINKING_OX_ALPHA: ThinkingVariants = {
-  kind: 'openai',
-  levels: ['default', 'low', 'high', 'max'],
-  defaultLevel: 'default',
-};
 
 /** GPT full ladder + standard/pro mode: gpt-5.6-luna (Responses API) */
 const THINKING_OPENAI_FULL_PRO: ThinkingVariants = {
@@ -164,6 +159,17 @@ const GO_MODELS: AIModel[] = [
     thinkingVariants: THINKING_GLM,
   },
   {
+    id: 'glm-5.3-flash',
+    name: 'GLM 5.3 Flash (Go)',
+    provider: 'opencode-go',
+    contextWindow: 200_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_GLM,
+  },
+  {
     id: 'glm-5.2',
     name: 'GLM 5.2 (Go)',
     provider: 'opencode-go',
@@ -177,6 +183,17 @@ const GO_MODELS: AIModel[] = [
   {
     id: 'glm-5.1',
     name: 'GLM 5.1 (Go)',
+    provider: 'opencode-go',
+    contextWindow: 200_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_KIMI,
+  },
+  {
+    id: 'glm-5',
+    name: 'GLM 5 (Go)',
     provider: 'opencode-go',
     contextWindow: 200_000,
     maxOutputTokens: 128_000,
@@ -219,6 +236,17 @@ const GO_MODELS: AIModel[] = [
     thinkingVariants: THINKING_KIMI,
   },
   {
+    id: 'kimi-k2.5',
+    name: 'Kimi K2.5 (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 32_768,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_KIMI,
+  },
+  {
     id: 'longcat-2.0',
     name: 'LongCat 2.0 (Go)',
     provider: 'opencode-go',
@@ -243,6 +271,28 @@ const GO_MODELS: AIModel[] = [
   {
     id: 'mimo-v2.5-pro',
     name: 'MiMo V2.5 Pro (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_KIMI,
+  },
+  {
+    id: 'mimo-v2-pro',
+    name: 'MiMo V2 Pro (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_KIMI,
+  },
+  {
+    id: 'mimo-v2-omni',
+    name: 'MiMo V2 Omni (Go)',
     provider: 'opencode-go',
     contextWindow: 1_000_000,
     maxOutputTokens: 8_192,
@@ -296,15 +346,15 @@ const GO_MODELS: AIModel[] = [
     thinkingVariants: THINKING_HY3,
   },
   {
-    id: 'ox-alpha-free',
-    name: 'Ox Alpha Free (Go)',
+    id: 'hy3-preview',
+    name: 'Hy3 Preview (Go)',
     provider: 'opencode-go',
-    contextWindow: 128_000,
-    maxOutputTokens: 8_192,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 16_384,
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: false,
-    thinkingVariants: THINKING_OX_ALPHA,
+    thinkingVariants: THINKING_HY3,
   },
 
   // ── OpenAI Responses API models (/zen/go/v1/responses) ───────────────────
@@ -401,6 +451,17 @@ const GO_MODELS: AIModel[] = [
   {
     id: 'qwen3.6-plus',
     name: 'Qwen3.6 Plus (Go)',
+    provider: 'opencode-go',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 32_768,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    thinkingVariants: THINKING_QWEN,
+  },
+  {
+    id: 'qwen3.5-plus',
+    name: 'Qwen3.5 Plus (Go)',
     provider: 'opencode-go',
     contextWindow: 1_000_000,
     maxOutputTokens: 32_768,

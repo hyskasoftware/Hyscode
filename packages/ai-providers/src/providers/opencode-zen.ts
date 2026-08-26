@@ -28,6 +28,7 @@ const ZEN_ANTHROPIC_MODELS: Record<string, true> = {
   'claude-sonnet-5': true,
   'claude-sonnet-4-6': true,
   'claude-sonnet-4-5': true,
+  'claude-sonnet-4': true,
   'claude-haiku-4-5': true,
   'qwen3.7-max': true,
   'qwen3.7-plus': true,
@@ -222,12 +223,6 @@ const THINKING_MUSE: ThinkingVariants = {
   defaultLevel: 'default',
 };
 
-/** Ox Alpha Free: reasoning effort default/low/high/max (per OpenCode TUI) */
-const THINKING_OX_ALPHA: ThinkingVariants = {
-  kind: 'openai',
-  levels: ['default', 'low', 'high', 'max'],
-  defaultLevel: 'default',
-};
 
 /** Always-on thinking (cannot disable): Kimi K2.7-code, MiniMax M2.x */
 const THINKING_ALWAYS_ON: ThinkingVariants = {
@@ -357,6 +352,20 @@ const ZEN_MODELS: AIModel[] = [
   {
     id: 'claude-sonnet-4-5',
     name: 'Claude Sonnet 4.5 (Zen)',
+    provider: 'opencode-zen',
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 3,
+    outputPricePerMToken: 15,
+    cachedInputPricePerMToken: 0.3,
+    thinkingVariants: THINKING_BUDGET_CLAUDE,
+  },
+  {
+    id: 'claude-sonnet-4',
+    name: 'Claude Sonnet 4 (Zen)',
     provider: 'opencode-zen',
     contextWindow: 200_000,
     maxOutputTokens: 64_000,
@@ -1091,19 +1100,6 @@ const ZEN_MODELS: AIModel[] = [
     inputPricePerMToken: 0,
     outputPricePerMToken: 0,
     thinkingVariants: THINKING_DEEPSEEK,
-  },
-  {
-    id: 'x-preview-f-free',
-    name: 'Ox Alpha Free (Zen)',
-    provider: 'opencode-zen',
-    contextWindow: 128_000,
-    maxOutputTokens: 8_192,
-    supportsTools: true,
-    supportsStreaming: true,
-    supportsVision: false,
-    inputPricePerMToken: 0,
-    outputPricePerMToken: 0,
-    thinkingVariants: THINKING_OX_ALPHA,
   },
   {
     id: 'hy3-free',

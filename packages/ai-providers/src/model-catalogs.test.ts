@@ -100,17 +100,16 @@ describe('provider model catalogs', () => {
         'gpt-5.2-codex',
         'glm-5.2',
         'grok-4.5',
-        'grok-4.6',
         'kimi-k3',
         'kimi-k2.5',
         'minimax-m2.5',
         'muse-spark-1.2',
-        'x-preview-f-free',
+        'claude-sonnet-4',
       ]),
     );
     // Free stealth rotations retired upstream must not linger in the static fallback.
     expect(modelIds(new OpenCodeZenProvider('key'))).not.toEqual(
-      expect.arrayContaining(['ling-3.0-flash-free', 'north-mini-code-free']),
+      expect.arrayContaining(['ling-3.0-flash-free', 'north-mini-code-free', 'x-preview-f-free']),
     );
     expect(modelIds(new OpenCodeGoProvider('key'))).toEqual(
       expect.arrayContaining([
@@ -119,16 +118,22 @@ describe('provider model catalogs', () => {
         'gpt-5.6-luna',
         'glm-5.2',
         'glm-5.3',
+        'glm-5.3-flash',
+        'glm-5',
         'longcat-2.0',
         'kimi-k3',
         'kimi-k2.7-code',
+        'kimi-k2.5',
         'deepseek-v4-flash-vision-exp',
         'minimax-m3',
         'muse-spark-1.2-contributor',
         'qwen3.7-max',
         'qwen3.7-plus',
         'qwen3.8-max',
-        'ox-alpha-free',
+        'qwen3.5-plus',
+        'mimo-v2-pro',
+        'mimo-v2-omni',
+        'hy3-preview',
         'hy3',
       ]),
     );
