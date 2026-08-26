@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import type * as nodePtyTypes from 'node-pty';
 
 declare const require: NodeRequire;
 
@@ -14,9 +15,36 @@ type NativeModule = Record<string, unknown>;
 type NodePtyUtils = {
   loadNativeModule: (name: string) => { dir: string; module: NativeModule };
 };
+type NodePtyModule = typeof nodePtyTypes;
+
+type BunTerminal = {
+  write: (data: string) => void;
+  resize: (cols: number, rows: number) => void;
+  close: () => void;
+  readonly closed: boolean;
+};
+
+type BunSpawnedProcess = {
+  pid?: number;
+  exited: Promise<number>;
+  kill: () => void;
+};
+
+type BunGlobal = {
+  Terminal: new (options: { cols: number; rows: number; data: (terminal: BunTerminal, chunk: string) => void }) => BunTerminal;
+  spawn: (command: string[], options: { cwd?: string; env?: Record<string, string | undefined>; terminal?: BunTerminal }) => BunSpawnedProcess;
+};
+
+declare const Bun: BunGlobal;
 
 const nativeModules = new Map<string, NativeModule>();
 let sourceNativeDirectory = '';
+
+// Windows ConPTY dlopens three linked natives; Unix only needs pty.node
+// (macOS spawn-helper is resolved through the module directory instead).
+const NATIVE_MODULE_NAMES: readonly string[] = process.platform === 'win32'
+  ? ['pty', 'conpty', 'conpty_console_list']
+  : ['pty'];
 
 function registerNativeModule(name: string, module: NativeModule, resolvedPath: string): void {
   nativeModules.set(name, module);
@@ -33,34 +61,46 @@ function packagedNativeDirectory(): string {
   return sourceNativeDirectory;
 }
 
-function registerFallbackNativeModule(name: string, assetPath: string): void {
-  const resolvedPath = require.resolve(assetPath);
-  registerNativeModule(name, import.meta.require(assetPath), resolvedPath);
+function registerBundledNativeModules(): boolean {
+  const directory = bundledNativeDirectory();
+  if (!existsSync(path.join(directory, 'pty.node'))) return false;
+  try {
+    for (const name of NATIVE_MODULE_NAMES) {
+      const assetPath = path.join(directory, `${name}.node`);
+      registerNativeModule(name, import.meta.require(assetPath), assetPath);
+    }
+  } catch {
+    return false;
+  }
+  return true;
 }
 
-async function loadNodePty(): Promise<typeof import('node-pty')> {
+function registerModuleRelativeNativeModules(root: string): boolean {
+  try {
+    for (const name of NATIVE_MODULE_NAMES) {
+      const assetPath = `${root}/${name}.node`;
+      registerNativeModule(name, require(assetPath), require.resolve(assetPath));
+    }
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+async function loadNodePty(): Promise<NodePtyModule> {
   if (!process.versions.bun) return import('node-pty');
 
-  if (process.platform === 'win32') {
-    try {
-      registerNativeModule('pty', require('node-pty/prebuilds/vortex/pty.node'), require.resolve('node-pty/prebuilds/vortex/pty.node'));
-      registerNativeModule('conpty', require('node-pty/prebuilds/vortex/conpty.node'), require.resolve('node-pty/prebuilds/vortex/conpty.node'));
-      registerNativeModule('conpty_console_list', require('node-pty/prebuilds/vortex/conpty_console_list.node'), require.resolve('node-pty/prebuilds/vortex/conpty_console_list.node'));
-    } catch {
-      const fallbackRoot = `node-pty/prebuilds/${process.platform}-${process.arch}`;
-      registerFallbackNativeModule('pty', `${fallbackRoot}/pty.node`);
-      registerFallbackNativeModule('conpty', `${fallbackRoot}/conpty.node`);
-      registerFallbackNativeModule('conpty_console_list', `${fallbackRoot}/conpty_console_list.node`);
-    }
-  } else if (process.platform === 'darwin' || process.platform === 'linux') {
-    try {
-      registerNativeModule('pty', require('node-pty/prebuilds/vortex/pty.node'), require.resolve('node-pty/prebuilds/vortex/pty.node'));
-    } catch {
-      const fallbackPath = `node-pty/prebuilds/${process.platform}-${process.arch}/pty.node`;
-      registerFallbackNativeModule('pty', fallbackPath);
-    }
-  } else {
-    throw new Error(`Unsupported VORTEX terminal platform: ${process.platform}/${process.arch}`);
+  // Resolution order: staging inside node_modules (dev/CI builds), assets
+  // installed next to the compiled executable (installers, release archives),
+  // then the stock node-pty prebuild layout.
+  const loaded = registerModuleRelativeNativeModules('node-pty/prebuilds/vortex')
+    || registerBundledNativeModules()
+    || registerModuleRelativeNativeModules(`node-pty/prebuilds/${process.platform}-${process.arch}`);
+  if (!loaded) {
+    throw new Error(
+      `node-pty native assets for ${process.platform}-${process.arch} were not found. `
+        + `Expected staged assets in ${bundledNativeDirectory()}, next to the executable.`,
+    );
   }
 
   const nodePtyUtils = require('node-pty/lib/utils') as NodePtyUtils;
@@ -73,7 +113,53 @@ async function loadNodePty(): Promise<typeof import('node-pty')> {
   return import('node-pty');
 }
 
-const nodePty = await loadNodePty();
+// Bun's node-pty compatibility breaks the ConPTY conout named-pipe bridge on
+// Windows (ERR_SOCKET_CLOSED on first write), so compiled TUI binaries drive
+// ConPTY through Bun's native Terminal API instead. Node keeps node-pty, and
+// non-Windows Bun keeps the unix node-pty path.
+const useBunTerminal = Boolean(process.versions.bun) && process.platform === 'win32';
+const nodePty: NodePtyModule | null = useBunTerminal ? null : await loadNodePty();
 
-export const spawn = nodePty.spawn;
+type PtySpawn = (file: string, args: string[], options: nodePtyTypes.IPtyForkOptions) => nodePtyTypes.IPty;
+
+function spawnBunConPty(file: string, args: string[], options: nodePtyTypes.IPtyForkOptions): nodePtyTypes.IPty {
+  let dataListener: ((data: string) => void) | null = null;
+  let exitListener: ((event: { exitCode: number; signal?: number }) => void) | null = null;
+  const terminal = new Bun.Terminal({
+    cols: options.cols ?? 80,
+    rows: options.rows ?? 24,
+    data: (_terminal, chunk) => dataListener?.(chunk),
+  });
+  const environment = options.env ?? processEnvironmentSnapshot();
+  const child = Bun.spawn([file, ...args], {
+    cwd: options.cwd,
+    env: environment,
+    terminal,
+  });
+  void child.exited.then((exitCode) => exitListener?.({ exitCode }));
+  return {
+    pid: child.pid ?? 0,
+    write: (data: string | Buffer) => terminal.write(typeof data === 'string' ? data : data.toString()),
+    kill: () => child.kill(),
+    resize: (cols: number, rows: number) => terminal.resize(cols, rows),
+    onData: (listener: (data: string) => void) => {
+      dataListener = listener;
+      return { dispose: () => { if (dataListener === listener) dataListener = null; } };
+    },
+    onExit: (listener: (event: { exitCode: number; signal?: number }) => void) => {
+      exitListener = listener;
+      return { dispose: () => { if (exitListener === listener) exitListener = null; } };
+    },
+  } as unknown as nodePtyTypes.IPty;
+}
+
+function processEnvironmentSnapshot(): Record<string, string> {
+  const snapshot: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) snapshot[key] = value;
+  }
+  return snapshot;
+}
+
+export const spawn: PtySpawn = nodePty ? nodePty.spawn : spawnBunConPty;
 export type { IDisposable, IPty } from 'node-pty';
