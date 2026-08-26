@@ -91,6 +91,18 @@ describe('CommandWatch evaluate', () => {
     expect(watch.evaluate(Date.now())).toMatchObject({ kind: 'complete', exitCode: 0 });
   });
 
+  it('completes when the end marker is glued to a partial output line', () => {
+    const watch = makeWatch();
+    watch.pushData(1, '__HYSCODE_BEGIN_watch__\n');
+    watch.pushData(2, 'installing packages');
+    watch.pushData(3, '__HYSCODE_END_watch__:0\n');
+    expect(watch.evaluate(Date.now())).toMatchObject({
+      kind: 'complete',
+      output: 'installing packages',
+      exitCode: 0,
+    });
+  });
+
   it('suspends only after the idle window has passed', () => {
     const watch = makeWatch({ idleMs: 50 });
     const pushedAt = Date.now();

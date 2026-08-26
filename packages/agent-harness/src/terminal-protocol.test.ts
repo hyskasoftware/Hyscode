@@ -67,7 +67,8 @@ describe('buildTerminalFrame', () => {
     const frame = buildTerminalFrame('Get-ChildItem', 'powershell', 'pw1');
     expect(frame).toContain('$global:LASTEXITCODE = 0;');
     expect(frame).toContain('Write-Output \'__HYSCODE_BEGIN_pw1__\'');
-    expect(frame).toContain('__HYSCODE_END_pw1__:{0}');
+    expect(frame).toContain("Write-Output ''; Write-Output '__HYSCODE_BEGIN_pw1__'");
+    expect(frame).toContain("finally { Write-Output ''; Write-Output (\"__HYSCODE_END_pw1__:{0}\" -f $hysCode) }");
     expect(frame).toContain('try {');
     expect(frame).toContain("$ErrorActionPreference = 'Stop'");
     expect(frame).toContain('Invoke-Expression -Command $hysCommand');
@@ -121,6 +122,50 @@ print('line two')"`;
       exitCode: 1,
     });
     expect(parsed.output).toContain('unterminated');
+  });
+
+  it.skipIf(process.platform !== 'win32')('completes a PowerShell frame whose command output lacks a trailing newline', async () => {
+    const nonce = 'powershell-partial-line';
+    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile'], { windowsHide: true });
+    let output = '';
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    child.stderr.on('data', (data) => {
+      output += data.toString();
+    });
+    const closed = new Promise<number | null>((resolve) => child.once('close', resolve));
+
+    child.stdin.end(buildTerminalFrame("[Console]::Write('partial line')", 'powershell', nonce));
+
+    await closed;
+    expect(parseTerminalFrame(output, nonce)).toMatchObject({
+      complete: true,
+      output: 'partial line',
+      exitCode: 0,
+    });
+  });
+
+  it.skipIf(process.platform === 'win32')('completes a POSIX frame whose command output lacks a trailing newline', async () => {
+    const nonce = 'posix-partial-line';
+    const child = spawn('/bin/sh', ['-s']);
+    let output = '';
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    child.stderr.on('data', (data) => {
+      output += data.toString();
+    });
+    const closed = new Promise<number | null>((resolve) => child.once('close', resolve));
+
+    child.stdin.end(buildTerminalFrame("printf 'partial line'", 'bash', nonce));
+
+    await closed;
+    expect(parseTerminalFrame(output, nonce)).toMatchObject({
+      complete: true,
+      output: 'partial line',
+      exitCode: 0,
+    });
   });
 
   it.skipIf(process.platform === 'win32')('emits a final marker when a POSIX command has a shell parse error', async () => {
@@ -184,6 +229,26 @@ describe('parseTerminalFrame', () => {
   it('strips ANSI from captured output', () => {
     const raw = `__HYSCODE_BEGIN_${nonce}__\n\u001b[32mok\u001b[0m\n__HYSCODE_END_${nonce}__:0\n`;
     expect(parseTerminalFrame(raw, nonce).output).toBe('ok');
+  });
+
+  it('completes when the end marker is glued to a partial output line', () => {
+    const raw = `__HYSCODE_BEGIN_${nonce}__\ninstalling 42 packages__HYSCODE_END_${nonce}__:2\n`;
+    expect(parseTerminalFrame(raw, nonce)).toEqual({
+      started: true,
+      complete: true,
+      output: 'installing 42 packages',
+      exitCode: 2,
+    });
+  });
+
+  it('does not treat the echoed wrapper text as a completion marker', () => {
+    const echoed = buildTerminalFrame('echo hi', 'powershell', nonce);
+    const raw = `${echoed}__HYSCODE_BEGIN_${nonce}__\noutput\n__HYSCODE_END_${nonce}__:0\n`;
+    expect(parseTerminalFrame(raw, nonce)).toMatchObject({
+      started: true,
+      complete: true,
+      output: 'output',
+    });
   });
 });
 

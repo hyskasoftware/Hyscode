@@ -48,13 +48,13 @@ export function buildTerminalFrame(
   if (language === 'powershell') {
     const encodedCommand = encodeUtf8Base64(command);
     return (
-      `$global:LASTEXITCODE = 0; Write-Output '${begin}'; $hysCode = 0; ` +
+      `$global:LASTEXITCODE = 0; Write-Output ''; Write-Output '${begin}'; $hysCode = 0; ` +
       `$hysCommand = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedCommand}')); ` +
       `try { & { $ErrorActionPreference = 'Stop'; Invoke-Expression -Command $hysCommand }; $hysOk = $?; ` +
       `$hysCode = if ($hysOk) { [int]$LASTEXITCODE } ` +
       `elseif ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 } } ` +
       `catch { $hysCode = if ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 }; Write-Error $_ } ` +
-      `finally { Write-Output (\"${end}:{0}\" -f $hysCode) }\r\n`
+      `finally { Write-Output ''; Write-Output ("${end}:{0}" -f $hysCode) }\r\n`
     );
   }
   const commandLiteral = quotePosixLiteral(command);
@@ -75,17 +75,21 @@ export function parseTerminalFrame(raw: string, nonce: string): ParsedTerminalFr
   const beginIndex = lines.findIndex((line) => line.trim() === begin);
   if (beginIndex < 0) return { complete: false, output: '', exitCode: null, started: false };
 
-  const endPattern = new RegExp(`^${end}:(-?\\d+)$`);
+  // The END marker may arrive glued to the command's last partial line (a
+  // trailing progress spinner without a newline). Accept it as a line suffix.
+  const endPattern = new RegExp(`^(.*?)${end}:(-?\\d+)$`);
   for (let index = beginIndex + 1; index < lines.length; index++) {
     const match = lines[index].trim().match(endPattern);
     if (!match) continue;
+    const before = lines
+      .slice(beginIndex + 1, index)
+      .join('\n')
+      .trim();
+    const inline = match[1].trim();
     return {
       complete: true,
-      output: lines
-        .slice(beginIndex + 1, index)
-        .join('\n')
-        .trim(),
-      exitCode: Number.parseInt(match[1], 10),
+      output: [before, inline].filter((part) => part.length > 0).join('\n'),
+      exitCode: Number.parseInt(match[2], 10),
       started: true,
     };
   }

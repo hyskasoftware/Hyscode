@@ -160,6 +160,52 @@ describe('terminal command framing', () => {
     expect(adapter.snapshot).toHaveBeenCalled();
   });
 
+  it('completes when the end marker is glued to a partial output line instead of timing out', async () => {
+    let onDataHandler: ((data: string, sequence: number) => void) | null = null;
+    let sequenceCounter = 0;
+    const adapter: TerminalRuntimeAdapter = {
+      acquire: vi.fn(async () => mockBinding('terminal-glued', 'pty-glued')),
+      snapshot: vi.fn(async () => ({
+        data: '',
+        fromSequence: 0,
+        toSequence: 0,
+        truncated: false,
+        alive: true,
+        exitCode: null,
+      })),
+      write: vi.fn(async (_terminalId, data) => {
+        const nonce = String(data).match(/__HYSCODE_BEGIN_([a-z0-9]+)__/i)?.[1] ?? '';
+        for (const chunk of [
+          `__HYSCODE_BEGIN_${nonce}__\r\n`,
+          'installing packages',
+          `__HYSCODE_END_${nonce}__:0\r\n`,
+        ]) {
+          sequenceCounter += 1;
+          onDataHandler?.(chunk, sequenceCounter);
+        }
+      }),
+      interrupt: vi.fn(async () => undefined),
+      kill: vi.fn(async () => undefined),
+      subscribe: vi.fn(async (_terminalId, onData) => {
+        onDataHandler = onData;
+        return () => {
+          onDataHandler = null;
+        };
+      }),
+    };
+
+    const result = await new TerminalCommandRunner().run(
+      { command: 'npm install --no-progress', timeoutMs: 2_000 },
+      contextWith(adapter),
+    );
+
+    expect(result).toMatchObject({
+      success: true,
+      output: 'installing packages',
+      metadata: { exitCode: 0 },
+    });
+  });
+
   it('removes ANSI control sequences without removing command output', () => {
     const nonce = 'ansi';
     const raw = `__HYSCODE_BEGIN_${nonce}__\n\u001b[31mfailed\u001b[0m\n__HYSCODE_END_${nonce}__:1\n`;
