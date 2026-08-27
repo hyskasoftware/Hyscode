@@ -466,6 +466,49 @@ describe('TUI renderer improvements', () => {
     expect(plain).toContain('1.5s');
   });
 
+  it('renders one linked card when duplicate transcript entries share a tool identity', () => {
+    const rendered = new TerminalRenderer().render(state({
+      transcript: [
+        { kind: 'tool', text: 'npm test', toolId: 'duplicate-tool' },
+        { kind: 'tool', text: 'npm test', toolId: 'duplicate-tool' },
+      ],
+      tools: [{
+        id: 'duplicate-tool',
+        name: 'run_terminal_command',
+        input: { command: 'npm test' },
+        status: 'running',
+        liveOutput: '',
+        outputSequence: 0,
+        expanded: false,
+      }],
+    }));
+    const plain = plainOf(rendered);
+
+    expect((plain.match(/run_terminal_command/g) ?? []).length).toBe(1);
+  });
+
+  it('deduplicates terminal tools in the activity panel by tool identity', () => {
+    const tool = {
+      id: 'activity-tool',
+      name: 'run_terminal_command',
+      input: { command: 'npm test' },
+      status: 'running' as const,
+      liveOutput: '',
+      outputSequence: 0,
+      terminalId: 'terminal-1',
+      expanded: false,
+    };
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'activity',
+      transcript: [{ kind: 'assistant', text: 'working' }],
+      tools: [tool, { ...tool }],
+    }));
+    const plain = plainOf(rendered);
+
+    expect(plain).toContain('TERMINAL TOOLS · 1');
+    expect((plain.match(/run_terminal_command/g) ?? []).length).toBe(1);
+  });
+
   it('expands the tool card body with input and tail output', () => {
     const rendered = new TerminalRenderer().render(state({
       transcript: [{ kind: 'tool', text: 'src/a.ts', toolId: 't2' }],
@@ -738,6 +781,31 @@ describe('TUI renderer improvements', () => {
     expect(plain).toContain('expiry skew ignored');
     expect(plain).toContain('src/auth/middleware.ts');
     expect(plain).toContain('Considering clock skew');
+  });
+
+  it('deduplicates repeated sub-agent tool identities in the detail panel', () => {
+    const tool = {
+      id: 'child-tool-1',
+      name: 'read_file',
+      input: { path: 'src/auth/middleware.ts' },
+      status: 'success' as const,
+      liveOutput: '',
+      outputSequence: 1,
+      expanded: false,
+      ownerId: 'tool-call-1',
+      durationMs: 12,
+    };
+    const rendered = new TerminalRenderer().render(state({
+      mainPanel: 'subagents',
+      transcript: [{ kind: 'assistant', text: 'delegating' }],
+      tools: [tool],
+      subagents: [subAgentFixture({ status: 'done', endedAt: Date.now() - 100, toolIds: ['child-tool-1', 'child-tool-1'] })],
+      selectedSubagent: 0,
+      subagentDetail: 0,
+    }));
+    const plain = plainOf(rendered);
+
+    expect((plain.match(/src\/auth\/middleware\.ts/g) ?? []).length).toBe(1);
   });
 
   it('shows sdd progress counts, failed task, review, and expanded task detail', () => {

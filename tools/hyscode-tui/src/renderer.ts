@@ -198,9 +198,13 @@ function cachedMarkdownLines(item: TranscriptItem, width: number): string[] {
 function transcriptView(items: TranscriptItem[], width: number, state: UiState): string[] {
   if (items.length === 0) return emptyTranscript(state, width);
   const lines: string[] = [];
+  // Keep rendering resilient if replay or an older client supplied duplicate cards.
+  const renderedToolIds = new Set<string>();
   for (const item of items) {
     const tool = item.toolId ? state.tools.find((candidate) => candidate.id === item.toolId) : undefined;
     if (tool) {
+      if (renderedToolIds.has(tool.id)) continue;
+      renderedToolIds.add(tool.id);
       lines.push(...toolCardLines(tool, width));
       lines.push('');
       continue;
@@ -371,7 +375,12 @@ function activityPanel(state: UiState, width: number): string[] {
     for (const agent of visible) lines.push(subAgentRow(agent, state, width));
     lines.push(`${DIM}/subagents opens the panel with details and cancellation.${RESET}`);
   }
-  const terminalTools = state.tools.filter((tool) => tool.terminalId);
+  const terminalToolIds = new Set<string>();
+  const terminalTools = state.tools.filter((tool) => {
+    if (!tool.terminalId || terminalToolIds.has(tool.id)) return false;
+    terminalToolIds.add(tool.id);
+    return true;
+  });
   if (terminalTools.length) {
     lines.push(`${ACCENT}TERMINAL TOOLS · ${terminalTools.length}${RESET}`);
     for (const tool of terminalTools.slice(-ACTIVITY_ROW_CAP + 2)) {
@@ -502,7 +511,8 @@ function subAgentDetailFrame(agent: SubAgentView, state: UiState, width: number)
   } else if (agent.status === 'running') {
     body.push(`${DIM}streaming… output appears as the child produces it${RESET}`);
   }
-  const tools = agent.toolIds
+  const uniqueToolIds = [...new Set(agent.toolIds)];
+  const tools = uniqueToolIds
     .map((toolId) => state.tools.find((tool) => tool.id === toolId))
     .filter((tool): tool is ToolView => Boolean(tool))
     .slice(-8);
@@ -512,7 +522,7 @@ function subAgentDetailFrame(agent: SubAgentView, state: UiState, width: number)
       const { glyph: toolGlyph, color: toolColor } = toolStatusPresentation(tool.status);
       body.push(`  ${toolColor}${toolGlyph}${RESET} ${shorten(inlineText(summarizeToolInput(tool.name, tool.input)) || tool.name, innerWidth - 6)} ${DIM}${formatToolDuration(tool.durationMs)}${RESET}`);
     }
-    const hiddenTools = agent.toolIds.length - tools.length;
+    const hiddenTools = uniqueToolIds.length - tools.length;
     if (hiddenTools > 0) body.push(`  ${DIM}⋯ +${hiddenTools} earlier tool call(s)${RESET}`);
   }
   const cancellable = agent.status === 'running' || agent.status === 'queued';

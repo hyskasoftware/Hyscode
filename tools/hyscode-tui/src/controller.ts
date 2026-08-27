@@ -966,7 +966,16 @@ export class TuiController {
       this.state.tools.push(tool);
       return;
     }
+    const currentIsFinal =
+      existing.status === 'success' || existing.status === 'error' || existing.status === 'cancelled';
+    const incomingIsFinal =
+      tool.status === 'success' || tool.status === 'error' || tool.status === 'cancelled';
+    const preserveStatus =
+      (currentIsFinal && !incomingIsFinal)
+      || (tool.status === 'running'
+        && (existing.status === 'pending' || existing.status === 'approved' || existing.status === 'awaiting_input'));
     Object.assign(existing, tool, {
+      status: preserveStatus ? existing.status : tool.status,
       liveOutput: tool.liveOutput || existing.liveOutput,
       outputSequence: Math.max(existing.outputSequence, tool.outputSequence),
     });
@@ -989,6 +998,13 @@ export class TuiController {
     }
     const { liveOutputAppend, ...rest } = patch;
     if (rest.outputSequence !== undefined && rest.outputSequence < existing.outputSequence) delete rest.outputSequence;
+    if (
+      rest.status
+      && (existing.status === 'success' || existing.status === 'error' || existing.status === 'cancelled')
+      && !(rest.status === 'success' || rest.status === 'error' || rest.status === 'cancelled')
+    ) {
+      rest.status = existing.status;
+    }
     Object.assign(existing, rest);
     if (liveOutputAppend) existing.liveOutput += liveOutputAppend;
     if (existing.liveOutput.length > 65_536) existing.liveOutput = existing.liveOutput.slice(-65_536);
@@ -1119,6 +1135,16 @@ export class TuiController {
 
   private appendItem(item: TranscriptItem): void {
     if (!item.text && item.kind !== 'tool') return;
+    if (item.kind === 'tool' && item.toolId !== undefined) {
+      // The assistant transcript and live lifecycle events both describe one tool call.
+      const existing = this.state.transcript.find(
+        (candidate) => candidate.kind === 'tool' && candidate.toolId === item.toolId,
+      );
+      if (existing) {
+        if (item.text && existing.text !== item.text) existing.text = item.text;
+        return;
+      }
+    }
     this.state.transcript.push(item);
     if (this.state.transcript.length > TRANSCRIPT_LIMIT) {
       const removed = this.state.transcript.length - TRANSCRIPT_LIMIT;

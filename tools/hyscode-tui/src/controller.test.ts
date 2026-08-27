@@ -563,6 +563,132 @@ describe('TUI controller tool projection', () => {
     expect(controller.state.tools[0]?.expanded).toBe(false);
   });
 
+  it('deduplicates transcript and lifecycle events for every tool type', async () => {
+    const runtime = new FakeRuntime();
+    const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
+    await controller.start();
+    const calls = [
+      { id: 'terminal-1', name: 'run_terminal_command', input: { command: 'npm test' } },
+      { id: 'read-1', name: 'read_file', input: { path: 'src/app.ts' } },
+      { id: 'write-1', name: 'write_file', input: { path: 'src/app.ts', content: 'export {}' } },
+      { id: 'edit-1', name: 'edit_file', input: { path: 'src/app.ts', old_string: 'old', new_string: 'new' } },
+      { id: 'spawn-1', name: 'spawn_subagent', input: { mode: 'review', task: 'Review the app' } },
+      { id: 'tasks-1', name: 'manage_tasks', input: { action: 'list' } },
+    ];
+
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'transcript_message',
+        role: 'assistant',
+        blocks: calls.map((call) => ({ type: 'tool_call' as const, id: call.id, name: call.name, input: call.input })),
+      },
+    });
+    for (const call of calls) {
+      controller.handleRuntimeMessage({
+        type: 'event',
+        event: 'harness_event',
+        payload: { type: 'tool_call_start', toolCallId: call.id, toolName: call.name, input: call.input },
+      });
+    }
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'terminal_progress',
+        progress: { toolCallId: 'terminal-1', terminalId: 'terminal-1', sequence: 1, chunk: 'output', state: 'running' },
+      },
+    });
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'transcript_message',
+        role: 'tool',
+        blocks: calls.map((call) => ({ type: 'tool_result' as const, toolCallId: call.id, output: `${call.name} done`, isError: false })),
+      },
+    });
+
+    expect(controller.state.transcript).toHaveLength(calls.length);
+    expect(controller.state.transcript.map((item) => item.toolId)).toEqual(calls.map((call) => call.id));
+    expect(controller.state.tools).toHaveLength(calls.length);
+    expect(controller.state.tools.every((tool) => tool.status === 'success')).toBe(true);
+    expect(controller.state.tools.find((tool) => tool.id === 'terminal-1')).toMatchObject({
+      terminalId: 'terminal-1',
+      liveOutput: 'output',
+    });
+  });
+
+  it('deduplicates when lifecycle events arrive before transcript history and ignores late regressions', async () => {
+    const runtime = new FakeRuntime();
+    const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
+    await controller.start();
+    const input = { command: 'npm test' };
+
+    for (let index = 0; index < 2; index += 1) {
+      controller.handleRuntimeMessage({
+        type: 'event',
+        event: 'harness_event',
+        payload: { type: 'tool_call_start', toolCallId: 'late-1', toolName: 'run_terminal_command', input },
+      });
+    }
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'tool_call_pending',
+        pending: {
+          id: 'late-1',
+          toolName: 'run_terminal_command',
+          input,
+          description: 'Run npm test',
+          riskLevel: 'moderate',
+          resolve: () => undefined,
+        },
+      },
+    });
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'transcript_message',
+        role: 'assistant',
+        blocks: [{ type: 'tool_call', id: 'late-1', name: 'run_terminal_command', input }],
+      },
+    });
+    expect(controller.state.transcript).toHaveLength(1);
+
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'tool_call_result',
+        toolCallId: 'late-1',
+        toolName: 'run_terminal_command',
+        result: { success: true, output: 'done' },
+        durationMs: 10,
+      },
+    });
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: { type: 'tool_call_start', toolCallId: 'late-1', toolName: 'run_terminal_command', input },
+    });
+    controller.handleRuntimeMessage({
+      type: 'event',
+      event: 'harness_event',
+      payload: {
+        type: 'terminal_progress',
+        progress: { toolCallId: 'late-1', terminalId: 'late-terminal', sequence: 1, chunk: '', state: 'running' },
+      },
+    });
+
+    expect(controller.state.transcript).toHaveLength(1);
+    expect(controller.state.tools).toHaveLength(1);
+    expect(controller.state.tools[0]).toMatchObject({ status: 'success', output: 'done' });
+  });
+
   it('pairs replayed message blocks into cards without duplicate result rows', () => {
     const runtime = new FakeRuntime();
     const controller = new TuiController({ workspace: 'C:/workspace' }, runtime);
@@ -627,6 +753,28 @@ describe('TUI controller delegation and task surfaces', () => {
 
     scoped(controller, 'spawn-1', { type: 'turn_end', reason: 'max_iterations', tokenUsage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } });
     expect(controller.state.subagents[0]).toMatchObject({ status: 'done', stopReason: 'max_iterations' });
+  });
+
+  it('keeps one card for a scoped child tool across transcript and lifecycle events', async () => {
+    const controller = new TuiController({ workspace: 'C:/workspace' }, new FakeRuntime());
+    await controller.start();
+    delegate(controller);
+
+    scoped(controller, 'spawn-1', {
+      type: 'transcript_message',
+      role: 'assistant',
+      blocks: [{ type: 'tool_call', id: 'child-tool-1', name: 'read_file', input: { path: 'src/app.ts' } }],
+    });
+    scoped(controller, 'spawn-1', {
+      type: 'tool_call_start',
+      toolCallId: 'child-tool-1',
+      toolName: 'read_file',
+      input: { path: 'src/app.ts' },
+    });
+
+    expect(controller.state.transcript.filter((item) => item.toolId === 'child-tool-1')).toHaveLength(1);
+    expect(controller.state.tools.filter((tool) => tool.id === 'child-tool-1')).toHaveLength(1);
+    expect(controller.state.tools.find((tool) => tool.id === 'child-tool-1')).toMatchObject({ ownerId: 'spawn-1' });
   });
 
   it('cancels an active sub-agent by list position and refuses finished ones', async () => {
