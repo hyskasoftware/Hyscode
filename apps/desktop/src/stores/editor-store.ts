@@ -13,7 +13,7 @@ export interface Tab {
   isDirty: boolean;
   isPinned: boolean;
   isPreview: boolean;
-  type: 'file' | 'diff' | 'terminal' | 'commit' | 'history' | 'release-notes' | 'extension-readme' | 'git-graph' | 'db-schema' | 'memory' | 'sub-agent';
+  type: 'file' | 'diff' | 'terminal' | 'commit' | 'history' | 'release-notes' | 'extension-readme' | 'git-graph' | 'kanban' | 'db-schema' | 'memory' | 'sub-agent';
   viewerType: ViewerType;
   markdownMode?: MarkdownViewMode;
   markdownSplitRatio?: number;
@@ -45,6 +45,8 @@ export interface Tab {
   };
   /** Git graph props */
   gitGraphProps?: Record<string, never>;
+  /** Kanban board props (singleton, no props) */
+  kanbanProps?: Record<string, never>;
 
   /** Memory viewer props when type === 'memory' */
   memoryProps?: {
@@ -97,6 +99,7 @@ interface EditorState {
   openCommitTab: (hash: string, shortHash: string, message: string) => void;
   openHistoryTab: (snapshotId: string, originalPath: string, timestamp: string, content: string) => void;
   openGitGraphTab: () => void;
+  openKanbanTab: () => void;
   openDbSchemaTab: (sourceFile?: string | null, diagramId?: string) => void;
   openMemoryTab: (memoryId: string, title: string) => void;
   openSubAgentTab: (subAgent: SubAgentState, conversationId: string) => void;
@@ -267,6 +270,29 @@ export const useEditorStore = create<EditorState>()(
           type: 'git-graph',
           viewerType: 'code',
           gitGraphProps: {},
+        };
+        state.tabs.push(newTab);
+        state.activeTabId = id;
+      }),
+    openKanbanTab: () =>
+      set((state) => {
+        const id = 'kanban';
+        const existing = state.tabs.find((t) => t.id === id);
+        if (existing) {
+          state.activeTabId = existing.id;
+          return;
+        }
+        const newTab: Tab = {
+          id,
+          filePath: id,
+          fileName: 'Kanban',
+          language: 'plaintext',
+          isDirty: false,
+          isPinned: false,
+          isPreview: false,
+          type: 'kanban',
+          viewerType: 'code',
+          kanbanProps: {},
         };
         state.tabs.push(newTab);
         state.activeTabId = id;

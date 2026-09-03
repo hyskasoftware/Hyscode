@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  SquareArrowOutUpRight,
   Trash2,
   X,
   XCircle,
@@ -45,6 +46,8 @@ import type {
 } from '@hyscode/agent-harness';
 import { useProjectStore } from '@/stores/project-store';
 import { useKanbanStore } from '@/stores/kanban-store';
+import { useSettingsStore } from '@/stores/settings-store';
+import { useEditorStore } from '@/stores/editor-store';
 import { cn } from '@/lib/utils';
 import { promptConfirm } from '@/components/ui/dialogs';
 import { Badge } from '@/components/ui/badge';
@@ -1019,6 +1022,7 @@ function NoProjectState() {
 
 export function KanbanBoard({ compact = false, onClose }: { compact?: boolean; onClose?: () => void }) {
   const projectId = useProjectStore((state) => state.rootPath);
+  const kanbanEditorTabEnabled = useSettingsStore((s) => s.kanbanEditorTabEnabled);
   const tasks = useKanbanStore((state) => state.tasks);
   const selectedTaskId = useKanbanStore((state) => state.selectedTaskId);
   const isLoading = useKanbanStore((state) => state.isLoading);
@@ -1355,6 +1359,23 @@ export function KanbanBoard({ compact = false, onClose }: { compact?: boolean; o
             </AuroraButton>
           )}
           <NewTaskForm compact={compact} onCreated={handleCreated} disabled={!projectId} />
+          {kanbanEditorTabEnabled && onClose && (
+            <AuroraButton
+              type="button"
+              onClick={() => {
+                useEditorStore.getState().openKanbanTab();
+                onClose?.();
+              }}
+              variant="outline"
+              size="sm"
+              className="text-[10px]"
+              leftIcon={<SquareArrowOutUpRight className="size-3.5" />}
+              aria-label="Open Kanban as editor tab"
+              title="Open Kanban as editor tab"
+            >
+              Open as tab
+            </AuroraButton>
+          )}
           {onClose && (
             <AuroraButton
               type="button"

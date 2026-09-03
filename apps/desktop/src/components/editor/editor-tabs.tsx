@@ -1,4 +1,4 @@
-import { X, Circle, GitCompare, GitCommit, Wand2, Loader2, Pin, Terminal, Plus, FilePlus, FolderOpen, Search, Code2, Blocks, Bot } from 'lucide-react';
+import { X, Circle, GitCompare, GitCommit, KanbanSquare, Wand2, Loader2, Pin, Terminal, Plus, FilePlus, FolderOpen, Search, Code2, Blocks, Bot } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
 import { useEditorStore } from '../../stores';
 import { useAgentStore } from '../../stores/agent-store';
@@ -154,6 +154,7 @@ export function EditorTabs() {
         const isDiff = tab.type === 'diff';
         const isTerminal = tab.type === 'terminal';
         const isCommit = tab.type === 'commit';
+        const isKanban = tab.type === 'kanban';
         const isExtReadme = tab.type === 'extension-readme';
         const isSubAgent = tab.type === 'sub-agent';
         const editPhase = tab.filePath ? editPhaseMap[tab.filePath] : undefined;
@@ -195,6 +196,8 @@ export function EditorTabs() {
               <Terminal className="h-3 w-3 shrink-0 text-success" />
             ) : isCommit ? (
               <GitCommit className="h-3 w-3 shrink-0 text-primary" />
+            ) : isKanban ? (
+              <KanbanSquare className="h-3 w-3 shrink-0 text-primary" />
             ) : isExtReadme ? (
               <Blocks className="h-3 w-3 shrink-0 text-primary" />
             ) : isSubAgent ? (

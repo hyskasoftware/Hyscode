@@ -207,6 +207,15 @@ export function GeneralTab() {
           />
         </SettingRow>
         <SettingRow
+          label="Kanban as editor tab"
+          description="Show an 'Open as tab' action in the Kanban board to open it as an editor tab"
+        >
+          <SettingToggle
+            checked={store.kanbanEditorTabEnabled}
+            onChange={(v) => store.set('kanbanEditorTabEnabled', v)}
+          />
+        </SettingRow>
+        <SettingRow
           label="Activity Bar Position"
           description="Place sidebar icon tabs on the left or at the top"
         >

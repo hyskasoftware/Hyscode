@@ -139,6 +139,7 @@ export const SETTINGS_DEFAULTS = {
   showAgentTab: true,
   showAgentChatPanel: true,
   agentCenterPanelMode: 'chat',
+  kanbanEditorTabEnabled: false,
   visibleSidebarTabs: {
     files: true,
     search: true,

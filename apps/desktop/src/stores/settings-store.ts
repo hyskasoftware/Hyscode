@@ -249,6 +249,8 @@ interface SettingsState {
   showAgentTab: boolean;
   showAgentChatPanel: boolean;
   agentCenterPanelMode: 'chat' | 'terminal';
+  /** Show Open-as-tab action in Kanban modal to open board as editor tab */
+  kanbanEditorTabEnabled: boolean;
   /** Which builtin sidebar tabs are visible in the ActivityBar */
   visibleSidebarTabs: Record<SidebarViewId, boolean>;
   /** Global order for builtin and extension-contributed ActivityBar views */

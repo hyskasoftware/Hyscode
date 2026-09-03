@@ -6,6 +6,7 @@ import { DiffViewer } from './diff-viewer';
 import { AgentDiffViewer } from './agent-diff-viewer';
 import { CommitTab } from './commit-tab';
 import { GitGraphView } from '../git/git-graph-view';
+import { KanbanBoard } from '../tasks/task-board';
 import { PendingChangesBar } from './pending-changes-bar';
 import { InlineReviewBar } from './inline-review-bar';
 import { EditorContextMenu } from './editor-context-menu';
@@ -598,6 +599,8 @@ export function EditorArea() {
             <CommitTab hash={activeTab.commitProps.hash} />
           ) : activeTab.type === 'git-graph' ? (
             <GitGraphView />
+          ) : activeTab.type === 'kanban' ? (
+            <KanbanBoard />
           ) : activeTab.type === 'db-schema' ? (
             <DbSchemaViewer sourceFile={activeTab.dbSchemaProps?.sourceFile ?? null} />
           ) : activeTab.type === 'memory' && activeTab.memoryProps ? (

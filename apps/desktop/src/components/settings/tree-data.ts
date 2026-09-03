@@ -296,6 +296,7 @@ export const TAB_DEFAULT_KEYS: Record<BuiltinTabId, readonly SettingsKey[]> = {
     'checkForUpdatesOnStartup',
     'autoDownload',
     'activityBarPosition',
+    'kanbanEditorTabEnabled',
   ],
   ai: [
     'activeProviderId',
