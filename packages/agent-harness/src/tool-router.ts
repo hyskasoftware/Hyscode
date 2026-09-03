@@ -139,7 +139,7 @@ export class ToolRouter {
         output: {
           success: false,
           output: '',
-          error: `Unknown tool: ${toolName}`,
+          error: `Unknown tool: ${toolName}.${suggestSimilarTool(toolName, Array.from(this.handlers.keys()))}`,
         },
         durationMs: Date.now() - startTime,
         approved: false,
@@ -149,6 +149,7 @@ export class ToolRouter {
       return record;
     }
 
+    input = normalizeToolInput(handler.definition.inputSchema, input);
     const validationError = validateInput(handler.definition.inputSchema, input);
     if (validationError) {
       const record: ToolCallRecord = {
@@ -562,6 +563,283 @@ function validateInput(
     }
   }
   return null;
+}
+
+/** Well-known parameter synonyms models emit instead of the canonical snake_case names. */
+const COMMON_PARAM_ALIASES: Record<string, string[]> = {
+  path: ['file_path', 'filepath', 'filePath', 'filename', 'file_name'],
+  old_string: ['oldString', 'old_text', 'oldText', 'search', 'find'],
+  new_string: ['newString', 'new_text', 'newText', 'replace', 'replacement', 'content'],
+  replace_all: ['replaceAll', 'replaceall', 'all'],
+  start_line: ['startLine', 'start', 'from_line', 'fromLine'],
+  end_line: ['endLine', 'end', 'to_line', 'toLine'],
+  new_content: ['newContent', 'newcontent', 'content'],
+  base_path: ['basePath', 'basepath', 'root', 'dir', 'directory'],
+  max_results: ['maxResults', 'maxresults', 'limit'],
+  max_lines_per_file: ['maxLinesPerFile', 'max_lines', 'maxLines'],
+  terminal_id: ['terminalId', 'terminalid', 'id'],
+  target_mode: ['targetMode', 'targetmode', 'mode'],
+  context_summary: ['contextSummary', 'contextsummary', 'summary'],
+  skill_name: ['skillName', 'skillname', 'skill', 'name'],
+};
+
+function toCamelCase(value: string): string {
+  return value.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}
+
+function toSnakeCase(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase();
+}
+
+/**
+ * Normalize raw LLM tool input before validation.
+ * - Resolves camelCase / well-known synonyms to the canonical snake_case keys
+ *   declared in the schema (models trained on camelCase hallucinate `oldString`).
+ * - Coerces weak-model typings: numeric strings → integer/number,
+ *   "true"/"false"/1/0 → boolean, numbers/booleans → string, JSON strings → array/object.
+ * Returns a new object; the caller's original is never mutated.
+ */
+export function normalizeToolInput(
+  schema: Record<string, unknown>,
+  input: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  const properties = (schema.properties ?? {}) as Record<string, { type?: string }>;
+  if (Object.keys(properties).length === 0) return { ...input };
+  const normalized: Record<string, unknown> = { ...input };
+  const lowerIndex = new Map<string, string>();
+  for (const key of Object.keys(normalized)) lowerIndex.set(key.toLowerCase(), key);
+
+  const resolveAlias = (canonical: string): string | null => {
+    if (canonical in normalized) return canonical;
+    const camel = toCamelCase(canonical);
+    if (camel in normalized) return camel;
+    const snake = toSnakeCase(canonical);
+    if (snake in normalized) return snake;
+    const candidates = COMMON_PARAM_ALIASES[canonical] ?? [];
+    for (const alias of candidates) {
+      if (alias in normalized) return alias;
+      const byLower = lowerIndex.get(alias.toLowerCase());
+      if (byLower) return byLower;
+    }
+    const byLower = lowerIndex.get(canonical.toLowerCase());
+    return byLower ?? null;
+  };
+
+  for (const [canonical, property] of Object.entries(properties)) {
+    const found = resolveAlias(canonical);
+    if (found && found !== canonical && !(canonical in normalized)) {
+      normalized[canonical] = normalized[found];
+    }
+    if (!(canonical in normalized)) continue;
+    normalized[canonical] = coerceToolValue(property.type, normalized[canonical]);
+  }
+  return normalized;
+}
+
+function coerceToolValue(type: string | undefined, value: unknown): unknown {
+  if (value === undefined || value === null) return value;
+  switch (type) {
+    case 'integer': {
+      if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (/^-?\d+(\.0+)?$/.test(trimmed)) return parseInt(trimmed, 10);
+        const parsed = Number(trimmed);
+        if (Number.isFinite(parsed)) return Math.trunc(parsed);
+      }
+      if (typeof value === 'boolean') return value ? 1 : 0;
+      return value;
+    }
+    case 'number': {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value.trim());
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      if (typeof value === 'boolean') return value ? 1 : 0;
+      return value;
+    }
+    case 'boolean': {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        const lower = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'y', 'on'].includes(lower)) return true;
+        if (['false', '0', 'no', 'n', 'off'].includes(lower)) return false;
+      }
+      if (typeof value === 'number') {
+        if (value === 1) return true;
+        if (value === 0) return false;
+      }
+      return value;
+    }
+    case 'string': {
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+      return value;
+    }
+    case 'array': {
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed.startsWith('[')) {
+          try {
+            const parsed: unknown = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+          } catch {
+            /* fall through to single-element wrap */
+          }
+        }
+        return [value];
+      }
+      return [value];
+    }
+    case 'object': {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) return value;
+      if (typeof value === 'string') {
+        try {
+          const parsed: unknown = JSON.parse(value);
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) return parsed;
+        } catch {
+          /* keep original so validation reports a clear error */
+        }
+      }
+      return value;
+    }
+    default:
+      return value;
+  }
+}
+
+/** Suggest the closest registered tool when the model calls a name that doesn't exist. */
+function suggestSimilarTool(target: string, candidates: string[]): string {
+  let best: string | null = null;
+  let bestScore = 0;
+  const normalizedTarget = target.toLowerCase();
+  // Hard-coded renames for tools the system prompt historically referenced.
+  const legacyNames: Record<string, string> = {
+    grep_search: 'search_code',
+    search_files: 'search_code',
+    search_text: 'search_code',
+    list_code_symbols: 'search_code',
+    get_file_info: 'get_file_info',
+  };
+  if (legacyNames[target] && candidates.includes(legacyNames[target])) {
+    return ` Did you mean "${legacyNames[target]}"?`;
+  }
+  for (const candidate of candidates) {
+    const score = similarityScore(normalizedTarget, candidate.toLowerCase());
+    if (score > bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  if (best && bestScore >= 0.5) return ` Did you mean "${best}"?`;
+  return '';
+}
+
+function similarityScore(a: string, b: string): number {
+  if (a === b) return 1;
+  const longer = Math.max(a.length, b.length);
+  if (longer === 0) return 1;
+  const distance = levenshtein(a, b);
+  return 1 - distance / longer;
+}
+
+function levenshtein(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let carry = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const temp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, carry + (a[i - 1] === b[j - 1] ? 0 : 1));
+      carry = temp;
+    }
+  }
+  return prev[b.length];
+}
+
+/**
+ * Parse tool-call JSON emitted by the model, tolerating the malformations
+ * weak models frequently produce (trailing commas, single quotes, unescaped
+ * control characters inside strings, truncated streams).
+ * Returns the parsed object or throws the original SyntaxError.
+ */
+export function parseToolCallInput(raw: string): Record<string, unknown> {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch (originalError) {
+    const repaired = repairToolCallJson(raw);
+    if (repaired !== null) {
+      try {
+        return JSON.parse(repaired) as Record<string, unknown>;
+      } catch {
+        /* fall through and throw the original error */
+      }
+    }
+    throw originalError;
+  }
+}
+
+function repairToolCallJson(raw: string): string | null {
+  let text = raw.trim();
+  if (!text) return null;
+  // Some models wrap the JSON in markdown fences.
+  const fence = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fence) text = fence[1].trim();
+  // Remove trailing commas before } or ].
+  text = text.replace(/,\s*([}\]])/g, '$1');
+  // Convert single-quoted keys/strings to double quotes when it looks like
+  // the model used Python-style quoting throughout.
+  if (text.includes("'") && !text.includes('"')) {
+    text = text.replace(/'/g, '"');
+  }
+  // Escape raw control characters (literal newlines/tabs) inside string
+  // literals — the most common failure when old_string/new_string embed code.
+  try {
+    return escapeRawControlsInStrings(text);
+  } catch {
+    return text;
+  }
+}
+
+function escapeRawControlsInStrings(json: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i];
+    if (inString) {
+      if (escaped) {
+        out += ch;
+        escaped = false;
+      } else if (ch === '\\') {
+        out += ch;
+        escaped = true;
+      } else if (ch === '"') {
+        out += ch;
+        inString = false;
+      } else if (ch === '\n') {
+        out += '\\n';
+      } else if (ch === '\r') {
+        out += '\\r';
+      } else if (ch === '\t') {
+        out += '\\t';
+      } else if (ch.charCodeAt(0) < 0x20) {
+        out += `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`;
+      } else {
+        out += ch;
+      }
+    } else {
+      out += ch;
+      if (ch === '"') inString = true;
+    }
+  }
+  return out;
 }
 
 async function executeWithAbort(

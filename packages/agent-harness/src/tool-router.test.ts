@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ToolRouter } from './tool-router';
+import { ToolRouter, normalizeToolInput, parseToolCallInput } from './tool-router';
 import type { ToolExecutionContext, ToolHandler } from './types';
 
 const handler: ToolHandler = {
@@ -85,5 +85,125 @@ describe('ToolRouter', () => {
         metadata: { cancellationPartial: true, operationCompleted: true },
       },
     });
+  });
+
+  it('suggests the closest tool when the model calls an unknown name', async () => {
+    const router = new ToolRouter();
+    router.register(handler);
+    router.register({
+      definition: {
+        name: 'search_code',
+        description: 'search code',
+        inputSchema: { type: 'object', properties: {}, required: [] },
+      },
+      category: 'filesystem',
+      requiresApproval: false,
+      execute: vi.fn(async () => ({ success: true, output: 'ok' })),
+    });
+    const record = await router.execute(
+      'grep_search',
+      'call',
+      {},
+      context(new AbortController().signal),
+    );
+    expect(record.output.success).toBe(false);
+    expect(record.output.error).toContain('Unknown tool: grep_search');
+    expect(record.output.error).toContain('search_code');
+  });
+
+  it('coerces weak-model typings and resolves camelCase aliases', async () => {
+    const router = new ToolRouter();
+    const execute = vi.fn(async (input: Record<string, unknown>) => ({
+      success: true,
+      output: `${String(input.path)}:${String(input.start_line)}:${String(input.replace_all)}`,
+    }));
+    router.register({
+      definition: {
+        name: 'edit_file',
+        description: 'test edit',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: { type: 'string' },
+            old_string: { type: 'string' },
+            new_string: { type: 'string' },
+            start_line: { type: 'integer' },
+            replace_all: { type: 'boolean' },
+          },
+          required: ['path', 'old_string', 'new_string'],
+        },
+      },
+      category: 'filesystem',
+      requiresApproval: false,
+      execute,
+    });
+    const record = await router.execute(
+      'edit_file',
+      'call',
+      {
+        filePath: 'src/a.ts',
+        oldString: 'const a = 1;',
+        newString: 'const a = 2;',
+        start_line: '10',
+        replace_all: 'true',
+      },
+      context(new AbortController().signal),
+    );
+    expect(record.output.success).toBe(true);
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'src/a.ts',
+        old_string: 'const a = 1;',
+        new_string: 'const a = 2;',
+        start_line: 10,
+        replace_all: true,
+      }),
+      expect.anything(),
+    );
+  });
+});
+
+describe('normalizeToolInput', () => {
+  const schema = {
+    type: 'object',
+    properties: {
+      path: { type: 'string' },
+      count: { type: 'integer' },
+      flag: { type: 'boolean' },
+    },
+    required: ['path'],
+  };
+
+  it('maps file_path to path and coerces numerics/booleans', () => {
+    expect(normalizeToolInput(schema, { file_path: 'a.ts', count: '3', flag: 'false' })).toEqual({
+      file_path: 'a.ts',
+      count: 3,
+      flag: false,
+      path: 'a.ts',
+    });
+  });
+
+  it('does not mutate the original input', () => {
+    const input = { file_path: 'a.ts' };
+    normalizeToolInput(schema, input);
+    expect(input).toEqual({ file_path: 'a.ts' });
+  });
+});
+
+describe('parseToolCallInput', () => {
+  it('parses valid JSON as-is', () => {
+    expect(parseToolCallInput('{"path":"a.ts"}')).toEqual({ path: 'a.ts' });
+  });
+
+  it('repairs trailing commas', () => {
+    expect(parseToolCallInput('{"path":"a.ts",}')).toEqual({ path: 'a.ts' });
+  });
+
+  it('repairs raw newlines inside strings', () => {
+    expect(parseToolCallInput('{"text":"line1\nline2"}')).toEqual({ text: 'line1\nline2' });
+  });
+
+  it('throws the original error when unrepairable', () => {
+    expect(() => parseToolCallInput('{not json')).toThrow();
   });
 });

@@ -38,7 +38,7 @@ import {
   DEFAULT_HARNESS_CONFIG,
 } from './types';
 import { ContextManager } from './context-manager';
-import { ToolRouter } from './tool-router';
+import { ToolRouter, parseToolCallInput } from './tool-router';
 import { getAllBuiltinTools } from './tools';
 import { getAgentDefinition } from './agents';
 import { SkillLoader } from './skill-loader';
@@ -999,7 +999,7 @@ export class Harness {
                   const tc = toolCalls.find((t) => t.id === chunk.id);
                   if (tc && tc._rawInput) {
                     try {
-                      tc.input = JSON.parse(tc._rawInput);
+                      tc.input = parseToolCallInput(tc._rawInput);
                     } catch {
                       invalidToolCall = tc.name;
                     }
@@ -1095,7 +1095,11 @@ export class Harness {
               }
             }
             if (invalidToolCall) {
-              throw new Error(`Invalid JSON arguments received for tool "${invalidToolCall}"`);
+              throw new Error(
+                `Invalid JSON arguments received for tool "${invalidToolCall}". ` +
+                  `Retry the same call with valid JSON: double quotes for keys and strings, ` +
+                  `escape newlines as \\n, no trailing commas, no markdown fences.`,
+              );
             }
             if (usageChunksThisIteration === 0) {
               this.traceRecorder.recordPromptCacheObservation(
@@ -1118,6 +1122,30 @@ export class Harness {
           terminalStatus = 'cancelled';
           finalResponse = 'Request cancelled.';
           break;
+        }
+        // Malformed tool-call JSON is a model formatting mistake, not a provider
+        // outage — give the model one explicit retry instead of ending the turn.
+        const errMessage = err instanceof Error ? err.message : String(err);
+        const invalidJsonMatch = errMessage.match(/^Invalid JSON arguments received for tool "(.+?)"/);
+        if (invalidJsonMatch) {
+          const badTool = invalidJsonMatch[1];
+          toolCalls = [];
+          this.traceRecorder.recordLoopWarning('invalid_tool_json_nudge', iteration);
+          middlewareInjections.push(
+            `[Your tool call to "${badTool}" was not executed because its arguments were not valid JSON. ` +
+              `Retry the exact same call with valid JSON: use double quotes for keys and strings, ` +
+              `escape newlines inside strings as \\n, remove trailing commas, and do not wrap the arguments in markdown fences.]`,
+          );
+          const retryMsg: Message = {
+            role: 'assistant',
+            content: [
+              ...(thinkingText ? [{ type: 'thinking' as const, thinking: thinkingText }] : []),
+              ...(assistantText ? [{ type: 'text' as const, text: assistantText }] : []),
+            ],
+          };
+          this.contextManager.addMessage(retryMsg);
+          this.emit({ type: 'transcript_message', role: 'assistant', blocks: retryMsg.content });
+          continue;
         }
         const providerError = normalizeProviderError(
           err,

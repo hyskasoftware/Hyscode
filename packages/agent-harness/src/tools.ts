@@ -157,7 +157,9 @@ export const readFileTool = defineTool(
 
 export const writeFileTool = defineTool(
   'write_file',
-  "Write content to a file. If the file exists, it will be overwritten. If parent directories don't exist, they will be created.",
+  "Write content to a file. If the file exists, it will be overwritten. If parent directories don't exist, they will be created. " +
+    'For existing files prefer edit_file (surgical) over write_file (full rewrite). ' +
+    'Arguments are JSON: pass content as a JSON string with newlines escaped as \\n.',
   {
     path: { type: 'string', description: 'Absolute or workspace-relative path to the file' },
     content: { type: 'string', description: 'The full content to write to the file' },
@@ -198,7 +200,13 @@ export const writeFileTool = defineTool(
 
 export const editFileTool = defineTool(
   'edit_file',
-  'Make a targeted edit to a file by replacing an exact string with a new string. The old_string must match exactly (including whitespace and indentation). Include enough context lines to uniquely identify the location. Set replace_all=true to replace every occurrence.',
+  'Make a targeted edit to a file by replacing an exact string with a new string. ' +
+    'ALWAYS call read_file on the file first and copy old_string verbatim from its content ' +
+    '(including whitespace and indentation). Include enough context lines to uniquely identify the location. ' +
+    'Set replace_all=true to replace every occurrence. ' +
+    'Parameter names are snake_case: path, old_string, new_string, replace_all. ' +
+    'Arguments are JSON: use double quotes and escape newlines inside strings as \\n. ' +
+    'Example: {"path": "src/auth/jwt.ts", "old_string": "const ttl = 60;", "new_string": "const ttl = 3600;"}',
   {
     path: { type: 'string', description: 'Absolute or workspace-relative path to the file' },
     old_string: {
@@ -280,7 +288,9 @@ export const editFileTool = defineTool(
 
 export const replaceLinesTool = defineTool(
   'replace_lines',
-  'Replace a specific range of lines in a file with new content. Line numbers are 1-indexed and inclusive. Use this when you need to edit a specific block of lines without matching by string content.',
+  'Replace a specific range of lines in a file with new content. Line numbers are 1-indexed and inclusive. ' +
+    'Use this when you need to edit a specific block of lines without matching by string content. ' +
+    'Read the file first to confirm line numbers. Parameter names are snake_case: path, start_line, end_line, new_content.',
   {
     path: { type: 'string', description: 'Absolute or workspace-relative path to the file' },
     start_line: {
@@ -355,7 +365,9 @@ export const replaceLinesTool = defineTool(
 
 export const insertLinesTool = defineTool(
   'insert_lines',
-  'Insert new content at a specific line position in a file. Line numbers are 1-indexed. Content is inserted AFTER the specified line. Use line=0 to insert at the beginning of the file.',
+  'Insert new content at a specific line position in a file. Line numbers are 1-indexed. Content is inserted AFTER the specified line. ' +
+    'Use line=0 to insert at the beginning of the file. Read the file first to confirm the position. ' +
+    'Parameter names are snake_case: path, line, content.',
   {
     path: { type: 'string', description: 'Absolute or workspace-relative path to the file' },
     line: {
@@ -412,7 +424,8 @@ export const insertLinesTool = defineTool(
 
 export const createFileTool = defineTool(
   'create_file',
-  'Create a new file with the specified content. Fails if the file already exists. Parent directories are created automatically.',
+  'Create a new file with the specified content. Fails if the file already exists (use edit_file or write_file for existing files). ' +
+    'Parent directories are created automatically. Arguments are JSON: pass content as a JSON string with newlines escaped as \\n.',
   {
     path: { type: 'string', description: 'Absolute or workspace-relative path for the new file' },
     content: { type: 'string', description: 'The content for the new file' },
@@ -947,7 +960,7 @@ export const gitLogTool = defineTool(
   'Show recent git commit history.',
   {
     max_count: {
-      type: 'number',
+      type: 'integer',
       description: 'Max number of commits to return (default: 20).',
     },
     file: {
@@ -1093,7 +1106,7 @@ export const webFetchTool = defineTool(
       description: 'The full URL to fetch (e.g. https://docs.python.org/3/library/os.html).',
     },
     max_length: {
-      type: 'number',
+      type: 'integer',
       description: 'Maximum characters to return (default: 10000). Increase if the page is long.',
     },
   },
@@ -1157,7 +1170,7 @@ export const webSearchTool = defineTool(
   {
     query: { type: 'string', description: 'The search query. Be specific for better results.' },
     max_results: {
-      type: 'number',
+      type: 'integer',
       description: 'Maximum number of results to return (default: 5, max: 10).',
     },
   },
@@ -1295,7 +1308,7 @@ export const manageTasksTool = defineTool(
       items: {
         type: 'object',
         properties: {
-          id: { type: 'number', description: 'Sequential task ID (1, 2, 3...)' },
+          id: { type: 'integer', description: 'Sequential task ID (1, 2, 3...)' },
           title: { type: 'string', description: 'Short task title (3-7 words)' },
           status: {
             type: 'string',

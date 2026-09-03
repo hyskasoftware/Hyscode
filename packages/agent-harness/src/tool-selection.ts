@@ -63,16 +63,26 @@ export function selectToolPlan(
   mode: AgentType = 'build',
 ): { tools: ToolDefinition[]; decisions: ToolSelectionDecision[] } {
   const text = userMessage.toLowerCase();
-  const wantsGit = /\bgit\b|commit|branch|merge|push|pull|stash|blame/.test(text);
-  const wantsDocker = /docker|container|image/.test(text);
-  const wantsWeb = /https?:\/\/|\bweb\b|internet|pesquis|search online/.test(text);
+  const wantsGit =
+    /\bgit\b|commit|branch|merge|push|pull|stash|blame|hist[oó]rico|diferen[çc]as/.test(text);
+  const wantsDocker = /docker|container|conteiner|imagem|imagens|image/.test(text);
+  const wantsWeb =
+    /https?:\/\/|\bweb\b|internet|online|pesquis|busque|buscar|procure|procurar|documenta[çc][aã]o/.test(
+      text,
+    );
   const wantsMcp = /\bmcp\b/.test(text);
+  // Mutation/execution intent must be detected in both English and Portuguese:
+  // the previous English-only patterns hid edit/run tools from PT-speaking users.
   const wantsMutation =
     ['build', 'debug'].includes(mode) ||
-    /\b(edit|write|create|delete|remove|rename|copy|modify|fix|implement)/.test(text);
+    /\b(edit|write|create|delete|remove|rename|copy|modify|fix|implement|refactor|add|update|move)\b|\b(edite|editar|edi[çc][aã]o|escreva|escrever|escrita|crie|criar|cria[çc][aã]o|delete|deletar|remova|remover|remo[çc][aã]o|renomeie|renomear|copie|copiar|c[oó]pia|modifique|modificar|altere|alterar|altera[çc][aã]o|corrija|corrigir|corre[çc][aã]o|conserte|consertar|implemente|implementar|implementa[çc][aã]o|refatore|refatorar|adicione|adicionar|atualize|atualizar|mova|mover)\b/.test(
+      text,
+    );
   const wantsExecution =
     ['build', 'debug'].includes(mode) ||
-    /\b(run|test|build|execute|terminal|command|compile)/.test(text);
+    /\b(run|test|build|execute|terminal|command|compile|install|start|verify|check)\b|\b(rode|rodar|execu[çc][aã]o|execute|executar|teste|testar|testes|terminal|comando|compile|compilar|instale|instalar|depend[eê]ncias|inicie|iniciar|verifique|verificar|checagem|cheque)\b/.test(
+      text,
+    );
   const rankedMcp = wantsMcp
     ? tools
         .filter((tool) => tool.name.startsWith('mcp__'))
