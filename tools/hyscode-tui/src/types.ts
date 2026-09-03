@@ -35,6 +35,8 @@ export type CliUpdateOptions = {
   channel?: 'stable' | 'pre-release';
   checkOnly: boolean;
   assumeYes: boolean;
+  silent?: boolean;
+  persistChannel?: boolean;
   configPath?: string;
 };
 

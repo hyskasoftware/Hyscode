@@ -1,5 +1,7 @@
-import { access } from 'node:fs/promises';
+import { access, appendFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
+import path from 'node:path';
 import process from 'node:process';
 import { CliUpdater, CliUpdaterError, runNdjsonBridge, runUpdateHelper, SharedConfigStore, TuiBridge } from '@hyscode/tui-runtime';
 import { parseCliArgs, VORTEX_UPDATE_EXIT_CODES } from './commands';
@@ -28,7 +30,12 @@ async function main(): Promise<void> {
     try {
       await runUpdateHelper(parsed.statePath);
     } catch (error) {
-      process.stderr.write(`VORTEX update helper failed: ${error instanceof Error ? error.message : String(error)}\n`);
+      const message = error instanceof Error ? error.message : String(error);
+      try {
+        await appendFile(path.join(path.dirname(parsed.statePath), 'update.log'), `helper-failed: ${message}\n`, 'utf8');
+      } catch {
+      }
+      process.stderr.write(`VORTEX update helper failed: ${message}\n`);
       process.exitCode = 1;
     }
     return;
@@ -170,6 +177,9 @@ async function runUpdateCommand(options: CliUpdateOptions): Promise<void> {
   const configStore = new SharedConfigStore(options.configPath);
   const settings = await configStore.load();
   const channel = options.channel ?? settings.updateChannel;
+  if (options.persistChannel && options.channel) {
+    await configStore.save({ updateChannel: options.channel });
+  }
   const interactive = process.stdin.isTTY === true && process.stdout.isTTY === true;
   const updater = new CliUpdater({
     version: VERSION,
@@ -208,7 +218,7 @@ async function runUpdateCommand(options: CliUpdateOptions): Promise<void> {
     if (!options.assumeYes) {
       if (!interactive) {
         process.stderr.write('VORTEX update requires confirmation. Re-run with --yes.\n');
-        process.exitCode = 6;
+        process.exitCode = VORTEX_UPDATE_EXIT_CODES.confirmationRequired;
         return;
       }
       const readline = createInterface({ input: process.stdin, output: process.stdout });
@@ -221,8 +231,12 @@ async function runUpdateCommand(options: CliUpdateOptions): Promise<void> {
     }
     const update = await updater.download(release);
     if (process.stdout.isTTY) process.stdout.write('\n');
-    await updater.apply(update);
-    process.stdout.write(`VORTEX update to ${release.version} scheduled. Restart VORTEX to use the new version.\n`);
+    await updater.apply(update, { silent: options.silent });
+    if (release.asset.kind === 'installer') {
+      process.stdout.write(`VORTEX installer launched for ${release.version}. Complete the installer to finish. Temp files under the system temp directory (vortex-update-*) can be removed manually.\n`);
+    } else {
+      process.stdout.write(`VORTEX update to ${release.version} scheduled. Restart VORTEX to use the new version.\n`);
+    }
     process.exitCode = VORTEX_UPDATE_EXIT_CODES.installed;
   } catch (error) {
     if (process.stdout.isTTY) process.stdout.write('\n');
@@ -234,7 +248,18 @@ async function runUpdateCommand(options: CliUpdateOptions): Promise<void> {
 
 function currentCliExecutablePath(): string | undefined {
   const candidate = process.argv[0];
-  return candidate && /vortex(?:\.exe)?$/iu.test(candidate) ? candidate : undefined;
+  if (candidate && /vortex(?:\.exe)?$/iu.test(candidate)) return candidate;
+  const pathEnv = process.env.PATH ?? '';
+  const suffix = process.platform === 'win32' ? 'vortex.exe' : 'vortex';
+  for (const entry of pathEnv.split(path.delimiter)) {
+    if (!entry) continue;
+    const full = path.join(entry, suffix);
+    try {
+      if (existsSync(full)) return full;
+    } catch {
+    }
+  }
+  return undefined;
 }
 
 function updateExitCode(error: unknown): number {

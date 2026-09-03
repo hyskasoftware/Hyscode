@@ -1037,13 +1037,20 @@ function updateFlowLines(state: UiState, width: number, maxHeight: number): stri
   if (release) {
     lines.push(`${MUTED}Available${RESET} ${ACCENT}${BOLD}${release.version}${RESET}  ${MUTED}${release.asset ? `${formatBytes(release.asset.size)} · ${release.asset.kind}` : 'manual installation'}${RESET}`);
     if (release.body) lines.push(...wrapText(release.body.replace(/\r?\n/gu, ' '), Math.max(20, width - 8)).slice(0, 2).map((line) => `${SOFT}${line}${RESET}`));
-    if (release.installation) lines.push(`${MUTED}Install${RESET} ${release.installation.kind} · ${release.installation.mode}`);
+    if (release.installation) {
+      const writableSuffix = release.installation.writable ? '' : ' (not writable — uses installer)';
+      lines.push(`${MUTED}Install${RESET} ${release.installation.kind} · ${release.installation.mode}${writableSuffix}`);
+    }
+    if (release.releaseUrl) lines.push(`${MUTED}Release${RESET} ${SOFT}${shorten(release.releaseUrl, width - 8)}${RESET}`);
     if (release.manualReason) lines.push(...wrapText(release.manualReason, Math.max(20, width - 8)).slice(0, 2).map((line) => `${WARNING}${line}${RESET}`));
   }
-  if (update.progress && (update.status === 'downloading' || update.status === 'ready')) {
+  if (update.progress && (update.status === 'downloading' || update.status === 'ready' || update.status === 'applying')) {
     const progressWidth = Math.max(10, Math.min(width - 20, 36));
-    const filled = Math.round((update.progress.percent / 100) * progressWidth);
-    lines.push(`${ACCENT}${'━'.repeat(filled)}${MUTED}${'─'.repeat(Math.max(0, progressWidth - filled))}${RESET} ${Math.round(update.progress.percent)}%`);
+    const percent = update.status === 'applying' ? (update.progress.percent ?? 100) : update.progress.percent;
+    const filled = Math.round((percent / 100) * progressWidth);
+    lines.push(`${ACCENT}${'━'.repeat(filled)}${MUTED}${'─'.repeat(Math.max(0, progressWidth - filled))}${RESET} ${Math.round(percent)}%`);
+  } else if (update.status === 'applying') {
+    lines.push(`${WARNING}applying…${RESET}`);
   }
   if (update.error) lines.push(`${ERROR}${shorten(update.error, width - 8)}${RESET}`);
   const options = selectionOptions(state, { kind: 'update', selected: 0 });

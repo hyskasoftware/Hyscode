@@ -22,6 +22,8 @@ describe('TUI command and CLI parsing', () => {
       options: {
         checkOnly: true,
         assumeYes: false,
+        silent: false,
+        persistChannel: false,
         channel: 'pre-release',
         configPath: 'C:\\repo\\settings.json',
       },

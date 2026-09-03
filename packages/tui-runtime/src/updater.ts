@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants, createReadStream } from 'node:fs';
 import {
   access,
+  appendFile,
   chmod,
   cp,
   mkdir,
@@ -126,6 +127,8 @@ type GitHubRelease = {
   html_url?: string;
   body?: string | null;
   published_at?: string | null;
+  draft?: boolean;
+  prerelease?: boolean;
   assets: GitHubAsset[];
 };
 
@@ -156,6 +159,7 @@ type ApplyUpdateState = {
   architecture: CliUpdateArchitecture;
   temporaryRoot: string;
   helperDirectory: string;
+  createdAt: number;
 };
 
 const GITHUB_API_BASE = 'https://api.github.com/repos/Hyska-Software/Hyscode/releases';
@@ -165,6 +169,12 @@ const MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024;
 const DOWNLOAD_PROGRESS_INTERVAL = 1;
 const HELPER_WAIT_INTERVAL_MS = 100;
 const HELPER_MAX_WAIT_MS = 30_000;
+const HELPER_STATE_MAX_AGE_MS = 10 * 60 * 1_000;
+const RUN_COMMAND_DEFAULT_TIMEOUT_MS = 30_000;
+const WINDOWS_RENAME_ATTEMPTS = 10;
+const WINDOWS_RENAME_RETRY_MS = 500;
+const WINDOWS_RETRY_ERRORS: Record<string, true> = { EPERM: true, EBUSY: true, ENOTEMPTY: true, EACCES: true };
+let lastInstallerTemporaryRoot: string | null = null;
 
 const PLATFORM_NAMES: Record<string, CliUpdatePlatform> = {
   win32: 'windows',
@@ -191,7 +201,8 @@ export class CliUpdater {
   private readonly platform: NodeJS.Platform;
   private readonly architecture: string;
   private onProgress?: (progress: CliUpdateProgress) => void;
-  private activeAbortController: AbortController | null = null;
+  private readonly activeControllers = new Set<AbortController>();
+  private pendingTemporaryRoot: string | null = null;
 
   constructor(options: CliUpdaterOptions) {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
@@ -207,23 +218,33 @@ export class CliUpdater {
   }
 
   cancel(): void {
-    this.activeAbortController?.abort();
+    for (const controller of this.activeControllers) controller.abort();
+    this.activeControllers.clear();
+  }
+
+  async cancelPending(): Promise<void> {
+    this.cancel();
+    if (this.pendingTemporaryRoot) {
+      const root = this.pendingTemporaryRoot;
+      this.pendingTemporaryRoot = null;
+      await rm(root, { recursive: true, force: true }).catch(() => undefined);
+    }
   }
 
   async check(channel: UpdateChannel = 'stable'): Promise<ReleaseInfo | null> {
     const controller = new AbortController();
-    this.activeAbortController = controller;
+    this.activeControllers.add(controller);
     try {
       return await this.checkRelease(channel, controller.signal);
     } finally {
-      if (this.activeAbortController === controller) this.activeAbortController = null;
+      this.activeControllers.delete(controller);
     }
   }
 
   private async checkRelease(channel: UpdateChannel, signal: AbortSignal): Promise<ReleaseInfo | null> {
     const target = resolveTarget(this.platform, this.architecture);
     const installation = await detectInstallation(this.executablePathOverride, target.platform);
-    const releases = await this.fetchReleases(channel, signal);
+    const releases = (await this.fetchReleases(channel, signal)).filter((release) => release.draft !== true);
     const candidate = releases
       .map((release) => ({ release, version: parseVersion(release.tag_name) }))
       .filter((entry): entry is { release: GitHubRelease; version: ParsedVersion } => entry.version !== null)
@@ -290,10 +311,15 @@ export class CliUpdater {
       throw new CliUpdaterError('unsupported', release.manualReason ?? 'No compatible VORTEX asset is available.');
     }
     validateAsset(release.asset);
-
+    if (lastInstallerTemporaryRoot) {
+      const stale = lastInstallerTemporaryRoot;
+      lastInstallerTemporaryRoot = null;
+      await rm(stale, { recursive: true, force: true }).catch(() => undefined);
+    }
     const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'vortex-update-'));
+    this.pendingTemporaryRoot = temporaryRoot;
     const controller = new AbortController();
-    this.activeAbortController = controller;
+    this.activeControllers.add(controller);
     const archivePath = path.join(temporaryRoot, release.asset.name);
     try {
       await this.downloadFile(release.asset, archivePath, controller.signal);
@@ -304,35 +330,40 @@ export class CliUpdater {
           `SHA-256 mismatch for ${release.asset.name}. Expected ${release.asset.sha256}, got ${actualHash}.`,
         );
       }
-
       if (release.asset.kind === 'installer') {
+        this.pendingTemporaryRoot = null;
         return { release, asset: release.asset, archivePath, stagedBundlePath: null, temporaryRoot };
       }
-
       const extractionRoot = path.join(temporaryRoot, 'extracted');
       await mkdir(extractionRoot, { recursive: true });
       await extractArchive(archivePath, extractionRoot, release.asset.platform === 'windows');
+      if (release.asset.platform === 'macos') {
+        await runCommand('xattr', ['-dr', 'com.apple.quarantine', extractionRoot], { cwd: extractionRoot, allowFailure: true });
+      }
       const stagedBundlePath = await locateBundle(extractionRoot, release.asset.platform);
       await validateBundle(stagedBundlePath, release.version, release.asset.platform, release.asset.architecture);
+      this.pendingTemporaryRoot = null;
       return { release, asset: release.asset, archivePath, stagedBundlePath, temporaryRoot };
     } catch (error) {
+      this.pendingTemporaryRoot = null;
       await rm(temporaryRoot, { recursive: true, force: true }).catch(() => undefined);
       if (error instanceof CliUpdaterError) throw error;
       throw new CliUpdaterError('network', `Could not prepare the VORTEX update: ${errorMessage(error)}`, { cause: error });
     } finally {
-      if (this.activeAbortController === controller) this.activeAbortController = null;
+      this.activeControllers.delete(controller);
     }
   }
 
-  async apply(update: DownloadedUpdate): Promise<void> {
+  async apply(update: DownloadedUpdate, options?: { silent?: boolean }): Promise<void> {
     if (update.asset.kind === 'installer') {
-      await launchInstaller(update.archivePath, update.asset.platform);
+      const silent = options?.silent === true;
+      await launchInstaller(update.archivePath, update.asset.platform, silent);
+      lastInstallerTemporaryRoot = update.temporaryRoot;
       return;
     }
     if (!update.stagedBundlePath) {
       throw new CliUpdaterError('apply-failed', 'The staged VORTEX bundle is missing.');
     }
-
     const layout = await detectInstallation(this.executablePathOverride, update.asset.platform);
     if (layout.mode !== 'direct' || !layout.writable) {
       throw new CliUpdaterError(
@@ -340,7 +371,6 @@ export class CliUpdater {
         layout.reason ?? 'The current VORTEX installation is not writable.',
       );
     }
-
     const stagingBundlePath = path.join(
       path.dirname(layout.installRoot),
       `.${path.basename(layout.installRoot)}-update-${randomUUID()}`,
@@ -349,8 +379,13 @@ export class CliUpdater {
     try {
       await cp(update.stagedBundlePath, stagingBundlePath, { recursive: true, force: true });
       helperDirectory = await mkdtemp(path.join(os.tmpdir(), 'vortex-update-helper-'));
+      if (update.asset.platform !== 'windows') await chmod(helperDirectory, 0o700).catch(() => undefined);
       const helperExecutable = path.join(helperDirectory, `vortex-update-helper${update.asset.platform === 'windows' ? '.exe' : ''}`);
       const executablePath = await resolveExecutablePath(this.executablePathOverride);
+      const helperBase = path.basename(executablePath).toLowerCase();
+      if (helperBase !== 'vortex' && helperBase !== 'vortex.exe') {
+        throw new CliUpdaterError('apply-failed', `Cannot locate the VORTEX executable (resolved to ${executablePath}). Reinstall VORTEX and retry.`);
+      }
       await cp(executablePath, helperExecutable, { force: true });
       if (update.asset.platform !== 'windows') await chmod(helperExecutable, 0o755);
       const statePath = path.join(helperDirectory, 'state.json');
@@ -362,32 +397,42 @@ export class CliUpdater {
         architecture: update.asset.architecture,
         temporaryRoot: update.temporaryRoot,
         helperDirectory,
+        createdAt: Date.now(),
       };
       await writeFile(statePath, `${JSON.stringify(state)}\n`, 'utf8');
+      await writeFile(path.join(helperDirectory, 'update.log'), `VORTEX update helper started for ${update.release.version}\n`, 'utf8').catch(() => undefined);
       const child = spawn(helperExecutable, ['--apply-update', statePath], {
         detached: true,
         stdio: 'ignore',
         windowsHide: true,
       });
+      await once(child, 'spawn');
       child.unref();
     } catch (error) {
       await rm(stagingBundlePath, { recursive: true, force: true }).catch(() => undefined);
       if (helperDirectory) await rm(helperDirectory, { recursive: true, force: true }).catch(() => undefined);
+      if (error instanceof CliUpdaterError) throw error;
       throw new CliUpdaterError('apply-failed', `Could not start the VORTEX update helper: ${errorMessage(error)}`, { cause: error });
     }
   }
 
   private async fetchReleases(channel: UpdateChannel, signal: AbortSignal): Promise<GitHubRelease[]> {
-    const url = channel === 'pre-release'
-      ? `${GITHUB_API_BASE}?per_page=${GITHUB_RELEASES_PAGE_SIZE}`
-      : `${GITHUB_API_BASE}/latest`;
-    const payload = await this.fetchJson(url, false, signal);
-    if (channel === 'pre-release') {
-      if (!Array.isArray(payload)) throw new CliUpdaterError('invalid-release', 'GitHub returned an invalid release list.');
-      return payload.filter(isGitHubRelease);
+    if (channel !== 'pre-release') {
+      const payload = await this.fetchJson(`${GITHUB_API_BASE}/latest`, false, signal);
+      if (!isGitHubRelease(payload)) throw new CliUpdaterError('invalid-release', 'GitHub returned an invalid release.');
+      return [payload];
     }
-    if (!isGitHubRelease(payload)) throw new CliUpdaterError('invalid-release', 'GitHub returned an invalid release.');
-    return [payload];
+    const collected: GitHubRelease[] = [];
+    for (let page = 1; page <= 3; page += 1) {
+      const payload = await this.fetchJson(`${GITHUB_API_BASE}?per_page=${GITHUB_RELEASES_PAGE_SIZE}&page=${page}`, false, signal);
+      if (!Array.isArray(payload)) throw new CliUpdaterError('invalid-release', 'GitHub returned an invalid release list.');
+      const pageReleases = payload.filter(isGitHubRelease).filter((release) => release.draft !== true);
+      collected.push(...pageReleases);
+      if (pageReleases.length === 0) break;
+      const hasCandidate = pageReleases.some((release) => parseVersion(release.tag_name) !== null);
+      if (hasCandidate) break;
+    }
+    return collected;
   }
 
   private async fetchManifest(asset: GitHubAsset, releaseVersion: string, signal: AbortSignal): Promise<ReleaseManifest> {
@@ -406,9 +451,10 @@ export class CliUpdater {
       throw new CliUpdaterError('invalid-release', 'The VORTEX release manifest version does not match the release tag.');
     }
     const manifestAssets = payload.assets.filter(isManifestAsset);
-    if (manifestAssets.length !== payload.assets.length
-      || manifestAssets.length === 0
-      || manifestAssets.some((asset) => !isReleaseAssetName(asset.name, releaseVersion))) {
+    if (manifestAssets.length !== payload.assets.length || manifestAssets.length === 0) {
+      throw new CliUpdaterError('invalid-release', 'The VORTEX release manifest contains invalid assets.');
+    }
+    if (!manifestAssets.some((asset) => isReleaseAssetName(asset.name, releaseVersion))) {
       throw new CliUpdaterError('invalid-release', 'The VORTEX release manifest contains invalid assets.');
     }
     const identities = new Set<string>();
@@ -500,8 +546,16 @@ export class CliUpdater {
 
 export async function runUpdateHelper(statePath: string): Promise<void> {
   const state = await readApplyUpdateState(statePath);
-  await waitForProcessToExit(state.parentPid);
-  await applyStagedUpdate(state);
+  const logPath = path.join(state.helperDirectory, 'update.log');
+  await appendFile(logPath, `wait-parent pid=${state.parentPid}\n`, 'utf8').catch(() => undefined);
+  try {
+    await waitForProcessToExit(state.parentPid);
+    await appendFile(logPath, `parent-exited\n`, 'utf8').catch(() => undefined);
+    await applyStagedUpdate(state);
+  } catch (error) {
+    await appendFile(logPath, `helper-failed: ${errorMessage(error)}\n`, 'utf8').catch(() => undefined);
+    throw error;
+  }
 }
 
 export function resolveTarget(platform: NodeJS.Platform, architecture: string): { platform: CliUpdatePlatform; architecture: CliUpdateArchitecture } {
@@ -579,6 +633,15 @@ async function canWrite(directory: string): Promise<boolean> {
 }
 
 async function isDesktopBundledInstallation(installRoot: string, platform: CliUpdatePlatform): Promise<boolean> {
+  if (platform === 'macos') {
+    let current: string | null = path.resolve(installRoot);
+    for (let depth = 0; depth < 4 && current; depth += 1) {
+      if (current.toLowerCase().endsWith('hyscode.app')) return true;
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  }
   if (path.basename(installRoot).toLowerCase() !== 'vortex-cli') return false;
   const parent = path.dirname(installRoot);
   const desktopExecutable = platform === 'windows' ? 'HysCode.exe' : platform === 'macos' ? 'HysCode.app' : 'hyscode';
@@ -592,13 +655,27 @@ async function isDesktopBundledInstallation(installRoot: string, platform: CliUp
 
 function isSystemInstallation(installRoot: string, platform: CliUpdatePlatform): boolean {
   const normalized = path.resolve(installRoot).toLowerCase();
+  const prefixMatch = (root: string): boolean => {
+    const resolved = path.resolve(root).toLowerCase();
+    return normalized === resolved || normalized.startsWith(`${resolved}${path.sep}`);
+  };
   if (platform === 'windows') {
-    const programFiles = [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]
-      .filter((value): value is string => Boolean(value))
-      .map((value) => path.resolve(value).toLowerCase());
-    return programFiles.some((root) => normalized === root || normalized.startsWith(`${root}${path.sep}`));
+    const candidates = [
+      process.env.ProgramFiles,
+      process.env['ProgramFiles(x86)'],
+      process.env.ProgramW6432,
+      process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Programs') : undefined,
+      'C:\\Windows',
+      'C:\\ProgramData',
+    ].filter((value): value is string => Boolean(value));
+    return candidates.some(prefixMatch);
   }
-  return ['/usr', '/opt', '/applications'].some((root) => normalized === root || normalized.startsWith(`${root}${path.sep}`));
+  if (platform === 'macos') {
+    const home = process.env.HOME ?? os.homedir();
+    const candidates = ['/Applications', '/Library', '/System/Applications', path.join(home, 'Applications')];
+    return candidates.some((root) => prefixMatch(root));
+  }
+  return ['/usr', '/opt', '/snap', '/flatpak', '/nix', '/applications'].some((root) => normalized === root || normalized.startsWith(`${root}/`));
 }
 
 function releaseHasCliAsset(assets: GitHubAsset[], platform: CliUpdatePlatform, architecture: CliUpdateArchitecture): boolean {
@@ -645,8 +722,28 @@ function validateAsset(asset: CliUpdateAsset): void {
 async function extractArchive(archivePath: string, extractionRoot: string, windowsArchive: boolean): Promise<void> {
   const unsafeEntries = listArchiveEntries(archivePath, windowsArchive).filter((entry) => !isSafeArchiveEntry(entry));
   if (unsafeEntries.length > 0) throw new CliUpdaterError('integrity', `The VORTEX archive contains unsafe paths: ${unsafeEntries[0]}.`);
-  const args = windowsArchive ? ['-xf', archivePath, '-C', extractionRoot] : ['-xzf', archivePath, '-C', extractionRoot];
-  await runCommand('tar', args, { cwd: extractionRoot });
+  if (windowsArchive) {
+    try {
+      await runCommand('tar', ['-xf', archivePath, '-C', extractionRoot], { cwd: extractionRoot });
+      return;
+    } catch (error) {
+      if (!isMissingToolError(error)) throw error;
+    }
+    try {
+      await runCommand('powershell', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath '${archivePath}' -DestinationPath '${extractionRoot}' -Force`], { cwd: extractionRoot });
+      return;
+    } catch (fallbackError) {
+      throw new CliUpdaterError('unsupported', 'System tar/Expand-Archive unavailable: cannot extract the VORTEX archive on Windows.', { cause: fallbackError });
+    }
+  }
+  try {
+    await runCommand('tar', ['-xzf', archivePath, '-C', extractionRoot], { cwd: extractionRoot });
+  } catch (error) {
+    if (isMissingToolError(error)) {
+      throw new CliUpdaterError('unsupported', 'System tar is required to stage the VORTEX archive (package: tar).', { cause: error });
+    }
+    throw error;
+  }
 }
 
 function listArchiveEntries(archivePath: string, windowsArchive: boolean): string[] {
@@ -654,10 +751,27 @@ function listArchiveEntries(archivePath: string, windowsArchive: boolean): strin
     encoding: 'utf8',
     windowsHide: true,
   });
-  if (result.error || result.status !== 0) {
-    throw new CliUpdaterError('integrity', `Could not inspect the VORTEX archive ${path.basename(archivePath)}.`);
+  if (!result.error && result.status === 0) {
+    return result.stdout.split(/\r?\n/u).map((entry) => entry.trim()).filter(Boolean);
   }
-  return result.stdout.split(/\r?\n/u).map((entry) => entry.trim()).filter(Boolean);
+  if (!windowsArchive) {
+    throw new CliUpdaterError('unsupported', 'System tar is required to inspect the VORTEX archive (package: tar).');
+  }
+  try {
+    const fallback = spawnSync(
+      'powershell',
+      ['-NoProfile', '-Command', `$entries = @(); try { Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead('${archivePath}'); foreach ($e in $zip.Entries) { $entries += $e.FullName }; $zip.Dispose() } catch { exit 1 }; $entries -join "\n"`],
+      { encoding: 'utf8', windowsHide: true },
+    );
+    if (!fallback.error && fallback.status === 0 && fallback.stdout.trim()) {
+      return fallback.stdout.split(/\r?\n/u).map((entry) => entry.trim()).filter(Boolean);
+    }
+  } catch {
+  }
+  if (result.error && isMissingToolCode((result.error as NodeJS.ErrnoException).code)) {
+    throw new CliUpdaterError('unsupported', 'System tar/Expand-Archive unavailable: cannot inspect the VORTEX archive on Windows.');
+  }
+  throw new CliUpdaterError('unsupported', 'System tar/Expand-Archive unavailable: cannot inspect the VORTEX archive on Windows.');
 }
 
 async function locateBundle(extractionRoot: string, platform: CliUpdatePlatform): Promise<string> {
@@ -696,18 +810,63 @@ async function validateBundle(
       throw new CliUpdaterError('integrity', `The VORTEX bundle is missing ${required.label}.`);
     }
   }
-  if (platform !== 'windows') await chmod(path.join(bundlePath, executableName), 0o755);
+  if (platform !== 'windows') {
+    await chmod(path.join(bundlePath, executableName), 0o755);
+    await chmod(path.join(bundlePath, sidecarName), 0o755).catch(() => undefined);
+    if (platform === 'macos') await chmod(path.join(nativeDirectory, 'spawn-helper'), 0o755).catch(() => undefined);
+  }
   const output = await runCommand(path.join(bundlePath, executableName), ['--version'], { cwd: bundlePath, allowFailure: true });
   if (output.exitCode !== 0 || output.stdout.trim() !== `vortex ${normalizeVersion(expectedVersion)}`) {
     throw new CliUpdaterError('integrity', `The staged VORTEX bundle reported an unexpected version: ${output.stdout.trim()}.`);
   }
+  if (platform === 'macos') {
+    await runCommand('codesign', ['-v', path.join(bundlePath, 'vortex')], { cwd: bundlePath, allowFailure: true });
+    await runCommand('spctl', ['-a', '-t', 'exec', path.join(bundlePath, 'vortex')], { cwd: bundlePath, allowFailure: true });
+  }
 }
-
-async function launchInstaller(installerPath: string, platform: CliUpdatePlatform): Promise<void> {
-  const command = platform === 'windows' ? installerPath : platform === 'macos' ? 'open' : 'xdg-open';
-  const args = platform === 'windows' ? [] : [installerPath];
+async function launchInstaller(installerPath: string, platform: CliUpdatePlatform, silent = false): Promise<void> {
+  if (platform === 'macos') {
+    await runCommand('pkgutil', ['--check-signature', installerPath], { cwd: path.dirname(installerPath), allowFailure: true });
+    if (silent) {
+      try {
+        await runCommand('installer', ['-pkg', installerPath, '-target', '/'], { cwd: path.dirname(installerPath) });
+        return;
+      } catch (error) {
+        throw new CliUpdaterError('permission', `The macOS installer requires elevation. Re-run with sudo: sudo installer -pkg ${installerPath} -target /`, { cause: error });
+      }
+    }
+    try {
+      const child = spawn('open', [installerPath], { detached: true, stdio: 'ignore', windowsHide: true });
+      child.unref();
+      await once(child, 'spawn');
+    } catch (error) {
+      throw new CliUpdaterError('installer-failed', `Could not launch the VORTEX installer: ${errorMessage(error)}`, { cause: error });
+    }
+    return;
+  }
+  if (platform === 'linux') {
+    const headless = silent || !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
+    if (!headless) {
+      try {
+        const child = spawn('xdg-open', [installerPath], { detached: true, stdio: 'ignore', windowsHide: true });
+        child.unref();
+        await once(child, 'spawn');
+        return;
+      } catch (error) {
+        throw new CliUpdaterError('installer-failed', `Could not launch the VORTEX installer: ${errorMessage(error)}`, { cause: error });
+      }
+    }
+    try {
+      await runCommand('pkexec', ['dpkg', '-i', installerPath], { cwd: path.dirname(installerPath) });
+      await runCommand('pkexec', ['apt-get', 'install', '-f', '-y'], { cwd: path.dirname(installerPath), allowFailure: true });
+      return;
+    } catch (error) {
+      throw new CliUpdaterError('permission', `The Linux installer requires elevation. Run 'sudo dpkg -i ${installerPath}'.`, { cause: error });
+    }
+  }
   try {
-    const child = spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true });
+    const args = silent ? ['/SILENT', '/NORESTART'] : [];
+    const child = spawn(installerPath, args, { detached: true, stdio: 'ignore', windowsHide: true });
     child.unref();
     await once(child, 'spawn');
   } catch (error) {
@@ -715,31 +874,83 @@ async function launchInstaller(installerPath: string, platform: CliUpdatePlatfor
   }
 }
 
+function isMissingToolCode(code: unknown): boolean {
+  return code === 'ENOENT';
+}
+
+function isMissingToolError(error: unknown): boolean {
+  if (error instanceof CliUpdaterError && error.code === 'integrity' && /Command .* failed/u.test(error.message)) return false;
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  if (code && isMissingToolCode(code)) return true;
+  const message = errorMessage(error);
+  return /ENOENT|not found|not recognized|command not found/iu.test(message);
+}
+
 async function applyStagedUpdate(state: ApplyUpdateState): Promise<void> {
   const backupRoot = `${state.targetRoot}.backup-${randomUUID()}`;
   let backupCreated = false;
   let newInstallCreated = false;
+  const logPath = path.join(state.helperDirectory, 'update.log');
+  const log = async (line: string): Promise<void> => {
+    await appendFile(logPath, `${line}\n`, 'utf8').catch(() => undefined);
+  };
   try {
-    await rename(state.targetRoot, backupRoot);
+    await log(`wait-parent done pid=${state.parentPid}`);
+    await retryRename(state.targetRoot, backupRoot);
     backupCreated = true;
-    await rename(state.stagedBundlePath, state.targetRoot);
+    await log(`rename target->backup ok`);
+    await retryRename(state.stagedBundlePath, state.targetRoot);
     newInstallCreated = true;
+    await log(`rename staged->target ok`);
     const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux';
     await validateBundle(state.targetRoot, state.expectedVersion, platform, state.architecture);
-    await rm(backupRoot, { recursive: true, force: true });
-    await cleanupUpdateFiles(state);
+    await log(`validate ok ${state.expectedVersion}`);
   } catch (error) {
+    await log(`failed: ${errorMessage(error)}`);
     if (newInstallCreated) await rm(state.targetRoot, { recursive: true, force: true }).catch(() => undefined);
-    if (backupCreated) await rename(backupRoot, state.targetRoot).catch(() => undefined);
-    await cleanupUpdateFiles(state);
+    if (backupCreated) {
+      try {
+        await retryRename(backupRoot, state.targetRoot);
+        await log(`restored backup`);
+      } catch (restoreError) {
+        await cleanupUpdateFiles(state, true);
+        throw new CliUpdaterError('apply-failed', `VORTEX update failed (${errorMessage(error)}); restore also failed (${errorMessage(restoreError)}).`, { cause: error });
+      }
+    }
+    await cleanupUpdateFiles(state, true);
     throw new CliUpdaterError('apply-failed', `The VORTEX installation was restored after update failure: ${errorMessage(error)}`, { cause: error });
   }
+  try {
+    await rm(backupRoot, { recursive: true, force: true });
+    await log(`cleanup backup ok`);
+  } catch (error) {
+    await cleanupUpdateFiles(state, false);
+    throw new CliUpdaterError('apply-failed', `VORTEX update succeeded but backup cleanup failed: ${errorMessage(error)}. The new version is installed at ${state.targetRoot}.`, { cause: error });
+  }
+  await cleanupUpdateFiles(state, false);
+  await log(`done ${state.expectedVersion}`);
 }
 
-async function cleanupUpdateFiles(state: ApplyUpdateState): Promise<void> {
+async function retryRename(from: string, to: string): Promise<void> {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= WINDOWS_RENAME_ATTEMPTS; attempt += 1) {
+    try {
+      await rename(from, to);
+      return;
+    } catch (error) {
+      lastError = error;
+      const code = (error as NodeJS.ErrnoException | null)?.code;
+      if (!code || !WINDOWS_RETRY_ERRORS[code] || attempt === WINDOWS_RENAME_ATTEMPTS) throw error;
+      await delay(WINDOWS_RENAME_RETRY_MS);
+    }
+  }
+  throw lastError;
+}
+
+async function cleanupUpdateFiles(state: ApplyUpdateState, preserveHelper: boolean): Promise<void> {
   await rm(state.stagedBundlePath, { recursive: true, force: true }).catch(() => undefined);
   await rm(state.temporaryRoot, { recursive: true, force: true }).catch(() => undefined);
-  await rm(state.helperDirectory, { recursive: true, force: true }).catch(() => undefined);
+  if (!preserveHelper) await rm(state.helperDirectory, { recursive: true, force: true }).catch(() => undefined);
 }
 
 async function readApplyUpdateState(statePath: string): Promise<ApplyUpdateState> {
@@ -763,13 +974,21 @@ async function readApplyUpdateState(statePath: string): Promise<ApplyUpdateState
     || parseVersion(raw.expectedVersion) === null
     || (raw.architecture !== 'x64' && raw.architecture !== 'arm64')
     || typeof raw.temporaryRoot !== 'string'
-    || typeof raw.helperDirectory !== 'string') {
+    || typeof raw.helperDirectory !== 'string'
+    || typeof raw.createdAt !== 'number'
+    || !Number.isFinite(raw.createdAt)) {
     throw new CliUpdaterError('apply-failed', 'The VORTEX update state is invalid.');
+  }
+  if (Date.now() - raw.createdAt > HELPER_STATE_MAX_AGE_MS) {
+    throw new CliUpdaterError('apply-failed', 'The VORTEX update state has expired.');
   }
   const targetRoot = path.resolve(raw.targetRoot);
   const stagedBundlePath = path.resolve(raw.stagedBundlePath);
   const temporaryRoot = path.resolve(raw.temporaryRoot);
   const helperDirectory = path.resolve(raw.helperDirectory);
+  if (path.dirname(resolvedStatePath) !== helperDirectory) {
+    throw new CliUpdaterError('apply-failed', 'The VORTEX update state must live inside its helper directory.');
+  }
   if (!path.isAbsolute(raw.targetRoot)
     || !path.isAbsolute(raw.stagedBundlePath)
     || !path.isAbsolute(raw.temporaryRoot)
@@ -777,6 +996,13 @@ async function readApplyUpdateState(statePath: string): Promise<ApplyUpdateState
     || path.dirname(targetRoot) !== path.dirname(stagedBundlePath)
     || !isPathInside(os.tmpdir(), temporaryRoot)
     || !isPathInside(os.tmpdir(), helperDirectory)) {
+    throw new CliUpdaterError('apply-failed', 'The VORTEX update state contains unsafe paths.');
+  }
+  const loweredTarget = targetRoot.toLowerCase();
+  const home = (process.env.HOME ?? os.homedir()).toLowerCase();
+  const tmp = path.resolve(os.tmpdir()).toLowerCase();
+  const dangerous = new Set([path.parse(targetRoot).root.toLowerCase(), home, tmp, path.resolve(os.tmpdir(), 'vortex-update-helper').toLowerCase()]);
+  if (dangerous.has(loweredTarget) || loweredTarget === '/' || /^[a-z]:\\$/u.test(loweredTarget)) {
     throw new CliUpdaterError('apply-failed', 'The VORTEX update state contains unsafe paths.');
   }
   return {
@@ -787,6 +1013,7 @@ async function readApplyUpdateState(statePath: string): Promise<ApplyUpdateState
     architecture: raw.architecture,
     temporaryRoot,
     helperDirectory,
+    createdAt: raw.createdAt,
   };
 }
 
@@ -814,23 +1041,37 @@ function isProcessAlive(pid: number): boolean {
     return false;
   }
 }
-
 async function runCommand(
   command: string,
   args: string[],
-  options: { cwd: string; allowFailure?: boolean },
+  options: { cwd: string; allowFailure?: boolean; timeoutMs?: number },
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  return await new Promise((resolve, reject) => {
+  const timeoutMs = options.timeoutMs ?? RUN_COMMAND_DEFAULT_TIMEOUT_MS;
+  return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: options.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGKILL');
+      reject(new CliUpdaterError('invalid-release', `Command ${command} timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    if (typeof timer.unref === 'function') timer.unref();
     child.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
     child.stderr?.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
     child.once('error', (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (options.allowFailure) resolve({ stdout, stderr: errorMessage(error), exitCode: 1 });
       else reject(error);
     });
     child.once('exit', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       const exitCode = typeof code === 'number' ? code : 1;
       if (exitCode !== 0 && !options.allowFailure) {
         reject(new CliUpdaterError('integrity', `Command ${command} failed: ${stderr || stdout}`));

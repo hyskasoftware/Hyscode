@@ -23,11 +23,12 @@ function parseArguments(args) {
     outputDirectory: null,
     version: null,
     architecture: process.arch,
+    sign: null,
   };
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (argument === '--bundle' || argument === '--app' || argument === '--output-dir' || argument === '--version' || argument === '--arch') {
+    if (argument === '--bundle' || argument === '--app' || argument === '--output-dir' || argument === '--version' || argument === '--arch' || argument === '--sign') {
       const value = args[index + 1];
       if (!value || value.startsWith('-')) throw new Error(argument + ' requires a value.');
       if (argument === '--bundle') options.bundle = value;
@@ -35,6 +36,7 @@ function parseArguments(args) {
       if (argument === '--output-dir') options.outputDirectory = value;
       if (argument === '--version') options.version = value;
       if (argument === '--arch') options.architecture = value;
+      if (argument === '--sign') options.sign = value;
       index += 1;
       continue;
     }
@@ -43,6 +45,7 @@ function parseArguments(args) {
     else if (argument.startsWith('--output-dir=')) options.outputDirectory = argument.slice('--output-dir='.length);
     else if (argument.startsWith('--version=')) options.version = argument.slice('--version='.length);
     else if (argument.startsWith('--arch=')) options.architecture = argument.slice('--arch='.length);
+    else if (argument.startsWith('--sign=')) options.sign = argument.slice('--sign='.length);
     else if (argument === '--help' || argument === '-h') options.help = true;
     else throw new Error('Unknown option: ' + argument);
   }
@@ -62,6 +65,7 @@ function printHelp() {
     '  --output-dir <directory> Output directory for .pkg assets',
     '  --version <version>       Release version',
     '  --arch <arch>             x64, arm64, or universal',
+    '  --sign <identity>         Optional signing identity for pkgbuild/productbuild (also honors APPLE_SIGNING_IDENTITY)',
     '  -h, --help                Show this help',
     '',
   ].join('\n'));
@@ -119,14 +123,23 @@ function createStandalonePackage(options, temporaryRoot, outputPath) {
     'ln -sfn /usr/local/lib/vortex/vortex /usr/local/bin/vortex',
     '',
   ].join('\n'), true);
-  run('pkgbuild', [
+  const pkgArgs = [
     '--root', payloadRoot,
     '--identifier', 'com.hyscode.vortex.cli',
     '--version', options.packageVersion,
     '--scripts', scriptsRoot,
     '--install-location', '/',
-    outputPath,
-  ], process.cwd());
+  ];
+  const signingIdentity = options.sign ?? process.env.APPLE_SIGNING_IDENTITY ?? null;
+  if (signingIdentity) pkgArgs.push('--sign', signingIdentity);
+  pkgArgs.push(outputPath);
+  run('pkgbuild', pkgArgs, process.cwd());
+  // Optional notarization: only when a notary profile is configured.
+  // Unsigned CI builds skip this exactly as before.
+  if (signingIdentity && process.env.NOTARY_PROFILE) {
+    run('xcrun', ['notarytool', 'submit', outputPath, '--keychain-profile', process.env.NOTARY_PROFILE, '--wait'], process.cwd());
+    run('xcrun', ['stapler', 'staple', outputPath], process.cwd());
+  }
 }
 
 function createDistribution(options, directory) {
@@ -162,19 +175,21 @@ function createCombinedPackage(options, temporaryRoot, outputPath) {
   const distributionRoot = path.join(temporaryRoot, 'distribution');
   mkdirSync(componentsRoot, { recursive: true });
   mkdirSync(distributionRoot, { recursive: true });
-  run('pkgbuild', [
-    '--component', options.app,
-    '--identifier', 'com.hyscode.desktop',
-    '--version', options.packageVersion,
-    desktopPackage,
-  ], process.cwd());
+  const signingIdentity = options.sign ?? process.env.APPLE_SIGNING_IDENTITY ?? null;
+  const desktopArgs = ['--component', options.app, '--identifier', 'com.hyscode.desktop', '--version', options.packageVersion];
+  if (signingIdentity) desktopArgs.push('--sign', signingIdentity);
+  desktopArgs.push(desktopPackage);
+  run('pkgbuild', desktopArgs, process.cwd());
   createStandalonePackage(options, temporaryRoot, cliPackage);
   createDistribution(options, distributionRoot);
-  run('productbuild', [
-    '--distribution', path.join(distributionRoot, 'distribution.xml'),
-    '--package-path', componentsRoot,
-    outputPath,
-  ], process.cwd());
+  const productArgs = ['--distribution', path.join(distributionRoot, 'distribution.xml'), '--package-path', componentsRoot];
+  if (signingIdentity) productArgs.push('--sign', signingIdentity);
+  productArgs.push(outputPath);
+  run('productbuild', productArgs, process.cwd());
+  if (signingIdentity && process.env.NOTARY_PROFILE) {
+    run('xcrun', ['notarytool', 'submit', outputPath, '--keychain-profile', process.env.NOTARY_PROFILE, '--wait'], process.cwd());
+    run('xcrun', ['stapler', 'staple', outputPath], process.cwd());
+  }
 }
 
 function main() {

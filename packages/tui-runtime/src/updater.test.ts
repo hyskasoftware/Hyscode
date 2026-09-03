@@ -318,9 +318,9 @@ describe('VORTEX updater', () => {
     await writeFile(path.join(stagedRoot, 'codex-sidecar'), 'sidecar', 'utf8');
     await writeFile(path.join(stagedRoot, 'node-pty-assets', 'linux-x64', 'pty.node'), 'pty', 'utf8');
     await writeFile(path.join(stagedRoot, 'node-pty-assets', 'linux-x64', 'spawn-helper'), 'helper', 'utf8');
-    const helperDirectory = path.join(directory, 'helper');
+    const helperDirectory = await mkdtemp(path.join(os.tmpdir(), 'vortex-update-helper-'));
+    temporaryDirectories.push(helperDirectory);
     const temporaryRoot = path.join(directory, 'temporary');
-    await mkdir(helperDirectory, { recursive: true });
     await mkdir(temporaryRoot, { recursive: true });
     const statePath = path.join(helperDirectory, 'state.json');
     await writeFile(statePath, JSON.stringify({
@@ -331,9 +331,46 @@ describe('VORTEX updater', () => {
       architecture: 'x64',
       temporaryRoot,
       helperDirectory,
+      createdAt: Date.now(),
     }), 'utf8');
 
     await expect(runUpdateHelper(statePath)).rejects.toMatchObject({ code: 'apply-failed' });
     expect(await readFile(path.join(targetRoot, 'vortex'), 'utf8')).toContain('vortex 0.8.2');
+  });
+  it('rejects helper states without a creation timestamp', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'vortex-updater-state-test-'));
+    temporaryDirectories.push(directory);
+    const helperDirectory = await mkdtemp(path.join(os.tmpdir(), 'vortex-update-helper-'));
+    temporaryDirectories.push(helperDirectory);
+    const statePath = path.join(helperDirectory, 'state.json');
+    await writeFile(statePath, JSON.stringify({
+      parentPid: process.pid,
+      targetRoot: path.join(directory, 'target'),
+      stagedBundlePath: path.join(directory, 'staged'),
+      expectedVersion: '0.9.0',
+      architecture: 'x64',
+      temporaryRoot: path.join(directory, 'temporary'),
+      helperDirectory,
+    }), 'utf8');
+    await expect(runUpdateHelper(statePath)).rejects.toMatchObject({ code: 'apply-failed' });
+  });
+
+  it('rejects expired helper states', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'vortex-updater-expired-test-'));
+    temporaryDirectories.push(directory);
+    const helperDirectory = await mkdtemp(path.join(os.tmpdir(), 'vortex-update-helper-'));
+    temporaryDirectories.push(helperDirectory);
+    const statePath = path.join(helperDirectory, 'state.json');
+    await writeFile(statePath, JSON.stringify({
+      parentPid: process.pid,
+      targetRoot: path.join(directory, 'target'),
+      stagedBundlePath: path.join(directory, 'staged'),
+      expectedVersion: '0.9.0',
+      architecture: 'x64',
+      temporaryRoot: path.join(directory, 'temporary'),
+      helperDirectory,
+      createdAt: Date.now() - 11 * 60 * 1000,
+    }), 'utf8');
+    await expect(runUpdateHelper(statePath)).rejects.toMatchObject({ code: 'apply-failed' });
   });
 });

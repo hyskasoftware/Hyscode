@@ -27,6 +27,7 @@ VERSION=""
 OUTPUT_DIR=""
 SKIP_SIDECAR_BUILD=0
 SKIP_DEPS=0
+ARCH=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -38,6 +39,8 @@ while [[ $# -gt 0 ]]; do
             SKIP_SIDECAR_BUILD=1; shift ;;
         --skip-deps)
             SKIP_DEPS=1; shift ;;
+        --arch)
+            ARCH="$2"; shift 2 ;;
         *)
             echo "Unknown option: $1" >&2
             exit 1 ;;
@@ -57,8 +60,14 @@ fi
 # toolchain bins (rustup, bun) on PATH so the prerequisite checks pass.
 export PATH="$HOME/.cargo/bin:$HOME/.bun/bin:$HOME/.local/bin:$PATH"
 
-if [[ "$(uname -m)" != "x86_64" ]]; then
-    echo "ERROR: this script produces x86_64 artifacts only (detected: $(uname -m))" >&2
+if [[ -z "$ARCH" ]]; then
+    case "$(uname -m)" in
+        aarch64|arm64) ARCH="arm64" ;;
+        *) ARCH="x64" ;;
+    esac
+fi
+if [[ "$ARCH" != "x64" && "$ARCH" != "arm64" ]]; then
+    echo "ERROR: --arch must be x64 or arm64 (got: $ARCH)" >&2
     exit 1
 fi
 
@@ -81,7 +90,7 @@ run_as_root() {
 
 echo ""
 echo "================================================="
-echo "  HysCode — Local release build (Linux x64)"
+echo "  HysCode — Local release build (Linux $ARCH)"
 echo "  Version : $VERSION"
 if [[ $IS_PRERELEASE -eq 1 ]]; then echo "  Channel : pre-release"; else echo "  Channel : stable"; fi
 echo "  Output  : $OUTPUT_DIR"
@@ -233,13 +242,13 @@ node "$ROOT/scripts/package-vortex-cli.mjs" \
     --output-dir "$STAGING_DIR" \
     --version "$VERSION" \
     --platform linux \
-    --arch x64
+    --arch "$ARCH"
 node "$ROOT/scripts/package-vortex-deb.mjs" \
     --mode standalone \
     --bundle "$CLI_BUNDLE" \
     --output-dir "$STAGING_DIR" \
     --version "$VERSION" \
-    --arch x64
+    --arch "$ARCH"
 DESKTOP_DEB=$(find "$BUNDLE_DIR/deb" -maxdepth 1 -type f -name '*.deb' -print -quit)
 if [[ -z "$DESKTOP_DEB" ]]; then
     echo "ERROR: desktop Debian package was not produced" >&2
@@ -251,7 +260,7 @@ node "$ROOT/scripts/package-vortex-deb.mjs" \
     --desktop-deb "$DESKTOP_DEB" \
     --output-dir "$STAGING_DIR" \
     --version "$VERSION" \
-    --arch x64
+    --arch "$ARCH"
 echo "  ✓ VORTEX CLI packaged"
 
 # ── Step 8: Stage release artifacts ─────────────────────────────────────────

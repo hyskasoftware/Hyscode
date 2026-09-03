@@ -144,6 +144,23 @@ function createStandaloneRoot(options, root) {
     ' Complete VORTEX CLI runtime with the Codex sidecar and terminal support.',
     '',
   ].join('\n'));
+  writeFile(debianDirectory, 'postinst', [
+    '#!/bin/sh',
+    'set -e',
+    'ln -sfn /opt/vortex-cli/vortex /usr/bin/vortex',
+    'chmod 755 /opt/vortex-cli/vortex /opt/vortex-cli/codex-sidecar',
+    '',
+  ].join('\n'), true);
+  writeFile(debianDirectory, 'postrm', [
+    '#!/bin/sh',
+    'set -e',
+    'if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then',
+    '  if [ -L /usr/bin/vortex ] && [ "$(readlink /usr/bin/vortex)" = "/opt/vortex-cli/vortex" ]; then',
+    '    rm -f /usr/bin/vortex',
+    '  fi',
+    'fi',
+    '',
+  ].join('\n'), true);
 }
 
 function stripShebang(script) {

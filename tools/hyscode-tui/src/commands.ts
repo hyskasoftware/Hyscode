@@ -380,6 +380,8 @@ export function helpText(): string {
     'Update options:',
     '      --check                Check for updates without downloading',
     '      --yes                  Confirm installation in non-interactive mode',
+    '      --silent               Silent installer launch (with --yes for system installs)',
+    '      --persist-channel      Save the resolved channel back to shared config',
     '      --channel <channel>    stable or pre-release',
     '      --config <path>        Read shared settings JSON from this path',
     '',
@@ -395,6 +397,8 @@ function parseUpdateArgs(args: readonly string[], cwd: string): CliParseResult {
   let channel: CliUpdateOptions['channel'];
   let checkOnly = false;
   let assumeYes = false;
+  let silent = false;
+  let persistChannel = false;
   let configPath: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -404,6 +408,14 @@ function parseUpdateArgs(args: readonly string[], cwd: string): CliParseResult {
     }
     if (argument === '--yes') {
       assumeYes = true;
+      continue;
+    }
+    if (argument === '--silent') {
+      silent = true;
+      continue;
+    }
+    if (argument === '--persist-channel') {
+      persistChannel = true;
       continue;
     }
     if (argument === '--channel') {
@@ -433,7 +445,7 @@ function parseUpdateArgs(args: readonly string[], cwd: string): CliParseResult {
     if (argument === '--help' || argument === '-h') return { kind: 'help', text: helpText() };
     throw new Error(`Unknown update option: ${argument}. Use "vortex update --help" for usage.`);
   }
-  return { kind: 'update', options: { ...(channel ? { channel } : {}), checkOnly, assumeYes, ...(configPath ? { configPath } : {}) } };
+  return { kind: 'update', options: { ...(channel ? { channel } : {}), checkOnly, assumeYes, silent, persistChannel, ...(configPath ? { configPath } : {}) } };
 }
 
 function parseUpdateChannel(value: string): 'stable' | 'pre-release' {

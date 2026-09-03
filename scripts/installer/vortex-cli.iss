@@ -2,7 +2,7 @@
 ; Requires Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 
 #define MyAppName "VORTEX CLI"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.0.0-dev"
 #define MyAppPublisher "HysCode"
 #define MyAppURL "https://github.com/Hyska-Software/Hyscode"
 #define MyAppExeName "vortex.exe"

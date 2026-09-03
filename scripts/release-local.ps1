@@ -72,7 +72,9 @@ param(
     [switch]$Linux,
     [string]$OutputDirectory,
     [switch]$GenerateManifest,
-    [switch]$Force
+    [switch]$Force,
+    [ValidateSet('x64','arm64')]
+    [string]$Arch = $(if ($env:PROCESSOR_ARCHITECTURE -match 'ARM64') { 'arm64' } else { 'x64' })
 )
 
 $ErrorActionPreference = 'Stop'
@@ -113,15 +115,17 @@ function ConvertTo-WslPath([string]$Path) {
 }
 
 function Invoke-ManifestGeneration {
+    param([string]$Targets = 'x64')
     Write-Host ''
-    Write-Host '  Generating VORTEX update manifest from the output directory...' -ForegroundColor Yellow
+    Write-Host "  Generating VORTEX update manifest from the output directory (targets: $Targets)..." -ForegroundColor Yellow
     $manifestPath = Join-Path $OutputDirectory "vortex-cli-manifest-$Version.json"
     node (Join-Path $RepoRoot 'scripts\generate-vortex-update-manifest.mjs') `
       --asset-dir $OutputDirectory `
       --version $Version `
+      --targets $Targets `
       --output $manifestPath
     if ($LASTEXITCODE -ne 0) {
-        throw 'VORTEX update manifest generation failed — all six platform targets are required.'
+        throw "VORTEX update manifest generation failed (targets: $Targets)."
     }
 }
 
@@ -236,7 +240,7 @@ if ($Linux) {
     $wslScript = ConvertTo-WslPath (Join-Path $PSScriptRoot 'release-local-linux.sh')
     $wslOutput = ConvertTo-WslPath $OutputDirectory
 
-    $shArgs = @('bash', $wslScript, '--version', $Version, '--output', $wslOutput)
+    $shArgs = @('bash', $wslScript, '--version', $Version, '--output', $wslOutput, '--arch', $Arch)
     if ($SkipSidecarBuild) { $shArgs += '--skip-sidecar-build' }
     if ($SkipDeps) { $shArgs += '--skip-deps' }
 
@@ -248,7 +252,7 @@ if ($Linux) {
     }
 
     if ($GenerateManifest) {
-        Invoke-ManifestGeneration
+        Invoke-ManifestGeneration -Targets 'x64'
     }
 
     Write-Host ''
@@ -380,7 +384,7 @@ node (Join-Path $RepoRoot 'scripts\package-vortex-cli.mjs') `
   --output-dir $cliOutDir `
   --version $Version `
   --platform win32 `
-  --arch x64
+  --arch $Arch
 if ($LASTEXITCODE -ne 0) { throw 'VORTEX CLI packaging failed.' }
 
 # ── Step 8: Build Inno Setup installers ─────────────────────────────────────
@@ -389,26 +393,27 @@ Write-Step 8 9 'Build Inno Setup installers'
 if (-not (Test-Path $InnoOutDir)) {
     New-Item -ItemType Directory -Path $InnoOutDir -Force | Out-Null
 }
-& $iscc "/DMyAppVersion=$Version" "/FHysCode-Setup-$Version-x64" "/O$InnoOutDir" $IssScript
+$vortexArm64Flag = if ($Arch -eq 'arm64') { 1 } else { 0 }
+& $iscc "/DMyAppVersion=$Version" "/FHysCode-Setup-$Version-$Arch" "/O$InnoOutDir" $IssScript
 if ($LASTEXITCODE -ne 0) { throw 'Desktop Inno Setup build failed.' }
 
-& $iscc "/DMyAppVersion=$Version" "/FVortex-CLI-Setup-$Version-x64" "/O$cliOutDir" $VortexIssScript
+& $iscc "/DMyAppVersion=$Version" "/DVortexCliArchitecture=$Arch" "/DVortexCliArm64=$vortexArm64Flag" "/FVortex-CLI-Setup-$Version-$Arch" "/O$cliOutDir" $VortexIssScript
 if ($LASTEXITCODE -ne 0) { throw 'VORTEX Inno Setup build failed.' }
 
 # ── Step 9: Stage release artifacts ─────────────────────────────────────────
 Write-Step 9 9 'Stage release artifacts'
 
-$innoInstaller = Join-Path $InnoOutDir "HysCode-Setup-$Version-x64.exe"
+$innoInstaller = Join-Path $InnoOutDir "HysCode-Setup-$Version-$Arch.exe"
 if (-not (Test-Path $innoInstaller)) {
     $innoInstaller = Get-ChildItem $InnoOutDir -Filter '*.exe' |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
 }
-$vortexInstaller = Join-Path $cliOutDir "Vortex-CLI-Setup-$Version-x64.exe"
+$vortexInstaller = Join-Path $cliOutDir "Vortex-CLI-Setup-$Version-$Arch.exe"
 if (-not (Test-Path $vortexInstaller)) {
     $vortexInstaller = Get-ChildItem $cliOutDir -Filter 'Vortex-CLI-Setup-*.exe' |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
 }
-$vortexArchive = Join-Path $cliOutDir "vortex-cli-$Version-windows-x64.zip"
+$vortexArchive = Join-Path $cliOutDir "vortex-cli-$Version-windows-$Arch.zip"
 
 foreach ($artifact in @($innoInstaller, $vortexInstaller, $vortexArchive)) {
     if (-not $artifact -or -not (Test-Path $artifact)) {
@@ -419,7 +424,9 @@ Copy-Item -LiteralPath $innoInstaller, $vortexInstaller, $vortexArchive -Destina
 Remove-Item -LiteralPath $cliOutDir -Recurse -Force
 
 if ($GenerateManifest) {
-    Invoke-ManifestGeneration
+    # Only the host platform was built locally; require the host x64/arm64 pair
+    # unless all 12 assets were staged manually (--targets all).
+    Invoke-ManifestGeneration -Targets 'x64'
 }
 
 # ── Summary ─────────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { X64_TARGETS, buildManifest, downloadAsset, fetchRelease, parseCliAsset } from './generate-vortex-update-manifest.mjs';
+import { ALL_TARGETS, X64_TARGETS, buildManifest, downloadAsset, fetchRelease, parseCliAsset } from './generate-vortex-update-manifest.mjs';
 
 const execFileAsync = promisify(execFile);
 const scriptPath = fileURLToPath(new URL('./generate-vortex-update-manifest.mjs', import.meta.url));
@@ -21,8 +21,17 @@ const x64AssetNames = [
   'vortex-cli-0.9.0-macos-x64.tar.gz',
   'Vortex-CLI-Setup-0.9.0-macos-x64.pkg',
 ];
+const allAssetNames = [
+  ...x64AssetNames,
+  'vortex-cli-0.9.0-windows-arm64.zip',
+  'Vortex-CLI-Setup-0.9.0-arm64.exe',
+  'vortex-cli-0.9.0-linux-arm64.tar.gz',
+  'vortex-cli-0.9.0-linux-arm64.deb',
+  'vortex-cli-0.9.0-macos-arm64.tar.gz',
+  'Vortex-CLI-Setup-0.9.0-macos-arm64.pkg',
+];
 
-async function runGenerator(assetDirectory, outputPath) {
+async function runGenerator(assetDirectory, outputPath, targets = 'x64') {
   try {
     const result = await execFileAsync(process.execPath, [
       scriptPath,
@@ -31,7 +40,7 @@ async function runGenerator(assetDirectory, outputPath) {
       '--version',
       version,
       '--targets',
-      'x64',
+      targets,
       '--output',
       outputPath,
     ], { cwd: repositoryRoot });
@@ -45,15 +54,16 @@ async function runGenerator(assetDirectory, outputPath) {
   }
 }
 
-function createFixture() {
+function createFixture(names = x64AssetNames) {
   const root = mkdtempSync(path.join(tmpdir(), 'hyscode-vortex-manifest-'));
   const assetDirectory = path.join(root, 'assets');
   mkdirSync(assetDirectory);
-  for (const name of x64AssetNames) {
+  for (const name of names) {
     writeFileSync(path.join(assetDirectory, name), Buffer.from(`fixture:${name}`, 'utf8'));
   }
   return { root, assetDirectory, outputPath: path.join(root, 'manifest.json') };
 }
+
 
 test('generates a manifest from the six x64 VORTEX fixture assets', async () => {
   const fixture = createFixture();
@@ -95,6 +105,37 @@ test('rejects a manifest when an expected x64 asset is missing', async () => {
     rmSync(fixture.root, { recursive: true, force: true });
   }
 });
+test('generates a manifest from all twelve x64+arm64 VORTEX fixture assets', async () => {
+  const fixture = createFixture(allAssetNames);
+  try {
+    const result = await runGenerator(fixture.assetDirectory, fixture.outputPath, 'all');
+    assert.equal(result.status, 0, result.stderr);
+    const manifest = JSON.parse(readFileSync(fixture.outputPath, 'utf8'));
+    assert.equal(manifest.version, version);
+    assert.equal(manifest.assets.length, 12);
+    assert.deepEqual(
+      manifest.assets.map((asset) => `${asset.platform}:${asset.architecture}:${asset.kind}`).sort(),
+      [
+        'linux:arm64:archive',
+        'linux:arm64:installer',
+        'linux:x64:archive',
+        'linux:x64:installer',
+        'macos:arm64:archive',
+        'macos:arm64:installer',
+        'macos:x64:archive',
+        'macos:x64:installer',
+        'windows:arm64:archive',
+        'windows:arm64:installer',
+        'windows:x64:archive',
+        'windows:x64:installer',
+      ],
+    );
+    assert.equal(ALL_TARGETS.length, 6);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
 
 test('rejects duplicate assets for the same platform, architecture, and kind', () => {
   const assets = x64AssetNames.map((name) => ({

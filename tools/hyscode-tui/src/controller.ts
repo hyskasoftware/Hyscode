@@ -1,3 +1,6 @@
+import { readdir, readFile, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { isSensitiveTerminalPrompt, normalizeTerminalOutput } from '@hyscode/agent-harness';
 import type { AgentType, FileChangePending, HarnessEvent, SddTask } from '@hyscode/agent-harness';
 import type { Message, ThinkingConfig, TokenUsage } from '@hyscode/ai-providers';
@@ -1692,6 +1695,14 @@ export class TuiController {
       await this.checkForUpdates(false);
       return;
     }
+    if (action === 'download' && !tokens[1]) {
+      await this.downloadUpdate(false);
+      return;
+    }
+    if ((action === 'apply' || action === 'install') && !tokens[1]) {
+      await this.applyUpdate();
+      return;
+    }
     if (action === 'channel' && (tokens[1] === 'stable' || tokens[1] === 'pre-release')) {
       await this.setUpdatePreference({ updateChannel: tokens[1] });
       await this.checkForUpdates(false);
@@ -1705,7 +1716,7 @@ export class TuiController {
       await this.setUpdatePreference({ autoDownload: tokens[1] === 'on' });
       return;
     }
-    this.append('system', 'Usage: /update [check|channel stable|channel pre-release|startup on|startup off|auto-download on|auto-download off]');
+    this.append('system', 'Usage: /update [check|download|apply|channel stable|channel pre-release|startup on|startup off|auto-download on|auto-download off]');
   }
 
   private async setUpdatePreference(params: { updateChannel?: 'stable' | 'pre-release'; checkForUpdatesOnStartup?: boolean; autoDownload?: boolean }): Promise<void> {
@@ -1733,6 +1744,7 @@ export class TuiController {
       this.state.status = release
         ? `VORTEX ${release.version} available`
         : 'VORTEX is up to date';
+      await this.surfaceHelperFailures();
       if (release?.asset && this.state.updates.autoDownload) await this.downloadUpdate(true);
       if (silent && release) this.addNotice('info', `VORTEX ${release.version} is available · use /update to review`);
       if (silent && release && !release.asset && release.manualReason) this.addNotice('warning', release.manualReason);
@@ -1743,6 +1755,33 @@ export class TuiController {
       this.state.updates.error = message;
       if (!silent) this.append('error', message);
       else this.addNotice('warning', `VORTEX update check failed · ${message}`);
+    }
+  }
+
+  private async surfaceHelperFailures(): Promise<void> {
+    try {
+      const prefix = 'vortex-update-helper-';
+      const entries = await readdir(tmpdir()).catch(() => [] as string[]);
+      const logs: { path: string; mtime: number }[] = [];
+      for (const entry of entries) {
+        if (!entry.startsWith(prefix)) continue;
+        const logPath = join(tmpdir(), entry, 'update.log');
+        try {
+          const info = await stat(logPath);
+          logs.push({ path: logPath, mtime: info.mtimeMs });
+        } catch {
+        }
+      }
+      logs.sort((left, right) => right.mtime - left.mtime);
+      for (const { path } of logs.slice(0, 3)) {
+        try {
+          const content = await readFile(path, 'utf8');
+          const failed = content.split('\n').filter((line) => line.includes('failed'));
+          if (failed.length > 0) this.addNotice('warning', `VORTEX helper failed · ${failed[0]?.slice(0, 160)}`);
+        } catch {
+        }
+      }
+    } catch {
     }
   }
 
@@ -2133,11 +2172,12 @@ export class TuiController {
     }
     if (option.id === 'cancel') {
       this.updateOperation += 1;
-      this.updater?.cancel();
+      await this.updater?.cancelPending().catch(() => undefined);
       this.downloadedUpdate = null;
       this.state.updates.status = 'idle';
       this.state.updates.progress = null;
       this.state.updates.error = null;
+      this.state.updates.release = null;
       this.state.status = 'VORTEX update cancelled';
       return;
     }
@@ -2156,11 +2196,15 @@ export class TuiController {
     if (option.id === 'manual') {
       const release = this.state.updates.release;
       this.append('system', release?.manualReason ?? 'Use the VORTEX release page to install this update manually.');
+      if (release?.releaseUrl) this.append('system', `Release: ${release.releaseUrl}`);
       return;
     }
     if (option.id.startsWith('channel:')) {
       const channel = option.id.slice('channel:'.length);
-      if (channel === 'stable' || channel === 'pre-release') await this.setUpdatePreference({ updateChannel: channel });
+      if (channel === 'stable' || channel === 'pre-release') {
+        await this.setUpdatePreference({ updateChannel: channel });
+        await this.checkForUpdates(false);
+      }
       return;
     }
     if (option.id.startsWith('startup:')) {
