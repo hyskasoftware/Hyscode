@@ -169,9 +169,9 @@ OpenRouter é um **gateway unificado** que dá acesso a 400+ modelos de múltipl
 
 | Nome | ID no OpenRouter | Janela de contexto | Entrada | Saída | Tipos de pensamento |
 |---|---|---|---|---|---|
-| GPT 5.6 Sol | `openai/gpt-5.6-sol` | 1.05M | $5.00 | $30.00 | none/low/med/high/xhigh/max + standard/pro |
-| GPT 5.6 Terra | `openai/gpt-5.6-terra` | 1.05M | $2.50 | $15.00 | none/low/med/high/xhigh/max + standard/pro |
-| GPT 5.6 Luna | `openai/gpt-5.6-luna` | 1.05M | $1.00 | $6.00 | none/low/med/high/xhigh/max + standard/pro |
+| GPT 5.6 Sol | `openai/gpt-5.6-sol` | 1.05M | $4.00 | $20.00 | none/low/med/high/xhigh/max + standard/pro |
+| GPT 5.6 Terra | `openai/gpt-5.6-terra` | 1.05M | $2.00 | $12.00 | none/low/med/high/xhigh/max + standard/pro |
+| GPT 5.6 Luna | `openai/gpt-5.6-luna` | 1.05M | $0.20 | $1.20 | none/low/med/high/xhigh/max + standard/pro |
 | GPT 5.5 | `openai/gpt-5.5` | 1M | $5.00 | $30.00 | none/low/med/high/xhigh/max |
 | GPT 5.5 Pro | `openai/gpt-5.5-pro` | 1M | $30.00 | $180.00 | none/low/med/high/xhigh/max |
 | GPT 5.4 | `openai/gpt-5.4` | 1M | $2.50 | $15.00 | none/low/med/high/xhigh/max |
@@ -179,34 +179,49 @@ OpenRouter é um **gateway unificado** que dá acesso a 400+ modelos de múltipl
 | GPT 5.4 Mini | `openai/gpt-5.4-mini` | 200K | $0.75 | $4.50 | none/low/med/high |
 | GPT 5.4 Nano | `openai/gpt-5.4-nano` | 200K | $0.20 | $1.25 | none/low/med |
 | GPT 5.3 Codex | `openai/gpt-5.3-codex` | 272K | $1.75 | $14.00 | none/low/med/high/xhigh/max |
+| Claude Fable 5.1 | `anthropic/claude-fable-5-1` | 1M | $10.00 | $50.00 | adaptive (low/med/high/xhigh/max) |
 | Claude Fable 5 | `anthropic/claude-fable-5` | 1M | $10.00 | $50.00 | adaptive (low/med/high/xhigh/max) |
+| Claude Opus 5 | `anthropic/claude-opus-5` | 1M | $5.00 | $25.00 | adaptive (low/med/high/xhigh/max) |
 | Claude Opus 4.8 | `anthropic/claude-opus-4.8` | 1M | $5.00 | $25.00 | adaptive (low/med/high/xhigh/max) |
 | Claude Opus 4.7 | `anthropic/claude-opus-4.7` | 1M | $5.00 | $25.00 | adaptive (low/med/high/xhigh/max) |
 | Claude Opus 4.6 | `anthropic/claude-opus-4.6` | 1M | $5.00 | $25.00 | adaptive (low/med/high/max) |
 | Claude Opus 4.5 | `anthropic/claude-opus-4.5` | 1M | $5.00 | $25.00 | adaptive (low/med/high) |
-| Claude Sonnet 5 | `anthropic/claude-sonnet-5` | 1M | $2.00 (intro) / $3.00 | $10.00 / $15.00 | adaptive (low/med/high/xhigh/max) |
+| Claude Sonnet 5 | `anthropic/claude-sonnet-5` | 1M | $2.00 | $10.00 | adaptive (low/med/high/xhigh/max) |
 | Claude Sonnet 4.6 | `anthropic/claude-sonnet-4.6` | 1M | $3.00 | $15.00 | adaptive (low/med/high/max) |
 | Claude Sonnet 4.5 | `anthropic/claude-sonnet-4.5` | 200K | $3.00 | $15.00 | extended thinking |
 | Claude Haiku 4.5 | `anthropic/claude-haiku-4.5` | 200K | $1.00 | $5.00 | extended thinking |
+| Gemini 3.8 Flash | `google/gemini-3.8-flash` | 1M | $1.50 | $7.50 | thinking (low/med/high) |
+| Gemini 3.7 Flash | `google/gemini-3.7-flash` | 1M | $1.50 | $7.50 | thinking (low/med/high) |
 | Gemini 3.6 Flash | `google/gemini-3.6-flash` | 1M | $1.50 | $7.50 | thinking (low/med/high) |
 | Gemini 3.5 Flash | `google/gemini-3.5-flash` | 1M | $1.50 | $9.00 | thinking (low/med/high) |
 | Gemini 3.5 Flash Lite | `google/gemini-3.5-flash-lite` | 1M | $0.30 | $2.50 | thinking (low/med) |
 | Gemini 3.1 Pro | `google/gemini-3.1-pro` | 1M | $2.00 | $12.00 | thinking (low/med/high) |
 | Gemini 3 Flash | `google/gemini-3-flash` | 1M | $0.50 | $3.00 | thinking (low/med) |
+| Grok 4.6 | `x-ai/grok-4.6` | 500K | $2.00 | $6.00 | reasoning (low/med/high) |
 | Grok 4.5 | `x-ai/grok-4.5` | 500K | $2.00 | $6.00 | reasoning (low/med/high) |
 | Grok Build 0.1 | `x-ai/grok-build-0.1` | 200K | $1.00 | $2.00 | reasoning |
+| DeepSeek V4 Flash Vision Exp | `deepseek/deepseek-v4-flash-vision-exp` | 1M | $0.22 | $0.66 | reasoning + visão |
 | DeepSeek V4 Pro | `deepseek/deepseek-v4-pro` | 1M | $1.74 | $3.48 | reasoning (low/med/high) |
 | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash` | 1M | $0.14 | $0.28 | reasoning (low/med/high) |
+| Qwen3.8 Max | `qwen/qwen3.8-max` | 1M | $2.00 | $6.00 | thinking |
+| Qwen3.8 Flash | `qwen/qwen3.8-flash` | 1M | $0.15 | $0.47 | thinking |
 | Qwen3.7 Max | `qwen/qwen3.7-max` | 1M | $2.50 | $7.50 | thinking (low/med/high) |
 | Qwen3.7 Plus | `qwen/qwen3.7-plus` | 1M | $0.40 | $1.60 | thinking |
 | Kimi K3 | `moonshotai/kimi-k3` | 1M | $3.00 | $15.00 | reasoning (low/med/high) |
 | Kimi K2.7 Code | `moonshotai/kimi-k2.7-code` | 256K | $0.95 | $4.00 | thinking |
 | Kimi K2.6 | `moonshotai/kimi-k2.6` | 256K | $0.95 | $4.00 | thinking |
+| GLM 5.3 | `z-ai/glm-5.3` | 200K | $1.40 | $4.40 | thinking |
+| GLM 5.3 Flash | `z-ai/glm-5.3-flash` | 200K | $0.15 | $0.50 | thinking |
 | GLM 5.2 | `z-ai/glm-5.2` | 1M | $1.40 | $4.40 | thinking |
 | GLM 5.1 | `z-ai/glm-5.1` | 1M | $1.40 | $4.40 | thinking |
 | MiniMax M3 | `minimax/minimax-m3` | 1M | $0.30 | $1.20 | hybrid thinking |
+| MiniMax M2.7 | `minimax/minimax-m2.7` | 1M | $0.30 | $1.20 | hybrid thinking |
+| Hy4 Preview | `tencent/hy4-preview` | 1M | $0.834 | $2.501 | thinking |
 | MiMo-V2.5 | `xiaomi/mimo-v2.5` | 1M | $0.14 | $0.28 | thinking |
 | MiMo-V2.5-Pro | `xiaomi/mimo-v2.5-pro` | 1M | $0.435 | $0.87 | thinking |
+| Muse Spark 1.3 | `meta/muse-spark-1.3` | 1M | $1.25 | $4.25 | reasoning (default/minimal/low/medium/high/xhigh) |
+| Muse Spark 1.3 Contributor | `meta/muse-spark-1.3-contributor` | 1M | $0.10 | $0.20 | reasoning (default/minimal/low/medium/high/xhigh) |
+| Muse Spark 1.2 | `meta/muse-spark-1.2` | 1M | $1.25 | $4.25 | reasoning (default/minimal/low/medium/high/xhigh) |
 | Hy3 | `minimax/hy3` | 1M | $0.14 | $0.58 | thinking |
 
 *OpenRouter também oferece variantes `:nitro` (mais rápido) e `:fast` (ex.: `anthropic/claude-opus-4.8-fast`) com preço e latência diferentes.*

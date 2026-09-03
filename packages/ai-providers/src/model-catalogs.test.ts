@@ -64,12 +64,26 @@ describe('provider model catalogs', () => {
     expect(modelIds(new OpenRouterProvider('key'))).toEqual(
       expect.arrayContaining([
         'anthropic/claude-fable-5',
+        'anthropic/claude-fable-5.1',
+        'anthropic/claude-opus-5',
         'anthropic/claude-opus-4.8',
         'openai/gpt-5.5',
+        'openai/gpt-5.6-sol',
+        'openai/gpt-5.6-luna',
         'google/gemini-3.5-flash',
+        'google/gemini-3.8-flash',
         'x-ai/grok-4.5',
+        'x-ai/grok-4.6',
         'moonshotai/kimi-k3',
         'tencent/hy3',
+        'tencent/hy4-preview',
+        'qwen/qwen3.8-max',
+        'qwen/qwen3.8-flash',
+        'z-ai/glm-5.3',
+        'z-ai/glm-5.3-flash',
+        'minimax/minimax-m2.7',
+        'meta/muse-spark-1.3',
+        'deepseek/deepseek-v4-flash-vision-exp',
       ]),
     );
     expect(modelIds(new OpenRouterProvider('key'))).not.toEqual(

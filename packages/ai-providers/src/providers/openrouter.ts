@@ -4,7 +4,11 @@ import { OpenAIProvider } from './openai';
 // ─── OpenRouter Provider ────────────────────────────────────────────────────
 // Reuses OpenAI adapter since OpenRouter is OpenAI-compatible.
 // Only overrides: base URL, extra headers, and dynamic model listing.
-// Catalog mirrors docs/MODELS_REFERENCE.md §3 (fallback selection).
+// Static catalog mirrors docs/MODELS_REFERENCE.md §3: newest SOTA flagships
+// plus popular workhorses, verified Sep 2026 against the official
+// https://openrouter.ai/api/v1/models listing (424 models) + vendor docs.
+// Pricing below is the vendor Standard tier (OpenRouter may discount further
+// at request time); listModels() refreshes live pricing/availability hourly.
 
 // Thinking ladders (kept local to avoid cross-provider runtime coupling).
 const OR_ADAPTIVE_XHIGH: ThinkingVariants = {
@@ -88,9 +92,41 @@ const OR_ALWAYS_ON: ThinkingVariants = {
   levels: ['enabled'],
   defaultLevel: 'enabled',
 };
+/** Muse Spark (Meta): reasoning effort default/minimal/low/medium/high/xhigh */
+const OR_MUSE_EFFORT: ThinkingVariants = {
+  kind: 'openai',
+  levels: ['default', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+  defaultLevel: 'default',
+};
 
 const OPENROUTER_MODELS: AIModel[] = [
   // ── Anthropic (adaptive thinking) ─────────────────────────────────────────
+  {
+    id: 'anthropic/claude-fable-5.1',
+    name: 'Claude Fable 5.1 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 10,
+    outputPricePerMToken: 50,
+    thinkingVariants: OR_ADAPTIVE_XHIGH,
+  },
+  {
+    id: 'anthropic/claude-opus-5',
+    name: 'Claude Opus 5 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 5,
+    outputPricePerMToken: 25,
+    thinkingVariants: OR_ADAPTIVE_XHIGH,
+  },
   {
     id: 'anthropic/claude-fable-5',
     name: 'Claude Fable 5 (via OpenRouter)',
@@ -180,8 +216,9 @@ const OPENROUTER_MODELS: AIModel[] = [
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
-    inputPricePerMToken: 5,
-    outputPricePerMToken: 30,
+    inputPricePerMToken: 4,
+    outputPricePerMToken: 20,
+    cachedInputPricePerMToken: 0.4,
     thinkingVariants: OR_OPENAI_FULL_PRO,
   },
   {
@@ -193,8 +230,9 @@ const OPENROUTER_MODELS: AIModel[] = [
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
-    inputPricePerMToken: 2.5,
-    outputPricePerMToken: 15,
+    inputPricePerMToken: 2,
+    outputPricePerMToken: 12,
+    cachedInputPricePerMToken: 0.2,
     thinkingVariants: OR_OPENAI_FULL_PRO,
   },
   {
@@ -206,8 +244,9 @@ const OPENROUTER_MODELS: AIModel[] = [
     supportsTools: true,
     supportsStreaming: true,
     supportsVision: true,
-    inputPricePerMToken: 1,
-    outputPricePerMToken: 6,
+    inputPricePerMToken: 0.2,
+    outputPricePerMToken: 1.2,
+    cachedInputPricePerMToken: 0.02,
     thinkingVariants: OR_OPENAI_FULL_PRO,
   },
   {
@@ -251,6 +290,34 @@ const OPENROUTER_MODELS: AIModel[] = [
   },
   // ── Google Gemini (thinkingBudget) ────────────────────────────────────────
   {
+    id: 'google/gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 65_536,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.5,
+    outputPricePerMToken: 7.5,
+    cachedInputPricePerMToken: 0.15,
+    thinkingVariants: OR_GEMINI_LMH,
+  },
+  {
+    id: 'google/gemini-3.7-flash',
+    name: 'Gemini 3.7 Flash (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 65_536,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.5,
+    outputPricePerMToken: 7.5,
+    cachedInputPricePerMToken: 0.15,
+    thinkingVariants: OR_GEMINI_LMH,
+  },
+  {
     id: 'google/gemini-3.6-flash',
     name: 'Gemini 3.6 Flash (via OpenRouter)',
     provider: 'openrouter',
@@ -260,7 +327,8 @@ const OPENROUTER_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsVision: true,
     inputPricePerMToken: 1.5,
-    outputPricePerMToken: 9,
+    outputPricePerMToken: 7.5,
+    cachedInputPricePerMToken: 0.15,
     thinkingVariants: OR_GEMINI_LMH,
   },
   {
@@ -317,6 +385,19 @@ const OPENROUTER_MODELS: AIModel[] = [
   },
   // ── xAI ───────────────────────────────────────────────────────────────────
   {
+    id: 'x-ai/grok-4.6',
+    name: 'Grok 4.6 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 500_000,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 2,
+    outputPricePerMToken: 6,
+    thinkingVariants: OR_LMH,
+  },
+  {
     id: 'x-ai/grok-4.5',
     name: 'Grok 4.5 (via OpenRouter)',
     provider: 'openrouter',
@@ -368,7 +449,46 @@ const OPENROUTER_MODELS: AIModel[] = [
     outputPricePerMToken: 0.28,
     thinkingVariants: OR_DEEPSEEK_LMH,
   },
+  {
+    id: 'deepseek/deepseek-v4-flash-vision-exp',
+    name: 'DeepSeek V4 Flash Vision Exp (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 8_192,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 0.22,
+    outputPricePerMToken: 0.66,
+    thinkingVariants: OR_DEEPSEEK_LMH,
+  },
   // ── Qwen ──────────────────────────────────────────────────────────────────
+  {
+    id: 'qwen/qwen3.8-max',
+    name: 'Qwen3.8 Max (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 32_768,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 2,
+    outputPricePerMToken: 6,
+    thinkingVariants: OR_QWEN_TOGGLE,
+  },
+  {
+    id: 'qwen/qwen3.8-flash',
+    name: 'Qwen3.8 Flash (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 32_768,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0.15,
+    outputPricePerMToken: 0.47,
+    thinkingVariants: OR_QWEN_TOGGLE,
+  },
   {
     id: 'qwen/qwen3.7-max',
     name: 'Qwen3.7 Max (via OpenRouter)',
@@ -437,6 +557,32 @@ const OPENROUTER_MODELS: AIModel[] = [
   },
   // ── Z.ai GLM ──────────────────────────────────────────────────────────────
   {
+    id: 'z-ai/glm-5.3',
+    name: 'GLM 5.3 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 200_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 1.4,
+    outputPricePerMToken: 4.4,
+    thinkingVariants: OR_KIMI_TOGGLE,
+  },
+  {
+    id: 'z-ai/glm-5.3-flash',
+    name: 'GLM 5.3 Flash (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 200_000,
+    maxOutputTokens: 128_000,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0.15,
+    outputPricePerMToken: 0.5,
+    thinkingVariants: OR_KIMI_TOGGLE,
+  },
+  {
     id: 'z-ai/glm-5.2',
     name: 'GLM 5.2 (via OpenRouter)',
     provider: 'openrouter',
@@ -477,6 +623,19 @@ const OPENROUTER_MODELS: AIModel[] = [
     thinkingVariants: OR_MINIMAX_M3,
   },
   {
+    id: 'minimax/minimax-m2.7',
+    name: 'MiniMax M2.7 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0.3,
+    outputPricePerMToken: 1.2,
+    thinkingVariants: OR_ALWAYS_ON,
+  },
+  {
     id: 'tencent/hy3',
     name: 'Hy3 (Tencent Hunyuan 3) (via OpenRouter)',
     provider: 'openrouter',
@@ -487,6 +646,19 @@ const OPENROUTER_MODELS: AIModel[] = [
     supportsVision: false,
     inputPricePerMToken: 0.14,
     outputPricePerMToken: 0.58,
+    thinkingVariants: OR_HY3,
+  },
+  {
+    id: 'tencent/hy4-preview',
+    name: 'Hy4 Preview (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0.834,
+    outputPricePerMToken: 2.501,
     thinkingVariants: OR_HY3,
   },
   // ── Xiaomi MiMo ───────────────────────────────────────────────────────────
@@ -515,6 +687,49 @@ const OPENROUTER_MODELS: AIModel[] = [
     inputPricePerMToken: 0.435,
     outputPricePerMToken: 0.87,
     thinkingVariants: OR_KIMI_TOGGLE,
+  },
+  // ── Meta Muse ─────────────────────────────────────────────────────────────
+  {
+    id: 'meta/muse-spark-1.3',
+    name: 'Muse Spark 1.3 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 1.25,
+    outputPricePerMToken: 4.25,
+    cachedInputPricePerMToken: 0.15,
+    thinkingVariants: OR_MUSE_EFFORT,
+  },
+  {
+    id: 'meta/muse-spark-1.3-contributor',
+    name: 'Muse Spark 1.3 Contributor (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 0.1,
+    outputPricePerMToken: 0.2,
+    cachedInputPricePerMToken: 0.002,
+    thinkingVariants: OR_MUSE_EFFORT,
+  },
+  {
+    id: 'meta/muse-spark-1.2',
+    name: 'Muse Spark 1.2 (via OpenRouter)',
+    provider: 'openrouter',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 16_384,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: false,
+    inputPricePerMToken: 1.25,
+    outputPricePerMToken: 4.25,
+    cachedInputPricePerMToken: 0.15,
+    thinkingVariants: OR_MUSE_EFFORT,
   },
 ];
 
