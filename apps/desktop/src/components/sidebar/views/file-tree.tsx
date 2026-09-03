@@ -48,6 +48,15 @@ import { detectLanguage } from '../../../lib/lsp-bridge';
 import { diagnosticRelativePath } from '../../../lib/diagnostics-types';
 import { getFileIcon, getFolderIcon, FolderIcon as DefaultFolderIcon } from './file-icons';
 import { promptInput, promptConfirm, promptDelete } from '../../ui/dialogs';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem as UniversalMenuItem,
+  ContextMenuSeparator as UniversalMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubTrigger,
+  ContextMenuSubContent,
+} from '../../ui/context-menu';
 import { FileHistoryModal } from '../../editor/file-history-modal';
 import type { FileNode } from '../../../stores/file-store';
 import type { GitFile } from '../../../stores/git-store';
@@ -502,7 +511,7 @@ function FileTreeNode({
   );
 }
 
-// ── Context Menu Item ────────────────────────────────────────────────────────
+// ── Context Menu Item (universal component + file-tree icon/label/shortcut) ──
 
 function ContextMenuItem({
   icon: Icon,
@@ -510,75 +519,33 @@ function ContextMenuItem({
   shortcut,
   onClick,
   danger,
+  disabled,
 }: {
   icon: typeof FilePlus;
   label: string;
   shortcut?: string;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
-    <button
+    <UniversalMenuItem
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] transition-colors ${
-        danger ? 'text-destructive hover:bg-destructive/10' : 'text-foreground hover:bg-muted'
-      }`}
+      variant={danger ? 'destructive' : 'default'}
+      disabled={disabled}
+      className="text-[11px] [&_svg]:size-3.5"
     >
       <Icon className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1 text-left">{label}</span>
       {shortcut && (
         <span className="ml-4 text-[10px] text-muted-foreground">{shortcut}</span>
       )}
-    </button>
+    </UniversalMenuItem>
   );
 }
 
 function ContextMenuSeparator() {
-  return <div className="my-1 h-px bg-border" />;
-}
-
-function ContextMenuSubmenu({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: typeof FilePlus;
-  label: string;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const scheduleClose = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpen(false), 120);
-  };
-
-  useEffect(() => () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-  }, []);
-
-  return (
-    <div
-      className="relative"
-      onMouseEnter={() => {
-        if (closeTimer.current) clearTimeout(closeTimer.current);
-        setOpen(true);
-      }}
-      onMouseLeave={scheduleClose}
-    >
-      <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-foreground transition-colors hover:bg-muted">
-        <Icon className="h-3.5 w-3.5 shrink-0" />
-        <span className="flex-1 text-left">{label}</span>
-        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-      </button>
-      {open && (
-        <div className="absolute left-full top-0 z-50 ml-0.5 min-w-[200px] rounded-xl border border-border bg-popover p-1 shadow-lg">
-          {children}
-        </div>
-      )}
-    </div>
-  );
+  return <UniversalMenuSeparator />;
 }
 
 // ── Main FileTree ────────────────────────────────────────────────────────────
@@ -604,7 +571,6 @@ export function FileTree() {
     if (!clipboard || clipboard.op !== 'cut') return new Set<string>();
     return new Set(clipboard.paths);
   }, [clipboard]);
-  const menuRef = useRef<HTMLDivElement>(null);
   const treeContainerRef = useRef<HTMLDivElement>(null);
 
   // Build git status map
@@ -778,24 +744,24 @@ export function FileTree() {
   }, [visibleNodes, focusedPath, renamingPath, creatingIn, expandDirectory, rootPath, handleCopyItem, handleCutItem, handlePaste, getTargetParent]);
 
   // ── Context menu interactions ─────────────────────────────────────────────
+  // Open/close + Escape/outside-press are handled by the universal ContextMenu
+  // Root. The virtual cursor anchor is fixed, so close on scroll like before.
   useEffect(() => {
     if (!contextMenu) return;
-    const onMouse = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
-      }
-    };
     const onScroll = () => setContextMenu(null);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setContextMenu(null);
-    };
-    document.addEventListener('mousedown', onMouse);
     document.addEventListener('scroll', onScroll, true);
-    document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', onMouse);
       document.removeEventListener('scroll', onScroll, true);
-      document.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
+
+  // Virtual Floating UI anchor at the cursor position. Memoized on coordinates
+  // so the menu doesn't reposition on unrelated renders.
+  const cursorAnchor = useMemo(() => {
+    if (!contextMenu) return null;
+    const { x, y } = contextMenu;
+    return {
+      getBoundingClientRect: () => DOMRect.fromRect({ x, y, width: 0, height: 0 }),
     };
   }, [contextMenu]);
 
@@ -1286,10 +1252,6 @@ export function FileTree() {
       menuNode!.name.split('.').pop()?.toLowerCase() ?? '',
     );
 
-  // Clamp context menu to viewport (reserve room for the Open With submenu)
-  const menuX = contextMenu ? Math.min(contextMenu.x, window.innerWidth - 430) : 0;
-  const menuY = contextMenu ? Math.min(contextMenu.y, window.innerHeight - 380) : 0;
-
   return (
     <div
       ref={treeContainerRef}
@@ -1340,27 +1302,40 @@ export function FileTree() {
         />
       ))}
 
-      {/* Context Menu */}
-      {contextMenu && (
-        <div
-          ref={menuRef}
-          className="fixed z-50 min-w-[200px] rounded-xl border border-border bg-popover p-1 shadow-lg"
-          style={{ left: menuX, top: menuY }}
+      {/* Context Menu (universal component, anchored at the cursor;
+          Floating UI flips/shifts on viewport collision) */}
+      <ContextMenu
+        open={!!contextMenu}
+        onOpenChange={(open) => {
+          if (!open) setContextMenu(null);
+        }}
+      >
+        <ContextMenuContent
+          anchor={cursorAnchor}
+          side="bottom"
+          align="start"
+          className="min-w-[200px]"
         >
           <ContextMenuItem icon={FilePlus} label="New File..." onClick={handleNewFile} />
           <ContextMenuItem icon={FolderPlus} label="New Folder..." onClick={handleNewFolder} />
 
           <ContextMenuSeparator />
           {menuNodeIsFile && (
-            <ContextMenuSubmenu icon={Files} label="Open With">
-              {menuIsTextual && (
-                <ContextMenuItem icon={FileText} label="Text Editor" onClick={handleOpenWithText} />
-              )}
-              {menuIsDbFile && (
-                <ContextMenuItem icon={Database} label="Schema Canvas" onClick={handleOpenAsSchemaViewer} />
-              )}
-              <ContextMenuItem icon={ExternalLink} label="Default Application" onClick={handleOpenWithDefault} />
-            </ContextMenuSubmenu>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger className="text-[11px] [&_svg]:size-3.5">
+                <Files className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1 text-left">Open With</span>
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="min-w-[200px]">
+                {menuIsTextual && (
+                  <ContextMenuItem icon={FileText} label="Text Editor" onClick={handleOpenWithText} />
+                )}
+                {menuIsDbFile && (
+                  <ContextMenuItem icon={Database} label="Schema Canvas" onClick={handleOpenAsSchemaViewer} />
+                )}
+                <ContextMenuItem icon={ExternalLink} label="Default Application" onClick={handleOpenWithDefault} />
+              </ContextMenuSubContent>
+            </ContextMenuSub>
           )}
           <ContextMenuItem
             icon={SquareTerminal}
@@ -1380,15 +1355,14 @@ export function FileTree() {
 
           <ContextMenuSeparator />
           {hasNode && (
-            <ContextMenuItem icon={Scissors} label="Cut" shortcut="Ctrl+X" onClick={() => { handleCutItem(contextMenu!.node!); setContextMenu(null); }} />
+            <ContextMenuItem icon={Scissors} label="Cut" shortcut="Ctrl+X" onClick={() => { handleCutItem(contextMenu!.node!); }} />
           )}
           {hasNode && (
-            <ContextMenuItem icon={Copy} label="Copy" shortcut="Ctrl+C" onClick={() => { handleCopyItem(contextMenu!.node!); setContextMenu(null); }} />
+            <ContextMenuItem icon={Copy} label="Copy" shortcut="Ctrl+C" onClick={() => { handleCopyItem(contextMenu!.node!); }} />
           )}
           {clipboard && (
             <ContextMenuItem icon={ClipboardPaste} label="Paste" shortcut="Ctrl+V" onClick={() => {
               const t = contextMenu?.node ? getTargetParent(contextMenu.node) : (rootPath ?? '');
-              setContextMenu(null);
               if (t) handlePaste(t).catch((err) => notifyError(`Paste failed: ${extractInvokeMessage(err)}`));
             }} />
           )}
@@ -1422,8 +1396,8 @@ export function FileTree() {
               <ContextMenuItem icon={ClipboardCopy} label="Copy Relative Path" onClick={handleCopyRelativePath} />
             </>
           )}
-        </div>
-      )}
+        </ContextMenuContent>
+      </ContextMenu>
 
       {/* File History Modal */}
       {historyModalPath && (
