@@ -14,8 +14,8 @@ import { ProviderError } from '../types';
 import { withOpencodeHeaders } from '../opencode-headers';
 
 // ─── Thinking variant presets ────────────────────────────────────────────────
-// Per docs/MODELS_REFERENCE.md — Gemini 3.6 Flash / 3.5 Flash / 3.1 Pro support
-// thinking levels low/medium/high; 3.5 Flash Lite and 3 Flash support low/medium.
+// Per official Gemini docs — 3.8 Flash / 3.6 Flash / 3.5 Flash support
+// thinking levels low/medium/high; 3.5 Flash Lite supports low/medium.
 // The Gemini API uses a numeric thinkingBudget; map the level to a token count.
 
 /** low/medium/high — Gemini 3.6 Flash, 3.5 Flash, 3.1 Pro */
@@ -243,7 +243,26 @@ function* parseGeminiResponse(data: string): Iterable<StreamChunk> {
 
 // ─── Provider Implementation ────────────────────────────────────────────────
 
+// SOTA-only direct catalog (verified Sep 2026 against
+// https://ai.google.dev/gemini-api/docs/models + DeepMind model cards): GA
+// stable models only — 3.8 Flash (newest iteration), 3.6 Flash (stable
+// flagship), 3.5 Flash (stable), 3.5 Flash-Lite (fastest). Preview models
+// (3.1 Pro, 3 Flash) are excluded until GA.
 const GEMINI_MODELS: AIModel[] = [
+  {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash',
+    provider: 'gemini',
+    contextWindow: 1_048_576,
+    maxOutputTokens: 65_536,
+    supportsTools: true,
+    supportsStreaming: true,
+    supportsVision: true,
+    inputPricePerMToken: 1.5,
+    outputPricePerMToken: 7.5,
+    cachedInputPricePerMToken: 0.15,
+    thinkingVariants: GEMINI_THINKING_LMH_VARIANTS,
+  },
   {
     id: 'gemini-3.6-flash',
     name: 'Gemini 3.6 Flash',
@@ -284,34 +303,6 @@ const GEMINI_MODELS: AIModel[] = [
     inputPricePerMToken: 0.3,
     outputPricePerMToken: 2.5,
     cachedInputPricePerMToken: 0.03,
-    thinkingVariants: GEMINI_THINKING_LM_VARIANTS,
-  },
-  {
-    id: 'gemini-3.1-pro',
-    name: 'Gemini 3.1 Pro',
-    provider: 'gemini',
-    contextWindow: 1_048_576,
-    maxOutputTokens: 65_536,
-    supportsTools: true,
-    supportsStreaming: true,
-    supportsVision: true,
-    inputPricePerMToken: 2.0,
-    outputPricePerMToken: 12.0,
-    cachedInputPricePerMToken: 0.2,
-    thinkingVariants: GEMINI_THINKING_LMH_VARIANTS,
-  },
-  {
-    id: 'gemini-3-flash',
-    name: 'Gemini 3 Flash',
-    provider: 'gemini',
-    contextWindow: 1_048_576,
-    maxOutputTokens: 65_536,
-    supportsTools: true,
-    supportsStreaming: true,
-    supportsVision: true,
-    inputPricePerMToken: 0.5,
-    outputPricePerMToken: 3.0,
-    cachedInputPricePerMToken: 0.05,
     thinkingVariants: GEMINI_THINKING_LM_VARIANTS,
   },
 ];

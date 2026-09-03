@@ -35,7 +35,8 @@ describe('desktop provider catalog parity', () => {
 
   it('regression: ids previously drifted between surfaces', () => {
     const anthropicIds = PROVIDERS.find((provider) => provider.id === 'anthropic')?.models.map((model) => model.id) ?? [];
-    expect(anthropicIds).toContain('claude-sonnet-4-5-20250929');
+    expect(anthropicIds).toContain('claude-fable-5-1');
+    expect(anthropicIds).toContain('claude-sonnet-5');
     expect(anthropicIds).toContain('claude-haiku-4-5-20251001');
     expect(anthropicIds).not.toContain('claude-sonnet-4-5');
 
@@ -49,9 +50,9 @@ describe('desktop provider catalog parity', () => {
     const glm = PROVIDERS.find((provider) => provider.id === 'openrouter')?.models.find((model) => model.id === 'z-ai/glm-5.2');
     expect(glm?.thinkingLevels).toEqual(['enabled', 'disabled']);
 
-    const nano = PROVIDERS.find((provider) => provider.id === 'openai')?.models.find((model) => model.id === 'gpt-5.4-nano');
+    const nano = PROVIDERS.find((provider) => provider.id === 'openai')?.models.find((model) => model.id === 'gpt-5.6-luna');
     expect(nano?.supportsThinking).toBe(true);
-    expect(nano?.thinkingLevels).toEqual(['none', 'low', 'medium']);
+    expect(nano?.thinkingLevels).toEqual(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
   });
 
   it('keeps enablement and grouping semantics unchanged', () => {

@@ -56,7 +56,7 @@ describe('canonical provider catalog', () => {
     expect(sol?.thinkingVariants?.modes).toContain('pro');
     expect(sol?.thinkingVariants?.levels).toContain('xhigh');
 
-    const sonnet = catalog.find((entry) => entry.id === 'anthropic')?.models.find((model) => model.id === 'claude-sonnet-4-5-20250929');
-    expect(sonnet?.thinkingVariants?.levels).toEqual(['low', 'medium', 'high', 'max']);
+    const sonnet = catalog.find((entry) => entry.id === 'anthropic')?.models.find((model) => model.id === 'claude-sonnet-5');
+    expect(sonnet?.thinkingVariants?.levels).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
   });
 });

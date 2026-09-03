@@ -17,20 +17,14 @@ function modelIds(provider: { models: Array<{ id: string }> }): string[] {
 
 describe('provider model catalogs', () => {
   it('exposes the current direct-provider model families', () => {
-    expect(modelIds(new AnthropicProvider('key'))).toEqual(
-      expect.arrayContaining([
-        'claude-fable-5',
-        'claude-opus-5',
-        'claude-opus-4-8',
-        'claude-sonnet-5',
-        'claude-opus-4-7',
-        'claude-opus-4-6',
-        'claude-sonnet-4-6',
-        'claude-opus-4-5',
-        'claude-sonnet-4-5-20250929',
-        'claude-haiku-4-5-20251001',
-      ]),
-    );
+    // SOTA-only direct catalogs (Sep 2026): current flagship generations per
+    // official vendor docs — legacy models serve via gateways, not direct.
+    expect(modelIds(new AnthropicProvider('key'))).toEqual([
+      'claude-fable-5-1',
+      'claude-opus-5',
+      'claude-sonnet-5',
+      'claude-haiku-4-5-20251001',
+    ]);
     expect(modelIds(new ClaudeAgentProvider('key'))).toEqual(
       expect.arrayContaining([
         'claude-fable-5',
@@ -40,16 +34,13 @@ describe('provider model catalogs', () => {
         'claude-haiku-4-5',
       ]),
     );
-    expect(modelIds(new OpenAIProvider('key'))).toContain('gpt-5.5');
-    expect(modelIds(new GeminiProvider('key'))).toEqual(
-      expect.arrayContaining([
-        'gemini-3.6-flash',
-        'gemini-3.5-flash',
-        'gemini-3.5-flash-lite',
-        'gemini-3.1-pro',
-        'gemini-3-flash',
-      ]),
-    );
+    expect(modelIds(new OpenAIProvider('key'))).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']);
+    expect(modelIds(new GeminiProvider('key'))).toEqual([
+      'gemini-3.8-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+    ]);
     expect(modelIds(new GeminiProvider('key'))).not.toContain('gemini-3.1-flash-lite');
   });
 

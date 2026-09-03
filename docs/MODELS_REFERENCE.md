@@ -215,6 +215,11 @@ OpenRouter é um **gateway unificado** que dá acesso a 400+ modelos de múltipl
 
 ## 4. Anthropic Claude (provedor direto)
 
+> **Escopo do provedor direto (SOTA-only, verificado set/2026 em
+> `platform.claude.com/docs/en/models/overview`): `claude-fable-5-1`,
+> `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5-20251001`.
+> Gerações 4.x legadas servem via gateways (Zen/Go/OpenRouter), não direto.
+
 Modelos de linguagem da Anthropic. Todos os preços em USD por 1M tokens (MTok). Os modelos 4.6+ usam IDs no formato dateless `claude-{name}-{major}[-{minor}]` (ex.: `claude-opus-4-8`).
 
 | Modelo | Claude API ID | Janela de contexto | Saída máx. | Entrada | Saída | Cache write 5m / 1h | Cache hit | Pensamento |
@@ -227,8 +232,7 @@ Modelos de linguagem da Anthropic. Todos os preços em USD por 1M tokens (MTok).
 | Claude Opus 4.5 | `claude-opus-4-5` | 1M | 128K | $5 | $25 | $6.25 / $10 | $0.50 | adaptive (low/med/high) |
 | Claude Opus 4.1 (depreciado) | `claude-opus-4-1` | 200K | 64K | $15 | $75 | $18.75 / $30 | $1.50 | extended thinking |
 | Claude Opus 4 (aposentado) | `claude-opus-4` | 200K | 64K | $15 | $75 | $18.75 / $30 | $1.50 | extended thinking |
-| Claude Sonnet 5 (até 31/08/2026) | `claude-sonnet-5` | 1M | 128K | $2 | $10 | $2.50 / $4 | $0.20 | adaptive (low/med/high/xhigh/max) |
-| Claude Sonnet 5 (a partir de 01/09/2026) | `claude-sonnet-5` | 1M | 128K | $3 | $15 | $3.75 / $6 | $0.30 | adaptive (low/med/high/xhigh/max) |
+| Claude Sonnet 5 | `claude-sonnet-5` | 1M | 128K | $2 | $10 | $2.50 / $4 | $0.20 | adaptive (low/med/high/xhigh/max) |
 | Claude Sonnet 4.6 | `claude-sonnet-4-6` | 1M | 128K | $3 | $15 | $3.75 / $6 | $0.30 | adaptive (low/med/high/max) |
 | Claude Sonnet 4.5 | `claude-sonnet-4-5-20250929` | 200K | 64K | $3 | $15 | $3.75 / $6 | $0.30 | extended thinking |
 | Claude Sonnet 4 (aposentado) | `claude-sonnet-4` | 200K | 64K | $3 | $15 | $3.75 / $6 | $0.30 | extended thinking |
@@ -243,15 +247,22 @@ Endpoints equivalentes: `anthropic.claude-{name}-{major}[-{minor}]` no Amazon Be
 
 ## 5. OpenAI
 
+> **Escopo do provedor direto (SOTA-only, verificado set/2026 em
+> `developers.openai.com/api/docs/models` + `/pricing`, tier Standard
+> short-context): família flagship GPT-5.6 — `gpt-5.6-sol` ($4.00/$20.00,
+> cached $0.40), `gpt-5.6-terra` ($2.00/$12.00, cached $0.20),
+> `gpt-5.6-luna` ($0.20/$1.20, cached $0.02). Gerações anteriores (5.5, 5.4,
+> 5.3-codex, …) servem via gateways, não direto.
+
 Preços em USD por 1M tokens (tier Standard). Modelos de raciocínio suportam `reasoning.effort` com valores `none`, `minimal`, `low`, `medium` (default para GPT-5.5/5.6), `high`, `xhigh`, `max` (disponibilidade depende do modelo). GPT-5.6 também suporta `reasoning.mode` = `standard` (default) ou `pro`.
 
 ### 5.1 Modelos principais (flagship / frontier)
 
 | Modelo | ID | Alias | Janela de contexto | Saída máx. | Entrada (short ctx) | Saída (short ctx) | Entrada (long ctx) | Saída (long ctx) | Cached input | Cache writes | Pensamento |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| GPT-5.6 Sol | `gpt-5.6-sol` | `gpt-5.6` | 1.05M | 128K | $5.00 | $30.00 | $10.00 | $45.00 | $0.50 | $6.25 | none/low/med/high/xhigh/max + standard/pro |
-| GPT-5.6 Terra | `gpt-5.6-terra` | – | 1.05M | 128K | $2.50 | $15.00 | $5.00 | $22.50 | $0.25 | $3.125 | none/low/med/high/xhigh/max + standard/pro |
-| GPT-5.6 Luna | `gpt-5.6-luna` | – | 1.05M | 128K | $1.00 | $6.00 | $2.00 | $9.00 | $0.10 | $1.25 | none/low/med/high/xhigh/max + standard/pro |
+| GPT-5.6 Sol | `gpt-5.6-sol` | `gpt-5.6` | 1.05M | 128K | $4.00 | $20.00 | $8.00 | $30.00 | $0.40 | $5.00 | none/low/med/high/xhigh/max + standard/pro |
+| GPT-5.6 Terra | `gpt-5.6-terra` | – | 1.05M | 128K | $2.00 | $12.00 | $4.00 | $18.00 | $0.20 | $2.50 | none/low/med/high/xhigh/max + standard/pro |
+| GPT-5.6 Luna | `gpt-5.6-luna` | – | 1.05M | 128K | $0.20 | $1.20 | $0.40 | $1.80 | $0.02 | $0.25 | none/low/med/high/xhigh/max + standard/pro |
 | GPT-5.5 | `gpt-5.5` | – | 1M | 128K | $5.00 | $30.00 | $10.00 | $45.00 | $0.50 | – | none/low/med/high/xhigh/max |
 | GPT-5.5 Pro | `gpt-5.5-pro` | – | 1M | – | $30.00 | $180.00 | $60.00 | $270.00 | – | – | none/low/med/high/xhigh/max |
 | GPT-5.4 | `gpt-5.4` | – | 1M | 128K | $2.50 | $15.00 | $5.00 | $22.50 | $0.25 | – | none/low/med/high/xhigh/max |
