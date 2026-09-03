@@ -3,6 +3,7 @@ use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watche
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
@@ -31,6 +32,18 @@ pub struct SearchResult {
     pub line_content: String,
 }
 
+pub const READ_CHUNK_LEN: u64 = 256 * 1024;
+pub const READ_CHUNK_HARD_CAP: u64 = 512 * 1024 * 1024;
+pub const BINARY_SNIFF_LEN: usize = 8192;
+
+#[derive(Serialize)]
+pub struct FileChunk {
+    pub data: String,
+    pub total_size: u64,
+    pub is_binary: bool,
+    pub finished: bool,
+}
+
 #[tauri::command]
 pub fn read_file(path: String) -> Result<String, String> {
     let path = PathBuf::from(&path);
@@ -38,6 +51,70 @@ pub fn read_file(path: String) -> Result<String, String> {
         return Err(format!("File not found: {}", path.display()));
     }
     fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))
+}
+
+#[tauri::command]
+pub fn read_file_chunk(path: String, offset: u64, length: u64) -> Result<FileChunk, String> {
+    let path = PathBuf::from(&path);
+    if !path.exists() {
+        return Err(format!("File not found: {}", path.display()));
+    }
+    let metadata = fs::metadata(&path).map_err(|e| format!("Failed to read metadata: {}", e))?;
+    let total_size = metadata.len();
+    if offset >= total_size {
+        return Ok(FileChunk {
+            data: String::new(),
+            total_size,
+            is_binary: false,
+            finished: true,
+        });
+    }
+    if length == 0 || length > READ_CHUNK_LEN || offset.saturating_add(length) > READ_CHUNK_HARD_CAP {
+        return Err("Chunk out of range".to_string());
+    }
+    let remaining = total_size.saturating_sub(offset);
+    let read_len = (length.min(remaining)) as usize;
+    if read_len == 0 {
+        return Ok(FileChunk {
+            data: String::new(),
+            total_size,
+            is_binary: false,
+            finished: true,
+        });
+    }
+    let mut file = fs::File::open(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+    file.seek(SeekFrom::Start(offset))
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let mut bytes = vec![0u8; read_len];
+    file.read_exact(&mut bytes)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let finished = offset.saturating_add(read_len as u64) >= total_size;
+    match String::from_utf8(bytes) {
+        Ok(data) => Ok(FileChunk {
+            data,
+            total_size,
+            is_binary: false,
+            finished,
+        }),
+        Err(err) => {
+            let raw = err.as_bytes();
+            let sniff_len = raw.len().min(BINARY_SNIFF_LEN);
+            if raw[..sniff_len].contains(&0) {
+                return Ok(FileChunk {
+                    data: String::new(),
+                    total_size,
+                    is_binary: true,
+                    finished: true,
+                });
+            }
+            Ok(FileChunk {
+                data: String::from_utf8_lossy(raw).into_owned(),
+                total_size,
+                is_binary: false,
+                finished,
+            })
+        }
+    }
 }
 
 #[tauri::command]
@@ -1004,7 +1081,7 @@ mod tests {
 
     #[test]
     fn move_and_copy_refuse_existing_destination() {
-        let base = std::env::temp_dir().join(format!("hyscode-fs-test-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("hyscode-fs-test-{}-move", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("src")).unwrap();
         fs::write(base.join("src").join("a.txt"), b"hi").unwrap();
@@ -1048,6 +1125,68 @@ mod tests {
             base.join("src").join("c.txt").to_string_lossy().to_string()
         );
 
+        let _ = fs::remove_dir_all(&base);
+    }
+    #[test]
+    fn read_file_chunk_returns_head_and_tail() {
+        let base = std::env::temp_dir().join(format!("hyscode-fs-test-{}-chunk", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let file = base.join("big.txt");
+        let expected = "line\n".repeat(100_000);
+        fs::write(&file, expected.as_bytes()).unwrap();
+        let path = file.to_string_lossy().to_string();
+
+        let head = read_file_chunk(path.clone(), 0, READ_CHUNK_LEN).unwrap();
+        assert!(!head.is_binary);
+        assert_eq!(head.total_size, expected.len() as u64);
+        assert!(!head.finished);
+        assert_eq!(head.data.len(), READ_CHUNK_LEN as usize);
+
+        let tail = read_file_chunk(path.clone(), READ_CHUNK_LEN, READ_CHUNK_LEN).unwrap();
+        assert!(!tail.is_binary);
+        assert!(tail.finished);
+
+        let mut reassembled = head.data;
+        reassembled.push_str(&tail.data);
+        assert_eq!(reassembled, expected);
+        assert_eq!(read_file(path).unwrap(), expected);
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn read_file_chunk_flags_null_bytes_binary() {
+        let base = std::env::temp_dir().join(format!("hyscode-fs-test-{}-binary", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let file = base.join("blob.bin");
+        fs::write(&file, [0x00, 0xFF, b'a']).unwrap();
+
+        let chunk =
+            read_file_chunk(file.to_string_lossy().to_string(), 0, READ_CHUNK_LEN).unwrap();
+        assert!(chunk.is_binary);
+        assert!(chunk.data.is_empty());
+        assert!(chunk.finished);
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn read_file_chunk_offset_past_end_returns_finished_empty() {
+        let base = std::env::temp_dir().join(format!("hyscode-fs-test-{}-past-end", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let file = base.join("small.txt");
+        fs::write(&file, b"hi").unwrap();
+        let path = file.to_string_lossy().to_string();
+
+        let chunk = read_file_chunk(path, 1024, READ_CHUNK_LEN).unwrap();
+        assert!(chunk.data.is_empty());
+        assert!(!chunk.is_binary);
+        assert!(chunk.finished);
+
+        assert!(read_file_chunk("/nonexistent-hyscode-path-xyz".to_string(), 0, 128).is_err());
         let _ = fs::remove_dir_all(&base);
     }
 }

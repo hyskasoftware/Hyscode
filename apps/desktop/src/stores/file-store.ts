@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { tauriFs } from '../lib/tauri-fs';
+import { SMALL_FILE_FAST_PATH_BYTES, loadFileText } from '../lib/large-file-loader';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useDiagnosticsStore } from './diagnostics-store';
 
@@ -393,7 +394,21 @@ export const useFileStore = create<FileState>()(
                 continue;
               }
               try {
-                const content = await tauriFs.readFile(path);
+                const editorState = editorModule.useEditorStore.getState();
+                const activeTab = editorState.tabs.find((item) => item.id === editorState.activeTabId);
+                let content: string;
+                if (activeTab?.filePath === path) {
+                  const stat = await tauriFs.statPath(path).catch(() => null);
+                  if (stat && !stat.is_dir && stat.size > SMALL_FILE_FAST_PATH_BYTES) {
+                    ({ text: content } = await loadFileText(path, {
+                      signal: new AbortController().signal,
+                    }));
+                  } else {
+                    content = await tauriFs.readFile(path);
+                  }
+                } else {
+                  content = await tauriFs.readFile(path);
+                }
                 if (watchGeneration !== folderLoadGeneration || get().rootPath !== watchedPath) return;
                 set((state) => {
                   state.fileCache.set(path, content);

@@ -26,6 +26,8 @@ export const TRASH_UNAVAILABLE_PREFIX = 'TRASH_UNAVAILABLE';
 
 export const tauriFs = {
   readFile: (path: string) => invoke<string>('read_file', { path }),
+  readFileChunk: (path: string, offset: number, length: number) =>
+    invoke<{ data: string; total_size: number; is_binary: boolean; finished: boolean }>('read_file_chunk', { path, offset, length }),
   writeFile: (path: string, content: string) => invoke<void>('write_file', { path, content }),
   createFile: (path: string, content?: string) => invoke<void>('create_file', { path, content }),
   deletePath: (path: string) => invoke<void>('delete_path', { path }),

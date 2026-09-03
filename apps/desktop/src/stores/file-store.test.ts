@@ -3,12 +3,14 @@ import { enableMapSet } from 'immer';
 
 enableMapSet();
 
-const { listDirMock, watchMock, unwatchMock, readFileMock, listenMock } = vi.hoisted(() => ({
+const { listDirMock, watchMock, unwatchMock, readFileMock, statPathMock, listenMock, loadFileTextMock } = vi.hoisted(() => ({
   listDirMock: vi.fn(),
   watchMock: vi.fn(),
   unwatchMock: vi.fn(),
   readFileMock: vi.fn(),
+  statPathMock: vi.fn(),
   listenMock: vi.fn(),
+  loadFileTextMock: vi.fn(),
 }));
 
 vi.mock('../lib/tauri-fs', () => ({
@@ -17,12 +19,19 @@ vi.mock('../lib/tauri-fs', () => ({
     watch: watchMock,
     unwatch: unwatchMock,
     readFile: readFileMock,
+    statPath: statPathMock,
   },
+}));
+
+vi.mock('../lib/large-file-loader', () => ({
+  SMALL_FILE_FAST_PATH_BYTES: 256 * 1024,
+  loadFileText: loadFileTextMock,
 }));
 
 vi.mock('@tauri-apps/api/event', () => ({ listen: listenMock }));
 
 import { decideExternalFileUpdate, useFileStore } from './file-store';
+import { useEditorStore } from './editor-store';
 
 const directoryEntries = (path: string) => [
   { name: 'README.md', path: `${path}/README.md`, is_dir: false, size: 10 },
@@ -33,7 +42,9 @@ beforeEach(() => {
   watchMock.mockReset().mockResolvedValue(undefined);
   unwatchMock.mockReset().mockResolvedValue(undefined);
   readFileMock.mockReset().mockResolvedValue('');
+  statPathMock.mockReset();
   listenMock.mockReset().mockResolvedValue(vi.fn());
+  loadFileTextMock.mockReset();
   useFileStore.getState().closeFolder();
 });
 
@@ -118,5 +129,49 @@ describe('folder loading lifecycle', () => {
 
     expect(useFileStore.getState().rootPath).toBe('C:/new-project');
     expect(useFileStore.getState().fileCache.has('C:/old-project/app.ts')).toBe(false);
+  });
+
+  it('routes watcher re-reads of large active files through the chunked loader', async () => {
+    const filePath = 'C:/project/big.log';
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-big',
+          filePath,
+          fileName: 'big.log',
+          language: 'plaintext',
+          isDirty: false,
+          isPinned: false,
+          isPreview: false,
+          type: 'file',
+          viewerType: 'code',
+        },
+      ],
+      activeTabId: 'tab-big',
+    });
+    listDirMock.mockResolvedValue(directoryEntries('C:/project'));
+    await useFileStore.getState().openFolder('C:/project');
+    const listener = listenMock.mock.calls[0]?.[1] as (
+      event: { payload: { kind: string; paths: string[] } },
+    ) => void;
+    expect(listener).toBeDefined();
+
+    useFileStore.getState().setFileContent(filePath, 'old cached content');
+    statPathMock.mockResolvedValue({
+      path: filePath,
+      is_dir: false,
+      is_file: true,
+      size: 1024 * 1024,
+      modified: null,
+    });
+    loadFileTextMock.mockResolvedValue({ text: 'new large content', totalSize: 1024 * 1024 });
+
+    listener({ payload: { kind: 'modify', paths: [filePath] } });
+
+    await vi.waitFor(() => expect(loadFileTextMock).toHaveBeenCalledWith(filePath, expect.anything()));
+    expect(readFileMock).not.toHaveBeenCalledWith(filePath);
+    expect(useFileStore.getState().fileCache.get(filePath)).toBe('new large content');
+
+    useEditorStore.setState({ tabs: [], activeTabId: null });
   });
 });

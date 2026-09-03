@@ -29,6 +29,7 @@ import { useEditorStore, useFileStore, useLayoutStore, useSettingsStore } from '
 import { useAgentStore } from '../../stores/agent-store';
 import { useExtensionStore } from '../../stores/extension-store';
 import { tauriFs } from '../../lib/tauri-fs';
+import { LOAD_CHUNK_BYTES, isCancelError, loadFileText } from '../../lib/large-file-loader';
 import { saveFileDialog } from '../../lib/tauri-dialog';
 import { GIT_GUTTER_WIDTH, useGitDecorations } from '../../hooks/use-git-decorations';
 import { useGitBlameDecorations } from '../../hooks/use-git-blame-decorations';
@@ -44,10 +45,19 @@ import type * as monacoEditor from 'monaco-editor';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
 
-function EditorLoading() {
+function formatLoadMB(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function EditorLoading({ loaded, total }: { loaded?: number; total?: number | null }) {
   return (
-    <div className="flex flex-1 items-center justify-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-2">
       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      {loaded !== undefined && total != null && total > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Loading large file… {formatLoadMB(loaded)} / {formatLoadMB(total)}
+        </p>
+      )}
     </div>
   );
 }
@@ -61,9 +71,17 @@ function EditorLoadError({ message }: { message: string }) {
   );
 }
 
+function LoadProgressBanner({ loaded, total }: { loaded: number; total: number }) {
+  return (
+    <div className="border-b border-border bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+      Loading large file… {formatLoadMB(loaded)} / {formatLoadMB(total)}
+    </div>
+  );
+}
+
 type FileLoadState =
   | { status: 'idle' }
-  | { status: 'loading'; path: string }
+  | { status: 'loading'; path: string; loaded: number; total: number | null }
   | { status: 'ready'; path: string }
   | { status: 'error'; path: string; message: string };
 
@@ -366,32 +384,39 @@ export function EditorArea() {
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     const requestedPath = activeTab.filePath;
-    setLoadState({ status: 'loading', path: requestedPath });
+    setLoadState({ status: 'loading', path: requestedPath, loaded: 0, total: null });
 
-    tauriFs
-      .readFile(requestedPath)
-      .then((text) => {
-        if (!cancelled) {
-          setFileContent(requestedPath, text);
-          contentRef.current = text;
-          setLoadState({ status: 'ready', path: requestedPath });
+    let lastReported = 0;
+    void loadFileText(requestedPath, {
+      signal: controller.signal,
+      onProgress: (loaded, total) => {
+        if (controller.signal.aborted) return;
+        if (loaded - lastReported >= LOAD_CHUNK_BYTES || loaded >= total) {
+          lastReported = loaded;
+          setLoadState({ status: 'loading', path: requestedPath, loaded, total });
         }
+      },
+    })
+      .then(({ text }) => {
+        if (controller.signal.aborted) return;
+        setFileContent(requestedPath, text);
+        contentRef.current = text;
+        setLoadState({ status: 'ready', path: requestedPath });
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          contentRef.current = null;
-          setLoadState({
-            status: 'error',
-            path: requestedPath,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
+        if (controller.signal.aborted || isCancelError(error)) return;
+        contentRef.current = null;
+        setLoadState({
+          status: 'error',
+          path: requestedPath,
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [activeTab?.filePath, isTextViewer, content === undefined, setFileContent]);
 
@@ -561,6 +586,11 @@ export function EditorArea() {
   const hasOpenTabs = tabs.length > 0;
   const loading =
     loadState.status === 'loading' && loadState.path === activeTab?.filePath;
+  const loadProgress =
+    loadState.status === 'loading' && loadState.path === activeTab?.filePath
+      ? { loaded: loadState.loaded, total: loadState.total }
+      : null;
+  const showLoadPlaceholder = loading && content === undefined;
   const loadError =
     loadState.status === 'error' && loadState.path === activeTab?.filePath
       ? loadState.message
@@ -682,11 +712,15 @@ export function EditorArea() {
               </div>
             </div>
           ) : activeTab.viewerType === 'markdown' ? (
-            loading ? (
-              <EditorLoading />
+            showLoadPlaceholder ? (
+              <EditorLoading loaded={loadProgress?.loaded} total={loadProgress?.total} />
             ) : loadError ? (
               <EditorLoadError message={loadError} />
             ) : (
+              <>
+                {loading && loadProgress && loadProgress.total != null && (
+                  <LoadProgressBanner loaded={loadProgress.loaded} total={loadProgress.total} />
+                )}
               <MarkdownViewer
                 content={content ?? ''}
                 mode={activeTab.markdownMode ?? 'preview'}
@@ -702,6 +736,7 @@ export function EditorArea() {
                 requestedAnchor={activeTab.markdownAnchor}
                 onAnchorHandled={() => setMarkdownAnchor(activeTab.id, undefined)}
               />
+              </>
             )
           ) : activeTab.viewerType === 'image' ? (
             <ImageViewer filePath={activeTab.filePath} />
@@ -717,12 +752,15 @@ export function EditorArea() {
             <DbSchemaViewer sourceFile={activeTab.filePath} />
           ) : activeTab.viewerType === 'db' ? (
             <DatabaseViewer filePath={activeTab.filePath} />
-          ) : loading ? (
-            <EditorLoading />
+          ) : showLoadPlaceholder ? (
+            <EditorLoading loaded={loadProgress?.loaded} total={loadProgress?.total} />
           ) : loadError ? (
             <EditorLoadError message={loadError} />
           ) : (
             <>
+              {loading && loadProgress && loadProgress.total != null && (
+                <LoadProgressBanner loaded={loadProgress.loaded} total={loadProgress.total} />
+              )}
               <div className="flex-1 overflow-hidden">
                 <Suspense fallback={<EditorLoading />}>
                   <MonacoEditor
