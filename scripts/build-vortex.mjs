@@ -36,7 +36,7 @@ function parseArguments(args) {
     skipSidecarBuild: false,
     prepareNative: false,
     outputDirectory: null,
-    version: process.env.VORTEX_VERSION ?? '0.1.0',
+    version: process.env.VORTEX_VERSION ?? '0.12.1',
   };
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];

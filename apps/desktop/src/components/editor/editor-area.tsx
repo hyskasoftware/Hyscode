@@ -152,6 +152,15 @@ export function EditorArea() {
   // ── Editor context menu (right-click) ──────────────────────────────────────
   const [editorCtxMenu, setEditorCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
+  // Cleanup for the imperatively-attached contextmenu listeners (see below).
+  const ctxMenuCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    return () => {
+      ctxMenuCleanupRef.current?.();
+      ctxMenuCleanupRef.current = null;
+    };
+  }, []);
+
   // Monaco instance refs for decorations
   const editorInstanceRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
   const monacoInstanceRef = useRef<typeof monacoEditor | null>(null);
@@ -496,13 +505,53 @@ export function EditorArea() {
       if (!editor || !monaco) return;
 
       editor.updateOptions({ contextmenu: false });
+      // Remove listeners attached by a previous mount before re-attaching.
+      ctxMenuCleanupRef.current?.();
       const domNode = editor.getDomNode();
-      if (domNode) {
-        domNode.addEventListener('contextmenu', (event: MouseEvent) => {
+      const openAt = (clientX: number, clientY: number) => {
+        // Pre-clamp so the menu never spawns fully off-screen; the menu
+        // component re-clamps precisely after measuring itself.
+        setEditorCtxMenu({
+          x: Math.min(Math.max(clientX, 8), window.innerWidth - 248),
+          y: Math.min(Math.max(clientY, 8), window.innerHeight - 200),
+        });
+      };
+      const handleContextMenu = (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openAt(event.clientX, event.clientY);
+      };
+      const handleKeyDown = (event: KeyboardEvent) => {
+        // Keyboard-invoked context menu (Shift+F10 or the Menu key).
+        if (
+          (event.shiftKey && event.key === 'F10') ||
+          event.key === 'ContextMenu'
+        ) {
           event.preventDefault();
           event.stopPropagation();
-          setEditorCtxMenu({ x: event.clientX, y: event.clientY });
-        });
+          try {
+            const pos = editor.getPosition();
+            const domRect = domNode?.getBoundingClientRect();
+            if (pos && domRect) {
+              const coords = editor.getScrolledVisiblePosition(pos);
+              if (coords) {
+                openAt(domRect.left + coords.left, domRect.top + coords.top + coords.height);
+                return;
+              }
+            }
+          } catch {
+            // Fall through to the centered fallback below.
+          }
+          openAt(window.innerWidth / 2 - 120, window.innerHeight / 2 - 100);
+        }
+      };
+      if (domNode) {
+        domNode.addEventListener('contextmenu', handleContextMenu);
+        domNode.addEventListener('keydown', handleKeyDown);
+        ctxMenuCleanupRef.current = () => {
+          domNode.removeEventListener('contextmenu', handleContextMenu);
+          domNode.removeEventListener('keydown', handleKeyDown);
+        };
       }
     },
     [],
@@ -583,7 +632,9 @@ export function EditorArea() {
                   theme={monacoTheme}
                   onMount={(editor, monaco) => {
                     monacoInstanceRef.current = monaco;
-                    editor.updateOptions({ contextmenu: false, readOnly: true });
+                    // Readonly snapshot: keep Monaco's native menu (Copy /
+                    // Select All) so right-click stays functional here.
+                    editor.updateOptions({ readOnly: true });
                   }}
                   beforeMount={(monaco) => {
                     defineAllMonacoThemes(monaco);

@@ -11,6 +11,11 @@
       2. apps/desktop/package.json and its package-lock entry
       3. apps/desktop/src-tauri/tauri.conf.json
       4. apps/desktop/src-tauri/Cargo.toml and the hyscode package in Cargo.lock
+      5. tools/hyscode-tui/package.json, packages/tui-runtime/package.json
+         and their package-lock entries (VORTEX TUI)
+      6. VORTEX TUI hardcoded version fallbacks (tools/hyscode-tui/src/main.ts,
+         tools/hyscode-tui/src/commands.ts, scripts/build-vortex.mjs) used for
+         local builds without an explicit --version
 
     The next push to main will append "-build.<run_number>" to the
     desktop/runtime files via .github/workflows/release.yml while retaining
@@ -71,6 +76,19 @@ $TauriConf        = Join-Path $RepoRoot 'apps/desktop/src-tauri/tauri.conf.json'
 $CargoToml        = Join-Path $RepoRoot 'apps/desktop/src-tauri/Cargo.toml'
 $CargoLock        = Join-Path $RepoRoot 'apps/desktop/src-tauri/Cargo.lock'
 
+$TuiPkg           = Join-Path $RepoRoot 'tools/hyscode-tui/package.json'
+$TuiRuntimePkg    = Join-Path $RepoRoot 'packages/tui-runtime/package.json'
+$TuiMain          = Join-Path $RepoRoot 'tools/hyscode-tui/src/main.ts'
+$TuiCommands      = Join-Path $RepoRoot 'tools/hyscode-tui/src/commands.ts'
+$BuildVortex      = Join-Path $RepoRoot 'scripts/build-vortex.mjs'
+
+# Each regex matches the full fallback expression; the 'version' group carries
+# the value. The same regex is used to read the current value and to replace
+# the whole match with the literal new fallback.
+$TuiMainRegex     = [regex]"HYSCODE_TUI_VERSION \?\? '(?<version>[^']*)'"
+$TuiCommandsRegex = [regex]"version = '(?<version>[^']*)'\): CliParseResult"
+$BuildVortexRegex = [regex]"VORTEX_VERSION \?\? '(?<version>[^']*)'"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -93,13 +111,20 @@ function Read-PackageLockVersions {
     $lock = [System.IO.File]::ReadAllText($PackageLock) | ConvertFrom-Json -AsHashtable
     $rootEntry = $lock.packages['']
     $desktopEntry = $lock.packages['apps/desktop']
+    $tuiEntry = $lock.packages['tools/hyscode-tui']
+    $tuiRuntimeEntry = $lock.packages['packages/tui-runtime']
     if (-not $rootEntry -or -not $desktopEntry) {
         throw "package-lock.json is missing the root or apps/desktop package entry."
     }
+    if (-not $tuiEntry -or -not $tuiRuntimeEntry) {
+        throw "package-lock.json is missing the tools/hyscode-tui or packages/tui-runtime package entry."
+    }
     return [pscustomobject]@{
-        TopLevel = [string]$lock.version
-        Root     = [string]$rootEntry.version
-        Desktop  = [string]$desktopEntry.version
+        TopLevel   = [string]$lock.version
+        Root       = [string]$rootEntry.version
+        Desktop    = [string]$desktopEntry.version
+        Tui        = [string]$tuiEntry.version
+        TuiRuntime = [string]$tuiRuntimeEntry.version
     }
 }
 
@@ -162,6 +187,18 @@ function Update-PackageLock {
         -Replacement ('$1"' + $TargetVersion + '"') `
         -Description 'the apps/desktop package entry in package-lock.json'
 
+    $text = Replace-RequiredVersion `
+        -Text $text `
+        -Regex ([regex]'(?ms)(^    "tools/hyscode-tui"\s*:\s*\{\s*\r?\n(?:(?!^    "[^"\r\n]+"\s*:).)*?^      "version"\s*:\s*)"[^"]*"') `
+        -Replacement ('$1"' + $TargetVersion + '"') `
+        -Description 'the tools/hyscode-tui package entry in package-lock.json'
+
+    $text = Replace-RequiredVersion `
+        -Text $text `
+        -Regex ([regex]'(?ms)(^    "packages/tui-runtime"\s*:\s*\{\s*\r?\n(?:(?!^    "[^"\r\n]+"\s*:).)*?^      "version"\s*:\s*)"[^"]*"') `
+        -Replacement ('$1"' + $TargetVersion + '"') `
+        -Description 'the packages/tui-runtime package entry in package-lock.json'
+
     [System.IO.File]::WriteAllText($PackageLock, $text)
 }
 
@@ -178,6 +215,28 @@ function Update-CargoLock {
     [System.IO.File]::WriteAllText($CargoLock, $updated)
 }
 
+function Read-FallbackVersion {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][regex]$Regex)
+
+    $match = $Regex.Match([System.IO.File]::ReadAllText($Path))
+    if (-not $match.Success) {
+        throw "Could not find the VORTEX fallback version in $Path."
+    }
+    return $match.Groups['version'].Value
+}
+
+function Update-FallbackVersion {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][regex]$Regex, [Parameter(Mandatory)][string]$TargetVersion, [Parameter(Mandatory)][string]$Replacement)
+
+    $text = [System.IO.File]::ReadAllText($Path)
+    $updated = Replace-RequiredVersion `
+        -Text $text `
+        -Regex $Regex `
+        -Replacement $Replacement `
+        -Description "the VORTEX fallback version in $Path"
+    [System.IO.File]::WriteAllText($Path, $updated)
+}
+
 function Assert-SynchronizedVersions {
     param(
         [Parameter(Mandatory)][string]$TargetVersion,
@@ -190,6 +249,11 @@ function Assert-SynchronizedVersions {
     $lock = Read-PackageLockVersions
     $cargoToml = Read-CargoTomlVersion
     $cargoLock = Read-CargoLockVersion
+    $tui = Read-JsonVersion -Path $TuiPkg
+    $tuiRuntime = Read-JsonVersion -Path $TuiRuntimePkg
+    $tuiMainFallback = Read-FallbackVersion -Path $TuiMain -Regex $TuiMainRegex
+    $tuiCommandsFallback = Read-FallbackVersion -Path $TuiCommands -Regex $TuiCommandsRegex
+    $buildVortexFallback = Read-FallbackVersion -Path $BuildVortex -Regex $BuildVortexRegex
 
     $mismatches = @()
     if ($SkipRoot) {
@@ -206,6 +270,13 @@ function Assert-SynchronizedVersions {
     if ($tauri -ne $TargetVersion) { $mismatches += "tauri.conf.json=$tauri" }
     if ($cargoToml -ne $TargetVersion) { $mismatches += "Cargo.toml=$cargoToml" }
     if ($cargoLock -ne $TargetVersion) { $mismatches += "Cargo.lock hyscode=$cargoLock" }
+    if ($tui -ne $TargetVersion) { $mismatches += "tools/hyscode-tui/package.json=$tui" }
+    if ($tuiRuntime -ne $TargetVersion) { $mismatches += "packages/tui-runtime/package.json=$tuiRuntime" }
+    if ($lock.Tui -ne $TargetVersion) { $mismatches += "package-lock.json tools/hyscode-tui=$($lock.Tui)" }
+    if ($lock.TuiRuntime -ne $TargetVersion) { $mismatches += "package-lock.json packages/tui-runtime=$($lock.TuiRuntime)" }
+    if ($tuiMainFallback -ne $TargetVersion) { $mismatches += "tools/hyscode-tui/src/main.ts fallback=$tuiMainFallback" }
+    if ($tuiCommandsFallback -ne $TargetVersion) { $mismatches += "tools/hyscode-tui/src/commands.ts fallback=$tuiCommandsFallback" }
+    if ($buildVortexFallback -ne $TargetVersion) { $mismatches += "scripts/build-vortex.mjs fallback=$buildVortexFallback" }
 
     if ($mismatches.Count -gt 0) {
         throw "Version metadata is not synchronized: $($mismatches -join '; ')"
@@ -381,6 +452,12 @@ if (-not $SkipRoot) {
 }
 $changes += @{ File = $DesktopPkg; Current = (Read-JsonVersion -Path $DesktopPkg); Next = $targetRaw }
 $changes += @{ File = $PackageLock; Current = "apps/desktop=$($lockVersions.Desktop)"; Next = $targetRaw }
+$changes += @{ File = $TuiPkg; Current = (Read-JsonVersion -Path $TuiPkg); Next = $targetRaw }
+$changes += @{ File = $TuiRuntimePkg; Current = (Read-JsonVersion -Path $TuiRuntimePkg); Next = $targetRaw }
+$changes += @{ File = $PackageLock; Current = "tools/hyscode-tui=$($lockVersions.Tui), packages/tui-runtime=$($lockVersions.TuiRuntime)"; Next = $targetRaw }
+$changes += @{ File = $TuiMain; Current = (Read-FallbackVersion -Path $TuiMain -Regex $TuiMainRegex); Next = $targetRaw }
+$changes += @{ File = $TuiCommands; Current = (Read-FallbackVersion -Path $TuiCommands -Regex $TuiCommandsRegex); Next = $targetRaw }
+$changes += @{ File = $BuildVortex; Current = (Read-FallbackVersion -Path $BuildVortex -Regex $BuildVortexRegex); Next = $targetRaw }
 $changes += @{ File = $TauriConf; Current = (Read-JsonVersion -Path $TauriConf); Next = $targetRaw }
 $changes += @{ File = $CargoToml; Current = (Select-String -LiteralPath $CargoToml -Pattern '^version\s*=\s*".*"' | Select-Object -First 1).Line -replace '^version\s*=\s*"?', '' -replace '"$', ''; Next = $targetRaw }
 $changes += @{ File = $CargoLock; Current = (Read-CargoLockVersion); Next = $targetRaw }
@@ -437,6 +514,19 @@ $deskJson.version = $targetRaw
 $deskOut = (($deskJson | ConvertTo-Json -Depth 100) -replace "`r?`n", "`n") + "`n"
 [System.IO.File]::WriteAllText($DesktopPkg, $deskOut)
 
+# 2b) VORTEX TUI packages — always track the app version, like the desktop
+# package (never skipped with -SkipRoot: the release workflow injects the same
+# build version into the VORTEX executable via build-vortex --version).
+$tuiJson = [System.IO.File]::ReadAllText($TuiPkg) | ConvertFrom-Json
+$tuiJson.version = $targetRaw
+$tuiOut = (($tuiJson | ConvertTo-Json -Depth 100) -replace "`r?`n", "`n") + "`n"
+[System.IO.File]::WriteAllText($TuiPkg, $tuiOut)
+
+$tuiRuntimeJson = [System.IO.File]::ReadAllText($TuiRuntimePkg) | ConvertFrom-Json
+$tuiRuntimeJson.version = $targetRaw
+$tuiRuntimeOut = (($tuiRuntimeJson | ConvertTo-Json -Depth 100) -replace "`r?`n", "`n") + "`n"
+[System.IO.File]::WriteAllText($TuiRuntimePkg, $tuiRuntimeOut)
+
 # 3) apps/desktop/src-tauri/tauri.conf.json
 $tauriJson = [System.IO.File]::ReadAllText($TauriConf) | ConvertFrom-Json
 $tauriJson.version = $targetRaw
@@ -459,6 +549,11 @@ $cargoNew = $cargoRegex.Replace($cargoText, ('$1"' + $targetRaw + '"'), 1)
 Update-PackageLock -TargetVersion $targetRaw
 Update-CargoLock -TargetVersion $targetRaw
 
+# 6) VORTEX TUI hardcoded fallbacks for local builds without --version.
+Update-FallbackVersion -Path $TuiMain -Regex $TuiMainRegex -TargetVersion $targetRaw -Replacement ("HYSCODE_TUI_VERSION ?? '$targetRaw'")
+Update-FallbackVersion -Path $TuiCommands -Regex $TuiCommandsRegex -TargetVersion $targetRaw -Replacement ("version = '$targetRaw'): CliParseResult")
+Update-FallbackVersion -Path $BuildVortex -Regex $BuildVortexRegex -TargetVersion $targetRaw -Replacement ("VORTEX_VERSION ?? '$targetRaw'")
+
 # The release workflow commits immediately after this script returns. Fail
 # before that commit if any runtime version is inconsistent.
 Assert-SynchronizedVersions -TargetVersion $targetRaw -ExpectedRootVersion $currentRaw
@@ -470,7 +565,7 @@ Write-Host ''
 Write-Host "✓ Bumped to $targetRaw" -ForegroundColor Green
 Write-Host ''
 Write-Host 'Next steps:' -ForegroundColor Cyan
-Write-Host "  git add package.json package-lock.json apps/desktop/package.json apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/Cargo.toml apps/desktop/src-tauri/Cargo.lock"
+Write-Host "  git add package.json package-lock.json apps/desktop/package.json apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/Cargo.toml apps/desktop/src-tauri/Cargo.lock tools/hyscode-tui/package.json packages/tui-runtime/package.json tools/hyscode-tui/src/main.ts tools/hyscode-tui/src/commands.ts scripts/build-vortex.mjs"
 Write-Host "  git commit -m 'chore: bump version to $targetRaw'"
 Write-Host "  git push   # triggers the Release workflow using the clean root base"
 Write-Host ''
