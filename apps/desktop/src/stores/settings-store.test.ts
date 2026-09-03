@@ -29,6 +29,10 @@ describe('agent interaction limit settings', () => {
     expect(SETTINGS_DEFAULTS.thinkingCollapsedByDefault).toBe(false);
   });
 
+  it('keeps developer tools opt-in for new installations', () => {
+    expect(SETTINGS_DEFAULTS.devtoolsEnabled).toBe(false);
+  });
+
   it('disables the limit when migrating legacy persisted settings', () => {
     const migrated = migrateSettingsState({ maxIterations: 75 }, 0) as Record<string, unknown>;
 

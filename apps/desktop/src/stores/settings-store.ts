@@ -152,6 +152,7 @@ interface SettingsState {
   confirmOnClose: boolean;
   showWelcomeOnStartup: boolean;
   reducedMotion: boolean;
+  devtoolsEnabled: boolean;
 
   // ─ Updates ─
   updateChannel: UpdateChannel;

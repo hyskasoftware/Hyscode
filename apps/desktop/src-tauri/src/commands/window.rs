@@ -1,3 +1,4 @@
+use tauri::Manager;
 use tauri_runtime::ResizeDirection;
 
 /// Begins an interactive window resize from one of the eight edges/corners.
@@ -22,4 +23,17 @@ pub fn start_resize(window: tauri::Window, edge: String) -> Result<(), String> {
     window
         .start_resize_dragging(direction)
         .map_err(|e| e.to_string())
+}
+
+/// Opens the DevTools panel for the main webview window.
+///
+/// Gated frontend-side by the `devtoolsEnabled` setting (off by default);
+/// the command itself performs no gating.
+#[tauri::command]
+pub fn open_devtools(app: tauri::AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    window.open_devtools();
+    Ok(())
 }

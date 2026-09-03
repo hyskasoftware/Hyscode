@@ -43,6 +43,15 @@ export function GeneralTab() {
             onChange={(v) => store.set('reducedMotion', v)}
           />
         </SettingRow>
+        <SettingRow
+          label="Enable Developer Tools"
+          description="Allow opening the developer tools with F12 (off by default)"
+        >
+          <SettingToggle
+            checked={store.devtoolsEnabled}
+            onChange={(v) => store.set('devtoolsEnabled', v)}
+          />
+        </SettingRow>
       </SettingSection>
 
       <SettingSection title="Updates">

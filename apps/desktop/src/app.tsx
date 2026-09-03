@@ -52,6 +52,7 @@ import {
 
 import { isLightTheme } from './lib/monaco-themes';
 import { tauriInvoke } from './lib/tauri-invoke';
+import { useDevtoolsShortcut } from './hooks/use-devtools-shortcut';
 import { chooseDefaultGitRemote, shouldConfirmGitDiscard } from './lib/git-workflow';
 import { registerSpectraSupport } from './lib/spectra-language';
 import type { AgentMode, ChatMessage } from './stores/agent-store';
@@ -184,6 +185,7 @@ function IDE() {
 
   useThemeEffect();
   useRoundedBordersEffect();
+  useDevtoolsShortcut();
 
   // On mount, hydrate the project path persisted by the project store. User-driven
   // switches use openProjectWorkspace directly and must not start a second loader.

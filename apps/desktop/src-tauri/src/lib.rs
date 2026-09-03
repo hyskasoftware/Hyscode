@@ -282,6 +282,7 @@ pub fn run() {
             commands::utils::shell_exec,
             // Window controls
             commands::window::start_resize,
+            commands::window::open_devtools,
         ])
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();

@@ -59,6 +59,7 @@ export const SETTINGS_DEFAULTS = {
   confirmOnClose: false,
   showWelcomeOnStartup: true,
   reducedMotion: false,
+  devtoolsEnabled: false,
 
   // ─ Updates ─
   updateChannel: 'stable',

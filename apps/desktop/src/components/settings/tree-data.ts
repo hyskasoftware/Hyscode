@@ -292,6 +292,7 @@ export const TAB_DEFAULT_KEYS: Record<BuiltinTabId, readonly SettingsKey[]> = {
     'confirmOnClose',
     'showWelcomeOnStartup',
     'reducedMotion',
+    'devtoolsEnabled',
     'updateChannel',
     'checkForUpdatesOnStartup',
     'autoDownload',
