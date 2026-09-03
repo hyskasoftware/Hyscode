@@ -95,10 +95,11 @@ const t = (
 });
 
 // ── OpenCode Zen ─────────────────────────────────────────────────────────────
-// Source: https://dev.opencode.ai/docs/zen (pricing last verified Aug 2026).
+// Source: https://opencode.ai/docs/zen (pricing last verified Sep 2026).
 // Order matters only for display; keep grouped by format.
 export const ZEN_CATALOG: CuratedCatalogEntry[] = [
   // Anthropic-format (/zen/v1/messages)
+  t('claude-fable-5-1', 'Claude Fable 5.1 (Zen)', 'anthropic-messages', 1_000_000, 128_000, true, ADAPTIVE_CLAUDE_XHIGH, 10, 50, 0.25),
   t('claude-fable-5', 'Claude Fable 5 (Zen)', 'anthropic-messages', 1_000_000, 128_000, true, ADAPTIVE_CLAUDE_XHIGH, 10, 50, 1),
   t('claude-opus-5', 'Claude Opus 5 (Zen)', 'anthropic-messages', 1_000_000, 128_000, true, ADAPTIVE_CLAUDE_XHIGH, 5, 25, 0.5),
   t('claude-opus-4-8', 'Claude Opus 4.8 (Zen)', 'anthropic-messages', 1_000_000, 128_000, true, ADAPTIVE_CLAUDE_XHIGH, 5, 25, 0.5),
@@ -108,7 +109,6 @@ export const ZEN_CATALOG: CuratedCatalogEntry[] = [
   t('claude-sonnet-5', 'Claude Sonnet 5 (Zen)', 'anthropic-messages', 1_000_000, 128_000, true, ADAPTIVE_CLAUDE_XHIGH, 2, 10, 0.2),
   t('claude-sonnet-4-6', 'Claude Sonnet 4.6 (Zen)', 'anthropic-messages', 1_000_000, 128_000, true, ADAPTIVE_CLAUDE, 3, 15, 0.3),
   t('claude-sonnet-4-5', 'Claude Sonnet 4.5 (Zen)', 'anthropic-messages', 200_000, 64_000, true, BUDGET_CLAUDE, 3, 15, 0.3),
-  t('claude-sonnet-4', 'Claude Sonnet 4 (Zen)', 'anthropic-messages', 200_000, 64_000, true, BUDGET_CLAUDE, 3, 15, 0.3),
   t('claude-haiku-4-5', 'Claude Haiku 4.5 (Zen)', 'anthropic-messages', 200_000, 64_000, true, BUDGET_CLAUDE, 1, 5, 0.1),
   t('qwen3.7-max', 'Qwen3.7 Max (Zen)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT, 2.5, 7.5, 0.5),
   t('qwen3.7-plus', 'Qwen3.7 Plus (Zen)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT, 0.4, 1.6, 0.04),
@@ -140,9 +140,11 @@ export const ZEN_CATALOG: CuratedCatalogEntry[] = [
   t('grok-4.6', 'Grok 4.6 (Zen)', 'responses', 500_000, 16_384, false, GROK_LMH_MEDIUM, 2, 6, 0.5),
   t('grok-build-0.1', 'Grok Build 0.1 (Zen)', 'responses', 200_000, 8_192, false, undefined, 1, 2, 0.2),
   t('muse-spark-1.2', 'Muse Spark 1.2 (Zen)', 'responses', 1_048_576, 16_384, false, MUSE_EFFORT, 1.25, 4.25, 0.15),
+  t('muse-spark-1.3-contributor-free', 'Muse Spark 1.3 Contributor Free (Zen)', 'responses', 128_000, 8_192, false, MUSE_EFFORT, 0, 0),
   t('muse-spark-1.2-contributor-free', 'Muse Spark 1.2 Contributor Free (Zen)', 'responses', 128_000, 8_192, false, MUSE_EFFORT, 0, 0),
 
   // Gemini format (/zen/v1/models/<model>)
+  t('gemini-3.8-flash', 'Gemini 3.8 Flash (Zen)', 'gemini', 1_048_576, 65_536, true, GEMINI_LMH, 1.5, 7.5, 0.15),
   t('gemini-3.7-flash', 'Gemini 3.7 Flash (Zen)', 'gemini', 1_048_576, 65_536, true, GEMINI_LMH, 1.5, 7.5, 0.15),
   t('gemini-3.6-flash', 'Gemini 3.6 Flash (Zen)', 'gemini', 1_048_576, 65_536, true, GEMINI_LMH, 1.5, 7.5, 0.15),
   t('gemini-3.5-flash', 'Gemini 3.5 Flash (Zen)', 'gemini', 1_048_576, 65_536, true, GEMINI_LMH, 1.5, 9, 0.15),
@@ -165,44 +167,38 @@ export const ZEN_CATALOG: CuratedCatalogEntry[] = [
   t('kimi-k3', 'Kimi K3 (Zen)', 'chat-completions', 1_000_000, 32_768, false, KIMI_K3_EFFORT, 3, 15, 0.3),
   t('big-pickle', 'Big Pickle (Zen)', 'chat-completions', 128_000, 8_192, false, undefined, 0, 0),
   t('mimo-v2.5-free', 'MiMo-V2.5 Free (Zen)', 'chat-completions', 128_000, 8_192, false, undefined, 0, 0),
-  t('laguna-s-2.1-free', 'Laguna S 2.1 Free (Zen)', 'chat-completions', 128_000, 8_192, false, undefined, 0, 0),
+  t('ling-3.0-flash-fin-free', 'Ling 3.0 Flash Fin Free (Zen)', 'chat-completions', 128_000, 8_192, false, undefined, 0, 0),
   t('nemotron-3-ultra-free', 'Nemotron 3 Ultra Free (Zen)', 'chat-completions', 128_000, 8_192, false, undefined, 0, 0),
-  t('deepseek-v4-flash-free', 'DeepSeek V4 Flash Free (Zen)', 'chat-completions', 128_000, 8_192, false, DEEPSEEK_HIGH_MAX, 0, 0),
-  t('hy3-free', 'Hy3 Free (Zen)', 'chat-completions', 128_000, 8_192, false, HY3_EFFORT, 0, 0),
   t('nemotron-3.5-lightning-free', 'Nemotron 3.5 Lightning Free (Zen)', 'chat-completions', 128_000, 8_192, false, undefined, 0, 0),
 ];
 
 // ── OpenCode Go ──────────────────────────────────────────────────────────────
-// Source: https://dev.opencode.ai/docs/go (pricing last verified Aug 2026).
+// Source: https://opencode.ai/docs/go (pricing last verified Sep 2026).
 // $10/month subscription — per-token prices below are the official per-model
 // rates used against the usage caps ($15/$30/$60); cost estimates are
 // indicative, not billing.
 export const GO_CATALOG: CuratedCatalogEntry[] = [
   // Chat completions (/zen/go/v1/chat/completions)
-  t('grok-4.5', 'Grok 4.5 (Go)', 'chat-completions', 500_000, 16_384, false, REASONING_LMH_HIGH),
   t('glm-5.3', 'GLM 5.3 (Go)', 'chat-completions', 200_000, 128_000, false, GLM_EFFORT, 1.4, 4.4, 0.26),
   t('glm-5.3-flash', 'GLM 5.3 Flash (Go)', 'chat-completions', 200_000, 128_000, false, GLM_EFFORT, 0.15, 0.5, 0.03),
   t('glm-5.2', 'GLM 5.2 (Go)', 'chat-completions', 200_000, 128_000, false, GLM_EFFORT, 1.4, 4.4, 0.26),
   t('glm-5.1', 'GLM 5.1 (Go)', 'chat-completions', 200_000, 128_000, false, KIMI_TOGGLE, 1.4, 4.4, 0.26),
-  t('glm-5', 'GLM 5 (Go)', 'chat-completions', 200_000, 128_000, false, KIMI_TOGGLE, 1, 3.2, 0.2),
   t('kimi-k3', 'Kimi K3 (Go)', 'chat-completions', 1_000_000, 32_768, false, KIMI_K3_EFFORT, 3, 15, 0.3),
   t('kimi-k2.7-code', 'Kimi K2.7 Code (Go)', 'chat-completions', 262_144, 16_384, false, ALWAYS_ON, 0.95, 4, 0.19),
   t('kimi-k2.6', 'Kimi K2.6 (Go)', 'chat-completions', 262_144, 16_384, false, KIMI_TOGGLE, 0.95, 4, 0.16),
-  t('kimi-k2.5', 'Kimi K2.5 (Go)', 'chat-completions', 1_000_000, 32_768, false, KIMI_TOGGLE, 0.6, 3, 0.1),
   t('longcat-2.0', 'LongCat 2.0 (Go)', 'chat-completions', 1_048_576, 131_072, false, KIMI_TOGGLE, 0.3, 1.2, 0.006),
   t('mimo-v2.5', 'MiMo V2.5 (Go)', 'chat-completions', 1_000_000, 8_192, false, KIMI_TOGGLE, 0.14, 0.28, 0.0028),
   t('mimo-v2.5-pro', 'MiMo V2.5 Pro (Go)', 'chat-completions', 1_000_000, 8_192, false, KIMI_TOGGLE, 0.435, 0.87, 0.003625),
-  t('mimo-v2-pro', 'MiMo V2 Pro (Go)', 'chat-completions', 1_000_000, 8_192, false, KIMI_TOGGLE),
-  t('mimo-v2-omni', 'MiMo V2 Omni (Go)', 'chat-completions', 1_000_000, 8_192, false, KIMI_TOGGLE),
   t('deepseek-v4-pro', 'DeepSeek V4 Pro (Go)', 'chat-completions', 1_000_000, 8_192, false, DEEPSEEK_HIGH_MAX, 0.66, 1.98, 0.022), // off-peak
   t('deepseek-v4-flash', 'DeepSeek V4 Flash (Go)', 'chat-completions', 1_000_000, 8_192, false, DEEPSEEK_HIGH_MAX, 0.22, 0.66, 0.007), // off-peak
   t('deepseek-v4-flash-vision-exp', 'DeepSeek V4 Flash Vision Exp (Go)', 'chat-completions', 1_000_000, 8_192, true, DEEPSEEK_HIGH_MAX, 0.22, 0.66, 0.007), // off-peak
+  t('hy4-preview', 'Hy4 Preview (Go)', 'chat-completions', 1_000_000, 16_384, false, HY3_EFFORT, 0.834, 2.501, 0.042),
   t('hy3', 'Hy3 (Go)', 'chat-completions', 1_000_000, 16_384, false, HY3_EFFORT, 0.14, 0.58, 0.035),
-  t('hy3-preview', 'Hy3 Preview (Go)', 'chat-completions', 1_000_000, 16_384, false, HY3_EFFORT),
 
   // Responses API (/zen/go/v1/responses)
   t('gpt-5.6-luna', 'GPT 5.6 Luna (Go)', 'responses', 1_050_000, 128_000, true, OPENAI_FULL_PRO, 0.2, 1.2, 0.02), // promo:
   t('grok-4.6', 'Grok 4.6 (Go)', 'responses', 500_000, 16_384, false, REASONING_LMH_HIGH, 2, 6, 0.5),
+  t('muse-spark-1.3-contributor', 'Muse Spark 1.3 Contributor (Go)', 'responses', 1_048_576, 16_384, false, MUSE_EFFORT, 0.1, 0.2, 0.002),
   t('muse-spark-1.2-contributor', 'Muse Spark 1.2 Contributor (Go)', 'responses', 1_048_576, 16_384, false, MUSE_EFFORT, 0.1, 0.2, 0.002),
 
   // Anthropic format (/zen/go/v1/messages)
@@ -210,8 +206,8 @@ export const GO_CATALOG: CuratedCatalogEntry[] = [
   t('minimax-m2.7', 'MiniMax M2.7 (Go)', 'anthropic-messages', 1_000_000, 16_384, false, ALWAYS_ON, 0.3, 1.2, 0.06),
   t('minimax-m2.5', 'MiniMax M2.5 (Go)', 'anthropic-messages', 1_000_000, 16_384, false, ALWAYS_ON, 0.3, 1.2, 0.06),
   t('qwen3.8-max', 'Qwen3.8 Max (Go)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT, 2, 6, 0.25),
+  t('qwen3.8-flash', 'Qwen3.8 Flash (Go)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT, 0.15, 0.47, 0.016),
   t('qwen3.7-max', 'Qwen3.7 Max (Go)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT, 2.5, 7.5, 0.5),
   t('qwen3.7-plus', 'Qwen3.7 Plus (Go)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT, 0.4, 1.6, 0.04),
   t('qwen3.6-plus', 'Qwen3.6 Plus (Go)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT, 0.5, 3, 0.05),
-  t('qwen3.5-plus', 'Qwen3.5 Plus (Go)', 'anthropic-messages', 1_000_000, 32_768, false, QWEN_EFFORT),
 ];

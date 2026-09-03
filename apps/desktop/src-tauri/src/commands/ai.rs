@@ -191,6 +191,19 @@ pub async fn ai_stream_request(
             req_builder = req_builder.header(key.as_str(), value.as_str());
         }
 
+        // OpenCode Go/Zen require an identifiable User-Agent (generic or
+        // missing UAs are flagged as abusive) plus `x-opencode-session` for
+        // prompt-cache optimization (may error starting 09/06). The TS
+        // providers already send both; browsers forbid User-Agent so the
+        // desktop transport guarantees the fallback here.
+        let has_user_agent = request
+            .headers
+            .keys()
+            .any(|k| k.eq_ignore_ascii_case("user-agent"));
+        if !has_user_agent {
+            req_builder = req_builder.header("User-Agent", "HysCode");
+        }
+
         // Inject auth header from keychain
         if let Some(ref key) = current_api_key {
             let (header_name, header_value) = get_auth_header(&request.provider, key, &request.url);
@@ -231,6 +244,9 @@ pub async fn ai_stream_request(
                     let mut retry_builder = client.post(&request.url).timeout(timeout);
                     for (key, value) in &request.headers {
                         retry_builder = retry_builder.header(key.as_str(), value.as_str());
+                    }
+                    if !has_user_agent {
+                        retry_builder = retry_builder.header("User-Agent", "HysCode");
                     }
                     if let Some(ref key) = current_api_key {
                         let (header_name, header_value) =

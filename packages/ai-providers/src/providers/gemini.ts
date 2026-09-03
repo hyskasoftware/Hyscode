@@ -11,6 +11,7 @@ import type {
   ProviderCapabilities,
 } from '../types';
 import { ProviderError } from '../types';
+import { withOpencodeHeaders } from '../opencode-headers';
 
 // ─── Thinking variant presets ────────────────────────────────────────────────
 // Per docs/MODELS_REFERENCE.md — Gemini 3.6 Flash / 3.5 Flash / 3.1 Pro support
@@ -379,10 +380,14 @@ export class GeminiProvider implements AIProvider {
 
     const response = await this.fetchImpl(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': this.apiKey,
-      },
+      headers: withOpencodeHeaders(
+        {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.apiKey,
+        },
+        url,
+        params.sessionId,
+      ),
       body: JSON.stringify(body),
       signal: params.signal,
     });

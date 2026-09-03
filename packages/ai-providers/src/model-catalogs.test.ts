@@ -92,11 +92,13 @@ describe('provider model catalogs', () => {
     );
     expect(modelIds(new OpenCodeZenProvider('key'))).toEqual(
       expect.arrayContaining([
+        'claude-fable-5-1',
         'claude-fable-5',
         'claude-opus-4-8',
         'claude-sonnet-5',
         'gemini-3.5-flash',
         'gemini-3.7-flash',
+        'gemini-3.8-flash',
         'gpt-5.2-codex',
         'glm-5.2',
         'grok-4.5',
@@ -104,37 +106,65 @@ describe('provider model catalogs', () => {
         'kimi-k2.5',
         'minimax-m2.5',
         'muse-spark-1.2',
-        'claude-sonnet-4',
+        'muse-spark-1.3-contributor-free',
+        'muse-spark-1.2-contributor-free',
+        'ling-3.0-flash-fin-free',
+        'big-pickle',
+        'mimo-v2.5-free',
       ]),
     );
-    // Free stealth rotations retired upstream must not linger in the static fallback.
-    expect(modelIds(new OpenCodeZenProvider('key'))).not.toEqual(
-      expect.arrayContaining(['ling-3.0-flash-free', 'north-mini-code-free', 'x-preview-f-free']),
+    // Retired upstream must not linger in the static fallback.
+    expect(modelIds(new OpenCodeZenProvider('key'))).toEqual(
+      expect.not.arrayContaining([
+        'claude-sonnet-4',
+        'laguna-s-2.1-free',
+        'deepseek-v4-flash-free',
+        'hy3-free',
+        'north-mini-code-free',
+        'x-preview-f-free',
+      ]),
     );
     expect(modelIds(new OpenCodeGoProvider('key'))).toEqual(
       expect.arrayContaining([
-        'grok-4.5',
         'grok-4.6',
         'gpt-5.6-luna',
         'glm-5.2',
         'glm-5.3',
         'glm-5.3-flash',
-        'glm-5',
+        'glm-5.1',
         'longcat-2.0',
         'kimi-k3',
         'kimi-k2.7-code',
-        'kimi-k2.5',
+        'kimi-k2.6',
         'deepseek-v4-flash-vision-exp',
+        'deepseek-v4-pro',
+        'deepseek-v4-flash',
         'minimax-m3',
+        'minimax-m2.7',
+        'minimax-m2.5',
+        'muse-spark-1.3-contributor',
         'muse-spark-1.2-contributor',
+        'qwen3.8-max',
+        'qwen3.8-flash',
         'qwen3.7-max',
         'qwen3.7-plus',
-        'qwen3.8-max',
+        'qwen3.6-plus',
+        'mimo-v2.5',
+        'mimo-v2.5-pro',
+        'hy4-preview',
+        'hy3',
+      ]),
+    );
+    // Retired from Go upstream must not linger in the static fallback.
+    expect(modelIds(new OpenCodeGoProvider('key'))).toEqual(
+      expect.not.arrayContaining([
+        'grok-4.5',
+        'glm-5',
+        'kimi-k2.5',
         'qwen3.5-plus',
         'mimo-v2-pro',
         'mimo-v2-omni',
         'hy3-preview',
-        'hy3',
       ]),
     );
   });

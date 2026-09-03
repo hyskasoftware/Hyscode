@@ -11,6 +11,7 @@ import type {
 } from '../types';
 import { ProviderError } from '../types';
 import { parseSSEStream } from '../retry';
+import { withOpencodeHeaders } from '../opencode-headers';
 
 // ─── Anthropic Message Formatting ───────────────────────────────────────────
 
@@ -518,15 +519,20 @@ export class AnthropicProvider implements AIProvider {
       body.thinking = thinkingConfig;
     }
 
-    const response = await this.fetchImpl(`${this.baseUrl}/v1/messages`, {
+    const url = `${this.baseUrl}/v1/messages`;
+    const response = await this.fetchImpl(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        Authorization: `Bearer ${this.apiKey}`,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'prompt-caching-2024-07-31',
-      },
+      headers: withOpencodeHeaders(
+        {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          Authorization: `Bearer ${this.apiKey}`,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
+        },
+        url,
+        params.sessionId,
+      ),
       body: JSON.stringify(body),
       signal: params.signal,
     });

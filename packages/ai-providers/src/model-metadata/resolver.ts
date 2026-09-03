@@ -17,6 +17,7 @@
 
 import type { AIModel, FetchImpl } from '../types';
 import { GO_CATALOG, ZEN_CATALOG, type CuratedCatalogEntry } from './catalog-corrections';
+import { withOpencodeHeaders } from '../opencode-headers';
 
 export const ZEN_MODELS_URL = 'https://opencode.ai/zen/v1/models';
 export const GO_MODELS_URL = 'https://opencode.ai/zen/go/v1/models';
@@ -145,9 +146,15 @@ export async function fetchLiveModelIds(
   fetchImpl: FetchImpl,
 ): Promise<string[] | undefined> {
   try {
-    const response = await fetchImpl(url, {
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-    });
+    const response = await fetchImpl(
+      url,
+      {
+        headers: withOpencodeHeaders(
+          apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+          url,
+        ),
+      },
+    );
     if (!response.ok) return undefined;
     const data = (await response.json()) as LiveModelsResponse;
     const items: Array<{ id?: unknown }> = Array.isArray(data)

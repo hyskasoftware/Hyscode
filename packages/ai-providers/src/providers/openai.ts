@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { ProviderError } from '../types';
 import { parseSSEStream } from '../retry';
+import { withOpencodeHeaders } from '../opencode-headers';
 
 // ─── OpenAI Message Formatting ──────────────────────────────────────────────
 
@@ -541,13 +542,18 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const requestBody = JSON.stringify(body);
-    const response = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
+    const url = `${this.baseUrl}/chat/completions`;
+    const response = await this.fetchImpl(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-        ...this.defaultHeaders,
-      },
+      headers: withOpencodeHeaders(
+        {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+          ...this.defaultHeaders,
+        },
+        url,
+        params.sessionId,
+      ),
       body: requestBody,
       signal: params.signal,
     });

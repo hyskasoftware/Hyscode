@@ -1,44 +1,6 @@
 {
-  "asOf": "2026-08-26T15:52:53.039Z",
+  "asOf": "2026-09-03T14:50:19.577Z",
   "models": [
-    {
-      "id": "grok-4.5",
-      "name": "Grok 4.5 (Go)",
-      "provider": "opencode-go",
-      "contextWindow": 500000,
-      "maxOutputTokens": 16384,
-      "supportsTools": true,
-      "supportsStreaming": true,
-      "supportsVision": false,
-      "thinkingVariants": {
-        "kind": "openai",
-        "levels": [
-          "low",
-          "medium",
-          "high"
-        ],
-        "defaultLevel": "high"
-      }
-    },
-    {
-      "id": "grok-4.6",
-      "name": "Grok 4.6 (Go)",
-      "provider": "opencode-go",
-      "contextWindow": 500000,
-      "maxOutputTokens": 16384,
-      "supportsTools": true,
-      "supportsStreaming": true,
-      "supportsVision": false,
-      "thinkingVariants": {
-        "kind": "openai",
-        "levels": [
-          "low",
-          "medium",
-          "high"
-        ],
-        "defaultLevel": "high"
-      }
-    },
     {
       "id": "glm-5.3",
       "name": "GLM 5.3 (Go)",
@@ -48,6 +10,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 1.4,
+      "outputPricePerMToken": 4.4,
+      "cachedInputPricePerMToken": 0.26,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -68,6 +33,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.15,
+      "outputPricePerMToken": 0.5,
+      "cachedInputPricePerMToken": 0.03,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -88,6 +56,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 1.4,
+      "outputPricePerMToken": 4.4,
+      "cachedInputPricePerMToken": 0.26,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -108,24 +79,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
-      "thinkingVariants": {
-        "kind": "kimi",
-        "levels": [
-          "enabled",
-          "disabled"
-        ],
-        "defaultLevel": "enabled"
-      }
-    },
-    {
-      "id": "glm-5",
-      "name": "GLM 5 (Go)",
-      "provider": "opencode-go",
-      "contextWindow": 200000,
-      "maxOutputTokens": 128000,
-      "supportsTools": true,
-      "supportsStreaming": true,
-      "supportsVision": false,
+      "inputPricePerMToken": 1.4,
+      "outputPricePerMToken": 4.4,
+      "cachedInputPricePerMToken": 0.26,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -144,6 +100,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 3,
+      "outputPricePerMToken": 15,
+      "cachedInputPricePerMToken": 0.3,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -162,6 +121,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.95,
+      "outputPricePerMToken": 4,
+      "cachedInputPricePerMToken": 0.19,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -179,24 +141,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
-      "thinkingVariants": {
-        "kind": "kimi",
-        "levels": [
-          "enabled",
-          "disabled"
-        ],
-        "defaultLevel": "enabled"
-      }
-    },
-    {
-      "id": "kimi-k2.5",
-      "name": "Kimi K2.5 (Go)",
-      "provider": "opencode-go",
-      "contextWindow": 1000000,
-      "maxOutputTokens": 32768,
-      "supportsTools": true,
-      "supportsStreaming": true,
-      "supportsVision": false,
+      "inputPricePerMToken": 0.95,
+      "outputPricePerMToken": 4,
+      "cachedInputPricePerMToken": 0.16,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -215,6 +162,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.006,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -233,6 +183,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.14,
+      "outputPricePerMToken": 0.28,
+      "cachedInputPricePerMToken": 0.0028,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -251,42 +204,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
-      "thinkingVariants": {
-        "kind": "kimi",
-        "levels": [
-          "enabled",
-          "disabled"
-        ],
-        "defaultLevel": "enabled"
-      }
-    },
-    {
-      "id": "mimo-v2-pro",
-      "name": "MiMo V2 Pro (Go)",
-      "provider": "opencode-go",
-      "contextWindow": 1000000,
-      "maxOutputTokens": 8192,
-      "supportsTools": true,
-      "supportsStreaming": true,
-      "supportsVision": false,
-      "thinkingVariants": {
-        "kind": "kimi",
-        "levels": [
-          "enabled",
-          "disabled"
-        ],
-        "defaultLevel": "enabled"
-      }
-    },
-    {
-      "id": "mimo-v2-omni",
-      "name": "MiMo V2 Omni (Go)",
-      "provider": "opencode-go",
-      "contextWindow": 1000000,
-      "maxOutputTokens": 8192,
-      "supportsTools": true,
-      "supportsStreaming": true,
-      "supportsVision": false,
+      "inputPricePerMToken": 0.435,
+      "outputPricePerMToken": 0.87,
+      "cachedInputPricePerMToken": 0.003625,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -305,6 +225,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.66,
+      "outputPricePerMToken": 1.98,
+      "cachedInputPricePerMToken": 0.022,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -323,6 +246,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.22,
+      "outputPricePerMToken": 0.66,
+      "cachedInputPricePerMToken": 0.007,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -341,6 +267,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": true,
+      "inputPricePerMToken": 0.22,
+      "outputPricePerMToken": 0.66,
+      "cachedInputPricePerMToken": 0.007,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -351,14 +280,17 @@
       }
     },
     {
-      "id": "hy3",
-      "name": "Hy3 (Go)",
+      "id": "hy4-preview",
+      "name": "Hy4 Preview (Go)",
       "provider": "opencode-go",
       "contextWindow": 1000000,
       "maxOutputTokens": 16384,
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.834,
+      "outputPricePerMToken": 2.501,
+      "cachedInputPricePerMToken": 0.042,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -371,14 +303,17 @@
       }
     },
     {
-      "id": "hy3-preview",
-      "name": "Hy3 Preview (Go)",
+      "id": "hy3",
+      "name": "Hy3 (Go)",
       "provider": "opencode-go",
       "contextWindow": 1000000,
       "maxOutputTokens": 16384,
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.14,
+      "outputPricePerMToken": 0.58,
+      "cachedInputPricePerMToken": 0.035,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -399,6 +334,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": true,
+      "inputPricePerMToken": 0.2,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.02,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -418,6 +356,53 @@
       }
     },
     {
+      "id": "grok-4.6",
+      "name": "Grok 4.6 (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 500000,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 2,
+      "outputPricePerMToken": 6,
+      "cachedInputPricePerMToken": 0.5,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "defaultLevel": "high"
+      }
+    },
+    {
+      "id": "muse-spark-1.3-contributor",
+      "name": "Muse Spark 1.3 Contributor (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 16384,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.1,
+      "outputPricePerMToken": 0.2,
+      "cachedInputPricePerMToken": 0.002,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "defaultLevel": "default"
+      }
+    },
+    {
       "id": "muse-spark-1.2-contributor",
       "name": "Muse Spark 1.2 Contributor (Go)",
       "provider": "opencode-go",
@@ -426,6 +411,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.1,
+      "outputPricePerMToken": 0.2,
+      "cachedInputPricePerMToken": 0.002,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -448,6 +436,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.06,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -466,6 +457,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.06,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -483,6 +477,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.3,
+      "outputPricePerMToken": 1.2,
+      "cachedInputPricePerMToken": 0.06,
       "thinkingVariants": {
         "kind": "kimi",
         "levels": [
@@ -500,6 +497,31 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 2,
+      "outputPricePerMToken": 6,
+      "cachedInputPricePerMToken": 0.25,
+      "thinkingVariants": {
+        "kind": "openai",
+        "levels": [
+          "default",
+          "high",
+          "max"
+        ],
+        "defaultLevel": "max"
+      }
+    },
+    {
+      "id": "qwen3.8-flash",
+      "name": "Qwen3.8 Flash (Go)",
+      "provider": "opencode-go",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 32768,
+      "supportsTools": true,
+      "supportsStreaming": true,
+      "supportsVision": false,
+      "inputPricePerMToken": 0.15,
+      "outputPricePerMToken": 0.47,
+      "cachedInputPricePerMToken": 0.016,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -519,6 +541,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 2.5,
+      "outputPricePerMToken": 7.5,
+      "cachedInputPricePerMToken": 0.5,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -538,6 +563,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
+      "inputPricePerMToken": 0.4,
+      "outputPricePerMToken": 1.6,
+      "cachedInputPricePerMToken": 0.04,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [
@@ -557,25 +585,9 @@
       "supportsTools": true,
       "supportsStreaming": true,
       "supportsVision": false,
-      "thinkingVariants": {
-        "kind": "openai",
-        "levels": [
-          "default",
-          "high",
-          "max"
-        ],
-        "defaultLevel": "max"
-      }
-    },
-    {
-      "id": "qwen3.5-plus",
-      "name": "Qwen3.5 Plus (Go)",
-      "provider": "opencode-go",
-      "contextWindow": 1000000,
-      "maxOutputTokens": 32768,
-      "supportsTools": true,
-      "supportsStreaming": true,
-      "supportsVision": false,
+      "inputPricePerMToken": 0.5,
+      "outputPricePerMToken": 3,
+      "cachedInputPricePerMToken": 0.05,
       "thinkingVariants": {
         "kind": "openai",
         "levels": [

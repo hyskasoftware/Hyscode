@@ -68,6 +68,13 @@ export type { KeyStore } from './registry';
 // ─── Utilities ──────────────────────────────────────────────────────────────
 export { withRetry, parseSSEStream, parseNDJSONStream, normalizeProviderError } from './retry';
 export {
+  OPENCODE_SESSION_HEADER,
+  isOpencodeUrl,
+  opencodeRequestHeaders,
+  opencodeUserAgent,
+  withOpencodeHeaders,
+} from './opencode-headers';
+export {
   estimateTokens,
   estimateMessageTokens,
   estimateToolDefinitionTokens,

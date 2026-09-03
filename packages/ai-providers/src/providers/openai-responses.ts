@@ -1,6 +1,7 @@
 import type { ChatParams, FetchImpl, Message, StreamChunk, TokenUsage } from '../types';
 import { ProviderError } from '../types';
 import { parseSSEStream } from '../retry';
+import { withOpencodeHeaders } from '../opencode-headers';
 
 // ─── OpenAI Responses API helper ─────────────────────────────────────────────
 // Shared wire-format adapter for the Responses API used by OpenCode Zen
@@ -170,12 +171,17 @@ export async function* chatResponsesAPI(
     body.reasoning = reasoning;
   }
 
-  const response = await config.fetchImpl(`${config.baseUrl}/responses`, {
+  const url = `${config.baseUrl}/responses`;
+  const response = await config.fetchImpl(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey}`,
-    },
+    headers: withOpencodeHeaders(
+      {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      url,
+      params.sessionId,
+    ),
     body: JSON.stringify(body),
     signal: params.signal,
   });
