@@ -123,6 +123,50 @@ describe('terminal command framing', () => {
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ state: 'running' }));
   });
 
+  it('preserves a genuine negative exit code from a completed frame', async () => {
+    let onDataHandler: ((data: string, sequence: number) => void) | null = null;
+    const adapter: TerminalRuntimeAdapter = {
+      acquire: vi.fn(async () => mockBinding('terminal-negative', 'pty-negative')),
+      snapshot: vi.fn(async () => ({
+        data: '',
+        fromSequence: 0,
+        toSequence: 0,
+        truncated: false,
+        alive: true,
+        exitCode: null,
+      })),
+      write: vi.fn(async (_terminalId, data) => {
+        const nonce = String(data).match(/__HYSCODE_BEGIN_([a-z0-9]+)__/i)?.[1] ?? '';
+        queueMicrotask(() => {
+          onDataHandler?.(
+            `__HYSCODE_BEGIN_${nonce}__\n__HYSCODE_END_${nonce}__:-1\n`,
+            1,
+          );
+        });
+      }),
+      interrupt: vi.fn(async () => undefined),
+      kill: vi.fn(async () => undefined),
+      subscribe: vi.fn(async (_terminalId, onData) => {
+        onDataHandler = onData;
+        return () => {
+          onDataHandler = null;
+        };
+      }),
+    };
+
+    const result = await new TerminalCommandRunner().run(
+      { command: 'native-negative-exit', timeoutMs: 1_000 },
+      contextWith(adapter),
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      output: 'Command completed with exit code -1',
+      error: 'Exit code: -1',
+      metadata: { exitCode: -1 },
+    });
+  });
+
   it('reconciles a completed command from the authoritative snapshot when live output is missed', async () => {
     let completed = false;
     let output = '';

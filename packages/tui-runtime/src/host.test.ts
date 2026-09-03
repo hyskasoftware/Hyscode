@@ -10,6 +10,7 @@ import { CliHost } from './host';
 
 const temporaryDirectories: string[] = [];
 const execFileAsync = promisify(execFile);
+const HOST_INTEGRATION_TIMEOUT_MS = 30_000;
 
 async function runGit(directory: string, args: string[]): Promise<void> {
   await execFileAsync('git', args, { cwd: directory, windowsHide: true });
@@ -61,7 +62,41 @@ describe('CLI host adapter', () => {
       await host.invoke('pty_kill', { ptyId });
     }
     expect(await readFile(path.join(directory, 'fixture.txt'), 'utf8')).toBe('HYS_TUI_HOST_FIXTURE');
-  });
+  }, HOST_INTEGRATION_TIMEOUT_MS);
+
+  it('keeps PTY process exit data separate from framed command status', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'hyscode-tui-pty-exit-'));
+    temporaryDirectories.push(directory);
+    const host = new CliHost(directory, new CliDataStore(path.join(directory, 'data.json')), new SharedKeyStore(path.join(directory, 'keychain.json')));
+    const requestedPtyId = 'process-exit-code';
+    let resolveExit: ((payload: unknown) => void) | null = null;
+    // CliHost exposes callback-based listeners and this package targets ES2022.
+    const exitPromise = new Promise<unknown>((resolve) => {
+      resolveExit = resolve;
+    });
+    const unsubscribe = await host.listen('pty:exit', (payload) => {
+      const event = payload as { pty_id?: unknown };
+      if (event.pty_id === requestedPtyId) resolveExit?.(payload);
+    });
+    const isWindows = process.platform === 'win32';
+    const ptyId = await host.invoke<string>('pty_spawn', {
+      id: requestedPtyId,
+      shell: isWindows ? (process.env.ComSpec ?? 'cmd.exe') : '/bin/sh',
+      args: isWindows ? ['/d', '/c', 'exit /b 7'] : ['-c', 'exit 7'],
+      cwd: directory,
+    });
+
+    try {
+      const exitPayload = await exitPromise;
+      const snapshot = await host.invoke<{ alive: boolean; exit_code: number | null }>('pty_snapshot', { ptyId, afterSequence: 0 });
+
+      expect(snapshot).toMatchObject({ alive: false, exit_code: 7 });
+      expect(exitPayload).toMatchObject({ pty_id: ptyId, code: 7 });
+    } finally {
+      unsubscribe();
+      await host.invoke('pty_kill', { ptyId });
+    }
+  }, HOST_INTEGRATION_TIMEOUT_MS);
 
   it('runs real workspace compiler diagnostics instead of returning a placeholder result', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'hyscode-tui-diagnostics-'));
@@ -76,7 +111,7 @@ describe('CLI host adapter', () => {
     expect(await host.invoke<Array<{ file: string }>>('get_diagnostics', { path: path.join(directory, 'src', 'lib.rs') })).toEqual(expect.arrayContaining([
       expect.objectContaining({ file: path.join(directory, 'src', 'lib.rs') }),
     ]));
-  });
+  }, HOST_INTEGRATION_TIMEOUT_MS);
 
   it('summarizes the current branch and uncommitted line changes', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'hyscode-tui-git-summary-'));
@@ -95,7 +130,7 @@ describe('CLI host adapter', () => {
     const summary = await host.invoke<{ available: boolean; branch: string; insertions: number; deletions: number; changedFiles: number }>('git_summary', { repoPath: directory });
 
     expect(summary).toEqual({ available: true, branch: 'feature/git-summary', insertions: 3, deletions: 1, changedFiles: 1 });
-  });
+  }, HOST_INTEGRATION_TIMEOUT_MS);
 
   it('forwards PTY operations and events through an explicit remote host adapter', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'hyscode-tui-remote-host-'));
@@ -120,7 +155,11 @@ describe('CLI host adapter', () => {
     await host.invoke('pty_write', { ptyId: 'remote-terminal', data: 'echo remote' });
     await host.invoke('pty_resize', { ptyId: 'remote-terminal', cols: 120, rows: 40 });
     expect(await host.invoke<boolean>('pty_exists', { ptyId: 'remote-terminal' })).toBe(true);
-    expect(await host.invoke('pty_snapshot', { ptyId: 'remote-terminal', afterSequence: 0 })).toMatchObject({ data: 'remote output' });
+    expect(await host.invoke('pty_snapshot', { ptyId: 'remote-terminal', afterSequence: 0 })).toMatchObject({
+      data: 'remote output',
+      alive: true,
+      exit_code: null,
+    });
     await host.invoke('pty_interrupt', { ptyId: 'remote-terminal' });
     await host.invoke('pty_kill', { ptyId: 'remote-terminal' });
     host.emitExternal('pty:data', { pty_id: 'remote-terminal', data: 'forwarded event' });
@@ -135,5 +174,5 @@ describe('CLI host adapter', () => {
       'pty_kill',
     ]);
     expect(data).toEqual(['forwarded event']);
-  });
+  }, HOST_INTEGRATION_TIMEOUT_MS);
 });

@@ -1,5 +1,9 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
-import { spawn } from 'node:child_process';
 
 import {
   appendBounded,
@@ -11,7 +15,65 @@ import {
   normalizeTerminalOutput,
   parseTerminalFrame,
   stripAnsi,
+  type ParsedTerminalFrame,
 } from './terminal-protocol';
+
+const execFileAsync = promisify(execFile);
+
+const POWERSHELL_FRAME_TIMEOUT_MS = 25_000;
+
+type PowerShellFrameResult = {
+  parsed: ParsedTerminalFrame;
+  raw: string;
+  processCode: number | null;
+};
+
+async function runPowerShellFrame(
+  command: string,
+  nonce: string,
+  shell = 'powershell.exe',
+  cwd?: string,
+  followUp?: string,
+): Promise<PowerShellFrameResult> {
+  const isWindows = process.platform === 'win32';
+  const child = isWindows
+    ? spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `${shell} -NoLogo -NoProfile 2>&1`], { cwd, windowsHide: true })
+    : spawn(shell, ['-NoLogo', '-NoProfile'], { cwd, windowsHide: true });
+  let raw = '';
+  child.stdout.on('data', (data) => {
+    raw += data.toString();
+  });
+  child.stderr.on('data', (data) => {
+    raw += data.toString();
+  });
+  let closed = false;
+  let rejectClose: ((reason?: unknown) => void) | null = null;
+  const closePromise = new Promise<number | null>((resolve, reject) => {
+    rejectClose = reject;
+    child.once('error', reject);
+    child.once('close', (code) => {
+      closed = true;
+      resolve(code);
+    });
+  });
+  // Safety guard prevents a broken frame from leaking a persistent shell past the test timeout.
+  const timeout = setTimeout(() => {
+    if (closed) return;
+    child.kill();
+    rejectClose?.(new Error(`PowerShell frame timed out: ${nonce}`));
+  }, POWERSHELL_FRAME_TIMEOUT_MS);
+  try {
+    const frame = buildTerminalFrame(command, 'powershell', nonce);
+    if (followUp) child.stdin.write(frame);
+    else child.stdin.end(frame);
+    if (followUp) child.stdin.end(`${followUp}\r\n`);
+    const processCode = await closePromise;
+    return { parsed: parseTerminalFrame(raw, nonce), raw, processCode };
+  } finally {
+    clearTimeout(timeout);
+    if (!closed) child.kill();
+  }
+}
 
 describe('frameMarker', () => {
   it('builds unique begin/end markers from a nonce', () => {
@@ -70,8 +132,14 @@ describe('buildTerminalFrame', () => {
     expect(frame).toContain("Write-Output ''; Write-Output '__HYSCODE_BEGIN_pw1__'");
     expect(frame).toContain("finally { Write-Output ''; Write-Output (\"__HYSCODE_END_pw1__:{0}\" -f $hysCode) }");
     expect(frame).toContain('try {');
-    expect(frame).toContain("$ErrorActionPreference = 'Stop'");
-    expect(frame).toContain('Invoke-Expression -Command $hysCommand');
+    expect(frame).not.toContain("$ErrorActionPreference = 'Stop'");
+    expect(frame).toContain("$ErrorActionPreference = 'Continue'");
+    expect(frame).toContain('$PSNativeCommandUseErrorActionPreference = $false');
+    expect(frame).toContain('$__hyscode_native_code_pw1 = 0');
+    expect(frame).toContain('-ErrorVariable __hyscode_errors_pw1');
+    expect(frame).toContain("Set-Variable -Name '__hyscode_invocation_errors_pw1' -Scope 1");
+    expect(frame).toContain('Microsoft.PowerShell.Core\\Where-Object');
+    expect(frame).toContain("FullyQualifiedErrorId -notlike 'NativeCommandError*'");
     expect(frame).toContain('catch {');
     expect(frame).toContain('finally {');
     expect(frame).toContain('Write-Error $_');
@@ -123,6 +191,148 @@ print('line two')"`;
     });
     expect(parsed.output).toContain('unterminated');
   });
+
+  it.skipIf(process.platform !== 'win32')('preserves the npm failure code when stderr is redirected and read back', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'hyscode-npm-failure-'));
+    const logPath = path.join(directory, 'test.log');
+    await writeFile(
+      path.join(directory, 'package.json'),
+      JSON.stringify({ private: true, scripts: { test: 'node fail.js' } }),
+      'utf8',
+    );
+    await writeFile(
+      path.join(directory, 'fail.js'),
+      "process.stderr.write('vitest-style failure\\n'); process.exit(1);\\n",
+      'utf8',
+    );
+
+    try {
+      const command = `npm test --silent 2>&1 | Out-File -FilePath "${logPath}" -Width 500 -Encoding utf8; Write-Output "RC=$LASTEXITCODE"; Get-Content "${logPath}" -Tail 30`;
+      const result = await runPowerShellFrame(command, 'powershell-npm-failure', 'powershell.exe', directory);
+
+      expect(result.parsed).toMatchObject({ complete: true, exitCode: 1 });
+      expect(result.parsed.output).toContain('RC=1');
+      expect(result.parsed.output).toContain('vitest-style failure');
+      expect(await readFile(logPath, 'utf8')).toContain('vitest-style failure');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('preserves direct native stderr without changing exit status', async () => {
+    const failure = await runPowerShellFrame(
+      'cmd /c "echo native failure 1>&2 & exit /b 1"',
+      'powershell-native-stderr-failure',
+    );
+    const success = await runPowerShellFrame(
+      'cmd /c "echo native warning 1>&2 & exit /b 0"',
+      'powershell-native-stderr-success',
+    );
+
+    expect(failure.parsed).toMatchObject({ complete: true, exitCode: 1 });
+    expect(failure.parsed.output).toContain('native failure');
+    expect(success.parsed).toMatchObject({ complete: true, exitCode: 0 });
+    expect(success.parsed.output).toContain('native warning');
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('keeps redirected native stderr successful when the native process exits zero', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'hyscode-native-success-'));
+    const logPath = path.join(directory, 'native.log');
+
+    try {
+      const command = `cmd /c "echo native warning 1>&2 & exit /b 0" 2>&1 | Out-File -FilePath "${logPath}" -Width 500 -Encoding utf8; Write-Output "RC=$LASTEXITCODE"; Get-Content "${logPath}" -Tail 5`;
+      const result = await runPowerShellFrame(command, 'powershell-redirected-success', 'powershell.exe', directory);
+
+      expect(result.parsed).toMatchObject({ complete: true, exitCode: 0 });
+      expect(result.parsed.output).toContain('RC=0');
+      expect(result.parsed.output).toContain('native warning');
+      expect(await readFile(logPath, 'utf8')).toContain('native warning');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('reports PowerShell errors even when a later native command exits zero', async () => {
+    const result = await runPowerShellFrame(
+      'Get-Item -LiteralPath hyscode-file-that-does-not-exist; cmd /c exit /b 0',
+      'powershell-mixed-error',
+    );
+
+    expect(result.parsed).toMatchObject({ complete: true, exitCode: 1 });
+    expect(result.parsed.output).toContain('does-not-exist');
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('retains a PowerShell error after native stderr fills the shell error history', async () => {
+    const result = await runPowerShellFrame(
+      'Get-Item -LiteralPath hyscode-first-error; 1..300 | ForEach-Object { cmd /c "echo native noise 1>&2 & exit /b 0" }',
+      'powershell-error-history',
+    );
+
+    expect(result.parsed).toMatchObject({ complete: true, exitCode: 1 });
+    expect(result.parsed.output).toContain('hyscode-first-error');
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('does not let command variables collide with frame state', async () => {
+    const result = await runPowerShellFrame(
+      '$__hyscode_native_code_powershell_state_collision = 42; $__hyscode_error_baseline_powershell_state_collision = @(); $hysState = $null; Write-Output frame-state-is-safe',
+      'powershell-state-collision',
+    );
+
+    expect(result.parsed).toMatchObject({ complete: true, exitCode: 0 });
+    expect(result.parsed.output).toContain('frame-state-is-safe');
+    expect(result.parsed.output).not.toContain('Property');
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('protects frame completion from command function shadowing', async () => {
+    const result = await runPowerShellFrame(
+      'function Write-Output { param($value) }; function Where-Object { @() }; Get-Item -LiteralPath hyscode-file-that-does-not-exist',
+      'powershell-function-shadowing',
+    );
+
+    expect(result.parsed).toMatchObject({ complete: true, exitCode: 1 });
+    expect(result.parsed.output).toContain('does-not-exist');
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('does not leak frame state into the persistent PowerShell shell', async () => {
+    const result = await runPowerShellFrame(
+      'Write-Output frame-state-clean',
+      'powershell-state-cleanup',
+      'powershell.exe',
+      undefined,
+      'if (Get-Variable -Name hysState -ErrorAction SilentlyContinue -or Get-Variable -Name __hyscode_native_code_powershell_state_cleanup -ErrorAction SilentlyContinue -or Get-Variable -Name __hyscode_error_baseline_powershell_state_cleanup -ErrorAction SilentlyContinue) { Write-Output LEAKED } else { Write-Output CLEAN }',
+    );
+    const outputLines = result.raw.split(/\r?\n/u).map((line) => line.trim());
+
+    expect(result.parsed).toMatchObject({ complete: true, exitCode: 0, output: 'frame-state-clean' });
+    expect(outputLines).toContain('CLEAN');
+    expect(outputLines).not.toContain('LEAKED');
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('preserves a genuine negative native exit status', async () => {
+    const result = await runPowerShellFrame('cmd /c exit /b -1', 'powershell-negative-native');
+
+    expect(result.parsed).toMatchObject({ complete: true, exitCode: -1 });
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('keeps exit capture consistent across supported PowerShell shells', async () => {
+    const shells = ['powershell.exe'];
+    let pwshAvailable = true;
+    try {
+      await execFileAsync('where.exe', ['pwsh.exe'], { windowsHide: true });
+    } catch {
+      pwshAvailable = false;
+    }
+    if (pwshAvailable) shells.push('pwsh.exe');
+
+    for (const [index, shell] of shells.entries()) {
+      const result = await runPowerShellFrame(
+        'cmd /c "echo shell failure 1>&2 & exit /b 1"',
+        `powershell-shell-${index}`,
+        shell,
+      );
+      expect(result.parsed).toMatchObject({ complete: true, exitCode: 1 });
+    }
+  }, 30_000);
 
   it.skipIf(process.platform !== 'win32')('completes a PowerShell frame whose command output lacks a trailing newline', async () => {
     const nonce = 'powershell-partial-line';
@@ -263,6 +473,30 @@ describe('normalizeTerminalOutput', () => {
       '__HYSCODE_END_abc__:0',
     ].join('\r\n');
     expect(normalizeTerminalOutput(raw, 16_000)).toBe('installed 42 packages');
+  });
+
+  it('removes the expanded PowerShell wrapper internals from terminal previews', () => {
+    const raw = [
+      '$__hyscode_native_code_preview = 0;',
+      '$__hyscode_error_baseline_preview = @($Error);',
+      '$__hyscode_errors_preview = @();',
+      'Microsoft.PowerShell.Core\\Where-Object { $__hyscode_error_baseline_preview }',
+      "Microsoft.PowerShell.Core\\Where-Object { $_.FullyQualifiedErrorId -notlike 'NativeCommandError*' }",
+      'visible command output',
+    ].join('\r\n');
+
+    expect(normalizeTerminalOutput(raw, 16_000)).toBe('visible command output');
+  });
+
+  it('preserves legitimate PowerShell variable and command text', () => {
+    const raw = [
+      '$hysState = user state',
+      'Microsoft.PowerShell.Core\\Get-Item user.txt',
+      '$__hyscode_user = visible',
+      'visible command output',
+    ].join('\r\n');
+
+    expect(normalizeTerminalOutput(raw, 16_000)).toBe(raw.replaceAll('\r', ''));
   });
 
   it('strips ANSI and trims outer whitespace', () => {

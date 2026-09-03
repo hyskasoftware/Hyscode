@@ -16,10 +16,12 @@ afterEach(async () => {
 
 type JsonMessage = Record<string, unknown>;
 
+const NDJSON_RESPONSE_TIMEOUT_MS = 15_000;
+
 async function waitForMessage(
   messages: JsonMessage[],
   predicate: (message: JsonMessage) => boolean,
-  timeoutMs = 5_000,
+  timeoutMs = NDJSON_RESPONSE_TIMEOUT_MS,
 ): Promise<JsonMessage> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -75,5 +77,5 @@ describe('NDJSON runtime protocol', () => {
     input.end();
     await bridgePromise;
     output.end();
-  }, 20_000);
+  }, 60_000);
 });

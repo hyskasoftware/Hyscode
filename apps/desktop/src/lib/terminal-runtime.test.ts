@@ -205,6 +205,27 @@ describe('DesktopTerminalRuntime', () => {
       expect(useTerminalStore.getState().sessions[0].outputSequence).toBe(7);
     });
 
+    it('forwards a nullable process exit code without synthesizing a framed status', async () => {
+      const sessionId = seedSession();
+      invokeMock.mockImplementation(async (cmd: string) =>
+        cmd === 'pty_snapshot'
+          ? {
+              data: 'live',
+              from_sequence: 1,
+              to_sequence: 2,
+              truncated: false,
+              alive: true,
+              exit_code: null,
+            }
+          : undefined,
+      );
+
+      await expect(runtime.snapshot(sessionId)).resolves.toMatchObject({
+        alive: true,
+        exitCode: null,
+      });
+    });
+
     it('writes and interrupts through the PTY id', async () => {
       const sessionId = seedSession();
       await runtime.write(sessionId, 'data');

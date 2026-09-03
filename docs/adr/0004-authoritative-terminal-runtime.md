@@ -26,6 +26,11 @@ before evaluation: PowerShell uses UTF-8 Base64 decoding and `Invoke-Expression`
 use a quoted literal and deferred `eval`; multiline commands and shell parse errors therefore cannot
 prevent the wrapper from emitting its completion marker. The runner performs a bounded post-exit
 snapshot drain before classifying a command without a marker as an execution error.
+PowerShell framed capture keeps native stderr as output, including WinPS `NativeCommandError` records,
+and derives the command status from the native exit code or non-native PowerShell errors rather than
+from stderr or `$?` alone. Explicit command redirections remain owned by the command and are never
+replayed by the wrapper.
+
 Completed sessions remain inspectable until explicit cleanup or runtime shutdown.
 
 The bridge includes current terminal summaries in every `runtime_ready` payload and emits

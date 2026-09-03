@@ -7,7 +7,7 @@ import {
 } from '@hyscode/ai-providers';
 import { Harness } from './harness';
 import { RuleLoader } from './rule-loader';
-import type { HarnessEvent, TerminalRuntimeAdapter } from './types';
+import type { HarnessEvent, TerminalRuntimeAdapter, ToolResult } from './types';
 
 const model = {
   id: 'test-model',
@@ -103,6 +103,7 @@ describe('Harness lifecycle', () => {
     let providerCall = 0;
     let observedToolResult = '';
     let onData: ((data: string, sequence: number) => void) | undefined;
+    let emittedResult: ToolResult | null = null;
 
     const failingTerminalProvider: AIProvider = {
       id: 'harness-test',
@@ -173,6 +174,9 @@ describe('Harness lifecycle', () => {
       projectId: 'project',
       invoke: async () => undefined as never,
       listen: async () => () => undefined,
+      onEvent: (event) => {
+        if (event.type === 'tool_call_result') emittedResult = event.result;
+      },
       terminalRuntime,
       config: {
         providerId: 'harness-test',
@@ -191,6 +195,12 @@ describe('Harness lifecycle', () => {
     expect(observedToolResult).toContain('stdout from command');
     expect(observedToolResult).toContain('stderr from command');
     expect(observedToolResult).toContain('Error: Exit code: 1');
+
+    expect(emittedResult).toMatchObject({
+      success: false,
+      error: 'Exit code: 1',
+      metadata: { exitCode: 1 },
+    });
   });
 
   it('refreshes native instructions before provider requests and inherits them in children', async () => {

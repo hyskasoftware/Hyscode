@@ -26,7 +26,7 @@ function successfulResult<T>(response: BridgeResponse): T {
   return response.result as T;
 }
 
-type FixtureBehavior = 'tool' | 'terminal' | 'external-read' | 'cancel' | 'cache';
+type FixtureBehavior = 'tool' | 'terminal' | 'terminal-failure' | 'external-read' | 'cancel' | 'cache';
 
 type ProviderFixture = {
   baseUrl: string;
@@ -96,10 +96,14 @@ async function startProviderFixture(): Promise<ProviderFixture> {
         return;
       }
 
-      if (behavior === 'terminal' && requests.length === 1) {
-        const command = process.platform === 'win32'
-          ? 'Write-Output terminal-fixture'
-          : "printf 'terminal-fixture\\n'";
+      if ((behavior === 'terminal' || behavior === 'terminal-failure') && requests.length === 1) {
+        const command = behavior === 'terminal-failure'
+          ? process.platform === 'win32'
+            ? 'npm test --silent 2>&1 | Out-File -FilePath terminal.log -Width 500 -Encoding utf8; Write-Output "RC=$LASTEXITCODE"; Get-Content terminal.log -Tail 30'
+            : "npm test --silent 2>&1 | tee terminal.log; rc=${PIPESTATUS[0]}; printf 'RC=%s\\n' \"$rc\"; tail -n 30 terminal.log; exit \"$rc\""
+          : process.platform === 'win32'
+            ? 'Write-Output terminal-fixture'
+            : "printf 'terminal-fixture\\n'";
         writeSse(response, {
           choices: [{ delta: { content: 'I will run the terminal fixture.' }, finish_reason: null }],
         });
@@ -226,9 +230,11 @@ async function startProviderFixture(): Promise<ProviderFixture> {
           delta: {
             content: behavior === 'terminal'
               ? 'The terminal fixture completed successfully.'
-              : behavior === 'external-read'
-                ? 'The external fixture was read successfully.'
-              : 'The fixture file was updated successfully.',
+              : behavior === 'terminal-failure'
+                ? 'The terminal failure was received.'
+                : behavior === 'external-read'
+                  ? 'The external fixture was read successfully.'
+                  : 'The fixture file was updated successfully.',
           },
           finish_reason: null,
         }],
@@ -858,6 +864,81 @@ describe('shared harness bridge protocol', () => {
       }));
       expect(afterKill.alive).toBe(false);
       expect(afterKill.exitCode).not.toBeUndefined();
+    } finally {
+      registry.unregister('openai');
+      await bridge.handle({ id: 'shutdown', method: 'shutdown', params: {} });
+      await fixture.close();
+    }
+  }, 30_000);
+
+  it.skipIf(process.platform !== 'win32')('returns the native terminal failure code through the real CLI bridge', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'hyscode-tui-terminal-failure-'));
+    temporaryDirectories.push(directory);
+    const fixture = await startProviderFixture();
+    fixture.setBehavior('terminal-failure');
+    const registry = getProviderRegistry();
+    vi.stubEnv('HYSCODE_CONFIG_PATH', path.join(directory, 'settings.json'));
+    vi.stubEnv('HYSCODE_KEYCHAIN_PATH', path.join(directory, 'keychain.json'));
+    vi.stubEnv('HYSCODE_TUI_DATA_PATH', path.join(directory, 'tui-data.json'));
+    vi.stubEnv('HYSCODE_TUI_USE_CONPTY', '0');
+    await writeFile(
+      path.join(directory, 'package.json'),
+      JSON.stringify({ private: true, scripts: { test: 'node fail.js' } }),
+      'utf8',
+    );
+    await writeFile(
+      path.join(directory, 'fail.js'),
+      "process.stderr.write('terminal native failure\\n'); process.exit(1);\\n",
+      'utf8',
+    );
+
+    const events: BridgeEvent[] = [];
+    const bridge = new TuiBridge((message) => {
+      if (message.type === 'event') events.push(message);
+    });
+    try {
+      await bridge.handle({
+        id: 'initialize',
+        method: 'initialize',
+        params: { workspacePath: directory, projectId: 'terminal-failure-fixture', agentType: 'build', approvalMode: 'yolo' },
+      });
+      registry.register(new OpenAIProvider('fixture-key', fixture.baseUrl));
+      await bridge.handle({
+        id: 'config',
+        method: 'set_config',
+        params: { providerId: 'openai', modelId: 'gpt-5.4-mini', approvalMode: 'yolo' },
+      });
+
+      const turn = successfulResult<{ status: string; response: string }>(await bridge.handle({
+        id: 'terminal-failure-turn',
+        method: 'send_message',
+        params: { message: 'Run the failing terminal fixture.' },
+      }));
+      const resultEvents = events.filter((event) => (
+        event.event === 'harness_event'
+        && event.payload.type === 'tool_call_result'
+        && event.payload.toolCallId === 'fixture-terminal-call'
+      ));
+      expect(resultEvents).toHaveLength(1);
+      const resultEvent = resultEvents[0];
+      if (!resultEvent || resultEvent.event !== 'harness_event' || resultEvent.payload.type !== 'tool_call_result') {
+        throw new Error('Expected the terminal tool result event.');
+      }
+
+      expect(turn).toMatchObject({ status: 'complete', response: 'The terminal failure was received.' });
+      expect(resultEvent.payload.result).toMatchObject({
+        success: false,
+        error: 'Exit code: 1',
+        metadata: { exitCode: 1 },
+      });
+      expect(events.some((event) => (
+        event.event === 'harness_event'
+        && event.payload.type === 'terminal_progress'
+        && event.payload.progress.state === 'error'
+      ))).toBe(true);
+      expect(resultEvent.payload.result.output).toContain('RC=1');
+      expect(resultEvent.payload.result.output).toContain('terminal native failure');
+      expect(await readFile(path.join(directory, 'terminal.log'), 'utf8')).toContain('terminal native failure');
     } finally {
       registry.unregister('openai');
       await bridge.handle({ id: 'shutdown', method: 'shutdown', params: {} });

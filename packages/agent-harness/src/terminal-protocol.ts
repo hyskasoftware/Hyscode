@@ -47,18 +47,39 @@ export function buildTerminalFrame(
   const end = frameMarker('END', nonce);
   if (language === 'powershell') {
     const encodedCommand = encodeUtf8Base64(command);
+    const variableSuffix = nonce.replace(/[^a-zA-Z0-9_]/g, '_');
+    const nativeCodeVariableName = `__hyscode_native_code_${variableSuffix}`;
+    const nativeCodeVariable = `$${nativeCodeVariableName}`;
+    const invocationSuccessVariableName = `__hyscode_invocation_success_${variableSuffix}`;
+    const invocationSuccessVariable = `$${invocationSuccessVariableName}`;
+    const invocationErrorsVariableName = `__hyscode_invocation_errors_${variableSuffix}`;
+    const invocationErrorsVariable = `$${invocationErrorsVariableName}`;
+    const errorBaselineVariableName = `__hyscode_error_baseline_${variableSuffix}`;
+    const errorBaselineVariable = `$${errorBaselineVariableName}`;
+    const errorVariableName = `__hyscode_errors_${variableSuffix}`;
+    const errorVariable = `$${errorVariableName}`;
     return (
-      `$global:LASTEXITCODE = 0; Write-Output ''; Write-Output '${begin}'; $hysCode = 0; ` +
+      `& { $global:LASTEXITCODE = 0; Write-Output ''; Write-Output '${begin}'; $hysCode = 0; ` +
       `$hysCommand = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedCommand}')); ` +
-      `try { & { $ErrorActionPreference = 'Stop'; Invoke-Expression -Command $hysCommand }; $hysOk = $?; ` +
-      `$hysCode = if ($hysOk) { [int]$LASTEXITCODE } ` +
-      `elseif ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 } } ` +
-      `catch { $hysCode = if ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 }; Write-Error $_ } ` +
-      `finally { Write-Output ''; Write-Output ("${end}:{0}" -f $hysCode) }\r\n`
+      `${nativeCodeVariable} = 0; ${invocationSuccessVariable} = $true; ${invocationErrorsVariable} = @(); ` +
+      `${errorBaselineVariable} = @($Error); ` +
+      `try { & { $ErrorActionPreference = 'Continue'; $PSNativeCommandUseErrorActionPreference = $false; ` +
+      `${errorVariable} = @(); Invoke-Expression -Command $hysCommand -ErrorAction Continue -ErrorVariable ${errorVariableName}; ` +
+      `$hysInvocationSucceeded = $?; $hysNativeCode = [int]$LASTEXITCODE; ` +
+      `Microsoft.PowerShell.Utility\\Set-Variable -Name '${invocationSuccessVariableName}' -Scope 1 -Value $hysInvocationSucceeded; ` +
+      `Microsoft.PowerShell.Utility\\Set-Variable -Name '${nativeCodeVariableName}' -Scope 1 -Value $hysNativeCode; ` +
+      `Microsoft.PowerShell.Utility\\Set-Variable -Name '${invocationErrorsVariableName}' -Scope 1 -Value @(${errorVariable}) }; ` +
+      `$hysNewErrors = @($Error | Microsoft.PowerShell.Core\\Where-Object { ${errorBaselineVariable} -notcontains $_ }); ` +
+      `$hysRecords = @(${invocationErrorsVariable} + $hysNewErrors); ` +
+      `$hysPowerShellErrors = @($hysRecords | Microsoft.PowerShell.Core\\Where-Object { $_.FullyQualifiedErrorId -notlike 'NativeCommandError*' }); ` +
+      `$hysCode = if (${nativeCodeVariable} -ne 0) { [int]${nativeCodeVariable} } ` +
+      `elseif ($hysPowerShellErrors.Count -gt 0) { 1 } else { 0 } } ` +
+      `catch { $hysCode = if ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 }; Write-Error $_ -ErrorAction Continue } ` +
+      `finally { Write-Output ''; Write-Output ("${end}:{0}" -f $hysCode) } }\r\n`
     );
   }
   const commandLiteral = quotePosixLiteral(command);
-  return `printf '\\n${begin}\\n'; hys_command=${commandLiteral}; (set +e; trap 'hys_code=$?; printf \"\\n${end}:%s\\n\" \"$hys_code\"; exit \"$hys_code\"' 0; eval \"$hys_command\")\n`;
+  return `printf '\\n${begin}\\n'; hys_command=${commandLiteral}; (set +e; trap 'hys_code=$?; printf "\\n${end}:%s\\n" "$hys_code"; exit "$hys_code"' 0; eval "$hys_command")\n`;
 }
 
 export type ParsedTerminalFrame = {
@@ -106,25 +127,49 @@ export function parseTerminalFrame(raw: string, nonce: string): ParsedTerminalFr
 
 /** Lines that only exist because the PowerShell wrapper was echoed into the shell. */
 const INTERNAL_POWERSHELL_PATTERNS = [
-  /\$global:LASTEXITCODE/i,
+  /\$global:LASTEXITCODE\s*=\s*0\b/i,
   /\$global:LAS\s*$/i,
-  /\$hys(?:Ok|Code)\b/i,
+  /\$hysOk\s*=\s*\$\?/i,
+  /\$hysCode\s*=\s*(?:0|if)\b/i,
+  /\$hysCommand\s*=\s*\[Text\.Encoding\]::UTF8.GetString\b/i,
+  /\$hys(?:InvocationSucceeded|NativeCode|NewErrors|Records|PowerShellErrors)\s*=/i,
+  /\$__hyscode_(?:native_code|invocation_success|invocation_errors|error_baseline|errors)_[a-z0-9_]+\s*=/i,
   /(?:if|elseif).*\$LASTEXITCODE/i,
-  /Write-Output\s*\(/i,
+  /=\s*\[Text\.Encoding\]::UTF8.GetString\b/i,
+  /\$ErrorActionPreference\s*=\s*['"]Continue['"]\s*;\s*\$PSNativeCommandUseErrorActionPreference\s*=\s*\$false/i,
+  /\$__hyscode_native_code_[a-z0-9_]+\s+-ne\s+0/i,
+  /Microsoft\.PowerShell\.Utility\\Set-Variable\s+-Name\s+'__hyscode_/i,
+  /Microsoft\.PowerShell\.Core\\Where-Object\s+\{\s+\$__hyscode_/i,
+  /FullyQualifiedErrorId\s+-(?:not)?like\s+'NativeCommandError/i,
+  /\}\s+else\s+\{\s*1\s*\};\s*Write-Error\s+\$_\s+-ErrorAction\s+Continue/i,
+  /finally\s*\{\s*Write-Output\s+['"]['"]\s*;\s*Write-Output/i,
+  /Write-Output\s*\(\s*['"]__HYSCODE_(?:BEGIN|END)_/i,
   /^\s*>+\s*$/,
 ];
-
 /** Clean raw terminal output for display or context: strip ANSI, markers, wrapper noise. */
 export function normalizeTerminalOutput(raw: string, maxChars: number): string {
-  const normalized = stripAnsi(raw)
-    .split('\n')
-    .filter((line) => {
-      if (line.includes('__HYSCODE_BEGIN_') || line.includes('__HYSCODE_END_')) return false;
-      return !INTERNAL_POWERSHELL_PATTERNS.some((pattern) => pattern.test(line));
-    })
-    .join('\n')
-    .trim();
-  return normalized.length <= maxChars ? normalized : normalized.slice(-maxChars);
+  const lines = stripAnsi(raw).split('\n');
+  const normalizedLines: string[] = [];
+  const beginMarkerPattern = /^__HYSCODE_BEGIN_[A-Za-z0-9_-]+__$/;
+  let inFrameEcho = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (
+      !inFrameEcho
+      && /\$global:LASTEXITCODE\s*=\s*0\b/i.test(line)
+      && (line.includes('__HYSCODE_BEGIN_') || /(?:^|>)\s*&\s*\{/i.test(line))
+    ) {
+      inFrameEcho = true;
+    }
+    if (inFrameEcho) {
+      if (beginMarkerPattern.test(trimmed)) inFrameEcho = false;
+      continue;
+    }
+    if (line.includes('__HYSCODE_BEGIN_') || line.includes('__HYSCODE_END_')) continue;
+    if (INTERNAL_POWERSHELL_PATTERNS.some((pattern) => pattern.test(line))) continue;
+    normalizedLines.push(line);
+  }
+  const normalized = normalizedLines.join('\n').trim();
 }
 
 export function looksLikeTerminalPrompt(output: string): boolean {
