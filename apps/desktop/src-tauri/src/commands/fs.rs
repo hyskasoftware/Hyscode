@@ -3,7 +3,7 @@ use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watche
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
@@ -55,6 +55,9 @@ pub fn create_file(path: String, content: Option<String>) -> Result<(), String> 
     if path.exists() {
         return Err(format!("File already exists: {}", path.display()));
     }
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        validate_file_name(name)?;
+    }
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
     }
@@ -65,14 +68,71 @@ pub fn create_file(path: String, content: Option<String>) -> Result<(), String> 
 #[tauri::command]
 pub fn delete_path(path: String) -> Result<(), String> {
     let path = PathBuf::from(&path);
-    if !path.exists() {
+    if !path.exists() && fs::symlink_metadata(&path).is_err() {
         return Err(format!("Path not found: {}", path.display()));
     }
-    if path.is_dir() {
-        fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete directory: {}", e))
-    } else {
-        fs::remove_file(&path).map_err(|e| format!("Failed to delete file: {}", e))
+    remove_all_hardened(&path)
+}
+
+/// Move a file or directory to the OS Trash / Recycle Bin.
+///
+/// Returns `Err("TRASH_UNAVAILABLE: ...")` when the platform trash cannot be
+/// used (e.g. Linux without a Freedesktop trash backend). Callers should offer
+/// a permanent delete as an explicit user-confirmed fallback in that case.
+#[tauri::command]
+pub fn trash_path(path: String) -> Result<(), String> {
+    let path = PathBuf::from(&path);
+    if !path.exists() && fs::symlink_metadata(&path).is_err() {
+        return Err(format!("Path not found: {}", path.display()));
     }
+    trash::delete(&path).map_err(|e| format!("TRASH_UNAVAILABLE: {}", e))
+}
+
+/// Clear the read-only flag recursively so deletes succeed on all platforms
+/// (Windows file attributes, Unix permission bits).
+fn clear_readonly_recursive(path: &Path) -> Result<(), String> {
+    let meta = fs::symlink_metadata(path)
+        .map_err(|e| format!("Failed to read metadata of {}: {}", path.display(), e))?;
+    if meta.file_type().is_symlink() {
+        return Ok(());
+    }
+    if meta.permissions().readonly() {
+        let mut perms = meta.permissions();
+        perms.set_readonly(false);
+        fs::set_permissions(path, perms).map_err(|e| {
+            format!(
+                "Failed to clear read-only flag of {}: {}",
+                path.display(),
+                e
+            )
+        })?;
+    }
+    if meta.is_dir() {
+        let entries = fs::read_dir(path)
+            .map_err(|e| format!("Failed to read dir {}: {}", path.display(), e))?;
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+            clear_readonly_recursive(&entry.path())?;
+        }
+    }
+    Ok(())
+}
+
+/// Permanent recursive delete that handles symlinks (never follows them into
+/// the target) and read-only files/dirs on Windows, Linux and macOS.
+fn remove_all_hardened(path: &Path) -> Result<(), String> {
+    let meta = fs::symlink_metadata(path)
+        .map_err(|e| format!("Failed to read metadata of {}: {}", path.display(), e))?;
+    if meta.file_type().is_symlink() || meta.is_file() {
+        let _ = fs::set_permissions(path, {
+            let mut p = meta.permissions();
+            p.set_readonly(false);
+            p
+        });
+        return fs::remove_file(path).map_err(|e| format!("Failed to delete file: {}", e));
+    }
+    clear_readonly_recursive(path)?;
+    fs::remove_dir_all(path).map_err(|e| format!("Failed to delete directory: {}", e))
 }
 
 #[tauri::command]
@@ -265,14 +325,144 @@ pub fn rename_path(from: String, to: String) -> Result<(), String> {
     let from_path = PathBuf::from(&from);
     let to_path = PathBuf::from(&to);
 
-    if !from_path.exists() {
+    if !from_path.exists() && fs::symlink_metadata(&from_path).is_err() {
         return Err(format!("Source path not found: {}", from));
     }
-    if to_path.exists() {
+    if to_path.exists() || fs::symlink_metadata(&to_path).is_ok() {
         return Err(format!("Destination already exists: {}", to));
+    }
+    if let Some(name) = to_path.file_name().and_then(|n| n.to_str()) {
+        validate_file_name(name)?;
     }
 
     fs::rename(&from_path, &to_path).map_err(|e| format!("Failed to rename: {}", e))
+}
+
+/// Returns true when `child` equals `parent` or is nested inside it.
+/// On Windows the comparison is case-insensitive and separator-agnostic so
+/// that "C:\A" vs "c:/a/b" is detected; elsewhere `Path::starts_with` is used.
+fn is_within_dir(child: &Path, parent: &Path) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        fn norm(p: &Path) -> String {
+            p.to_string_lossy()
+                .replace('/', "\\")
+                .trim_end_matches('\\')
+                .to_lowercase()
+        }
+        let c = norm(child);
+        let p = norm(parent);
+        c == p || c.starts_with(&format!("{}\\", p))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        child.starts_with(parent)
+    }
+}
+
+fn is_cross_device_error(e: &std::io::Error) -> bool {
+    match e.raw_os_error() {
+        #[cfg(target_os = "windows")]
+        Some(code) => code == 17, // ERROR_NOT_SAME_DEVICE
+        #[cfg(target_os = "macos")]
+        Some(code) => code == 18, // EXDEV
+        #[cfg(target_os = "linux")]
+        Some(code) => code == 18, // EXDEV
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        Some(_) => false,
+        None => false,
+    }
+}
+
+/// Move a file or directory, working across volumes/drives.
+///
+/// Same-device moves use an atomic `rename`. Cross-device moves
+/// (`C:` -> `D:`, `/` -> `/mnt`, ...) fall back to copy + permanent delete.
+/// The destination must not exist; callers are expected to auto-rename first.
+#[tauri::command]
+pub fn move_path(from: String, to: String) -> Result<(), String> {
+    let from_path = PathBuf::from(&from);
+    let to_path = PathBuf::from(&to);
+
+    if !from_path.exists() && fs::symlink_metadata(&from_path).is_err() {
+        return Err(format!("Source path not found: {}", from));
+    }
+    if to_path.exists() || fs::symlink_metadata(&to_path).is_ok() {
+        return Err(format!("Destination already exists: {}", to));
+    }
+    if is_within_dir(&to_path, &from_path) {
+        return Err("Cannot move a folder into itself".to_string());
+    }
+    if let Some(name) = to_path.file_name().and_then(|n| n.to_str()) {
+        validate_file_name(name)?;
+    }
+
+    match fs::rename(&from_path, &to_path) {
+        Ok(()) => Ok(()),
+        Err(e) if is_cross_device_error(&e) => {
+            copy_path_inner(&from_path, &to_path)?;
+            remove_all_hardened(&from_path)?;
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to move: {}", e)),
+    }
+}
+
+/// Join a parent directory and a child name using the OS separator.
+/// Validates the child name and avoids any frontend separator guessing.
+#[tauri::command]
+pub fn join_path(parent: String, name: String) -> Result<String, String> {
+    validate_file_name(&name)?;
+    Ok(PathBuf::from(&parent)
+        .join(&name)
+        .to_string_lossy()
+        .to_string())
+}
+
+/// Validate a single file/folder name for the running OS.
+/// Returns `Ok(())` when valid, `Err(message)` describing the problem.
+#[tauri::command]
+pub fn validate_name(name: String) -> Result<(), String> {
+    validate_file_name(&name)
+}
+
+const WINDOWS_RESERVED_NAMES: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
+fn validate_file_name(name: &str) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+    if name.contains('\0') || name.contains('/') || name.contains('\\') {
+        return Err("Name cannot contain `/`, `\\` or null characters".to_string());
+    }
+    if name.len() > 255 {
+        return Err("Name is too long (max 255 characters)".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if name
+            .chars()
+            .any(|c| matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*') || (c as u32) < 0x20)
+        {
+            return Err(
+                "Name cannot contain any of the following characters: < > : \" / \\ | ? *"
+                    .to_string(),
+            );
+        }
+        if name.ends_with(' ') || name.ends_with('.') {
+            return Err("Name cannot end with a space or a dot".to_string());
+        }
+        let stem = name.split('.').next().unwrap_or(name).to_uppercase();
+        if WINDOWS_RESERVED_NAMES.contains(&stem.as_str()) {
+            return Err(format!("\"{}\" is a reserved name on Windows", stem));
+        }
+    }
+
+    Ok(())
 }
 
 /// Recursively search for files matching a glob-like pattern.
@@ -399,6 +589,9 @@ pub fn create_directory(path: String) -> Result<(), String> {
     if dir_path.exists() {
         return Err(format!("Directory already exists: {}", path));
     }
+    if let Some(name) = dir_path.file_name().and_then(|n| n.to_str()) {
+        validate_file_name(name)?;
+    }
     fs::create_dir_all(&dir_path).map_err(|e| format!("Failed to create directory: {}", e))
 }
 
@@ -523,35 +716,118 @@ pub fn fs_unwatch(path: String, state: tauri::State<'_, FsWatcherState>) -> Resu
 pub fn copy_path(from: String, to: String) -> Result<(), String> {
     let from_path = PathBuf::from(&from);
     let to_path = PathBuf::from(&to);
-    if !from_path.exists() {
+    if !from_path.exists() && fs::symlink_metadata(&from_path).is_err() {
         return Err(format!("Source not found: {}", from));
     }
-    if from_path.is_dir() {
-        copy_dir_recursive(&from_path, &to_path)
+    if to_path.exists() || fs::symlink_metadata(&to_path).is_ok() {
+        return Err(format!("Destination already exists: {}", to));
+    }
+    if let Some(name) = to_path.file_name().and_then(|n| n.to_str()) {
+        validate_file_name(name)?;
+    }
+    copy_path_inner(&from_path, &to_path)
+}
+
+fn copy_path_inner(from_path: &PathBuf, to_path: &PathBuf) -> Result<(), String> {
+    let meta = fs::symlink_metadata(from_path)
+        .map_err(|e| format!("Failed to read metadata of {}: {}", from_path.display(), e))?;
+    if meta.file_type().is_symlink() {
+        return copy_symlink(from_path, to_path);
+    }
+    if meta.is_dir() {
+        if is_within_dir(to_path, from_path) {
+            return Err("Cannot copy a folder into itself".to_string());
+        }
+        copy_dir_recursive(from_path, to_path)
     } else {
         if let Some(parent) = to_path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create parent dirs: {}", e))?;
         }
-        fs::copy(&from_path, &to_path)
+        fs::copy(from_path, to_path)
             .map(|_| ())
-            .map_err(|e| format!("Failed to copy file: {}", e))
+            .map_err(|e| format!("Failed to copy file: {}", e))?;
+        copy_permissions(from_path, to_path);
+        Ok(())
+    }
+}
+
+/// Replicate a symlink instead of following it (prevents infinite loops on
+/// cyclic links and preserves link semantics on every platform).
+fn copy_symlink(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
+    let target =
+        fs::read_link(src).map_err(|e| format!("Failed to read link {}: {}", src.display(), e))?;
+    if let Some(parent) = dst.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dirs: {}", e))?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // Decide the symlink kind from the link target when possible.
+        let is_dir = src.is_dir();
+        if is_dir {
+            std::os::windows::fs::symlink_dir(&target, dst)
+        } else {
+            std::os::windows::fs::symlink_file(&target, dst)
+        }
+        .map_err(|e| format!("Failed to copy symlink: {}", e))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::os::unix::fs::symlink(&target, dst)
+            .map_err(|e| format!("Failed to copy symlink: {}", e))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::os::unix::fs::symlink(&target, dst)
+            .map_err(|e| format!("Failed to copy symlink: {}", e))
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        Err("Copying symlinks is not supported on this platform".to_string())
+    }
+}
+
+/// Best-effort permission preservation (Unix mode bits; no-op elsewhere).
+fn copy_permissions(src: &Path, dst: &Path) {
+    if let (Ok(src_meta), Ok(dst_meta)) = (fs::metadata(src), fs::metadata(dst)) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = src_meta.permissions().mode();
+            let _ = fs::set_permissions(dst, fs::Permissions::from_mode(mode));
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = (src_meta, dst_meta);
+        }
     }
 }
 
 fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
+    // Fail instead of silently merging when the destination already exists;
+    // callers auto-rename to a unique name before invoking.
+    if dst.exists() || fs::symlink_metadata(dst).is_ok() {
+        return Err(format!("Destination already exists: {}", dst.display()));
+    }
     fs::create_dir_all(dst).map_err(|e| format!("Failed to create dir: {}", e))?;
     let entries = fs::read_dir(src).map_err(|e| format!("Failed to read dir: {}", e))?;
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
-        if src_path.is_dir() {
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("Failed to read entry type: {}", e))?;
+        if file_type.is_symlink() {
+            copy_symlink(&src_path, &dst_path)?;
+        } else if file_type.is_dir() {
             copy_dir_recursive(&src_path, &dst_path)?;
         } else {
             fs::copy(&src_path, &dst_path).map_err(|e| format!("Failed to copy: {}", e))?;
+            copy_permissions(&src_path, &dst_path);
         }
     }
+    copy_permissions(src, dst);
     Ok(())
 }
 
@@ -596,4 +872,127 @@ pub fn reveal_path(path: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_empty_and_blank_names() {
+        assert!(validate_file_name("").is_err());
+        assert!(validate_file_name("   ").is_err());
+        assert!(validate_file_name("ok.txt").is_ok());
+    }
+
+    #[test]
+    fn rejects_separators_and_null_bytes() {
+        assert!(validate_file_name("a/b").is_err());
+        assert!(validate_file_name("a\\b").is_err());
+        assert!(validate_file_name("a\0b").is_err());
+        assert!(validate_file_name("plain-name_1.2").is_ok());
+    }
+
+    #[test]
+    fn rejects_overlong_names() {
+        let long = "a".repeat(256);
+        assert!(validate_file_name(&long).is_err());
+        assert!(validate_file_name(&"a".repeat(255)).is_ok());
+    }
+
+    #[test]
+    fn detects_move_into_self() {
+        assert!(is_within_dir(
+            &PathBuf::from("/a/b/c"),
+            &PathBuf::from("/a/b")
+        ));
+        assert!(is_within_dir(
+            &PathBuf::from("/a/b"),
+            &PathBuf::from("/a/b")
+        ));
+        assert!(!is_within_dir(
+            &PathBuf::from("/a/b2"),
+            &PathBuf::from("/a/b")
+        ));
+        assert!(!is_within_dir(
+            &PathBuf::from("/a/b"),
+            &PathBuf::from("/a/b/c")
+        ));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn detects_move_into_self_case_insensitive_on_windows() {
+        assert!(is_within_dir(
+            &PathBuf::from("C:\\A\\b"),
+            &PathBuf::from("c:/a")
+        ));
+        assert!(!is_within_dir(
+            &PathBuf::from("C:\\AB"),
+            &PathBuf::from("C:\\A")
+        ));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn rejects_windows_reserved_and_illegal_names() {
+        for reserved in ["CON", "con.txt", "NUL", "COM1", "lpt9.dat"] {
+            assert!(validate_file_name(reserved).is_err(), "{}", reserved);
+        }
+        for illegal in [
+            "a<b", "a>b", "a:b", "a\"b", "a|b", "a?b", "a*b", "trail. ", "trail.",
+        ] {
+            assert!(validate_file_name(illegal).is_err(), "{}", illegal);
+        }
+        assert!(validate_file_name("normal file (1).txt").is_ok());
+    }
+
+    #[test]
+    fn move_and_copy_refuse_existing_destination() {
+        let base = std::env::temp_dir().join(format!("hyscode-fs-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("src")).unwrap();
+        fs::write(base.join("src").join("a.txt"), b"hi").unwrap();
+        fs::write(base.join("dest.txt"), b"taken").unwrap();
+
+        assert!(move_path(
+            base.join("src").join("a.txt").to_string_lossy().to_string(),
+            base.join("dest.txt").to_string_lossy().to_string(),
+        )
+        .is_err());
+        assert!(copy_path(
+            base.join("src").join("a.txt").to_string_lossy().to_string(),
+            base.join("dest.txt").to_string_lossy().to_string(),
+        )
+        .is_err());
+
+        // Move into itself is refused.
+        assert!(move_path(
+            base.join("src").to_string_lossy().to_string(),
+            base.join("src").join("inner").to_string_lossy().to_string(),
+        )
+        .is_err());
+
+        // A real move works and the source is gone afterwards.
+        assert!(move_path(
+            base.join("src").join("a.txt").to_string_lossy().to_string(),
+            base.join("src").join("b.txt").to_string_lossy().to_string(),
+        )
+        .is_ok());
+        assert!(!base.join("src").join("a.txt").exists());
+        assert!(base.join("src").join("b.txt").exists());
+
+        // join_path produces a usable child path.
+        let joined = join_path(
+            base.join("src").to_string_lossy().to_string(),
+            "c.txt".to_string(),
+        )
+        .unwrap();
+        assert_eq!(
+            joined,
+            base.join("src").join("c.txt").to_string_lossy().to_string()
+        );
+
+        let _ = fs::remove_dir_all(&base);
+    }
 }

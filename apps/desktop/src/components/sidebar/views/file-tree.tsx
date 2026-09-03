@@ -19,13 +19,29 @@ import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
 import { useLayoutStore } from '../../../stores/layout-store';
 import { useDiagnosticsStore } from '../../../stores/diagnostics-store';
 import { useExtensionStore } from '../../../stores/extension-store';
+import { useExtensionUiStore } from '../../../stores/extension-ui-store';
 import type { FileDiagnostics } from '../../../stores/diagnostics-store';
-import { tauriFs } from '../../../lib/tauri-fs';
+import { tauriFs, TRASH_UNAVAILABLE_PREFIX } from '../../../lib/tauri-fs';
+import {
+  extractInvokeMessage,
+  fsPathsEqual,
+  getUniqueDestPath,
+  isSameOrWithin,
+  joinChild,
+  loadDeletePref,
+  parentDir,
+  performCopy,
+  performMove,
+  saveDeletePref,
+  syncTabsAfterDelete,
+  syncTabsAfterMove,
+  validateNameClient,
+} from '../../../lib/file-ops';
 import { getViewerType, writeClipboard } from '../../../lib/utils';
 import { detectLanguage } from '../../../lib/lsp-bridge';
 import { diagnosticRelativePath } from '../../../lib/diagnostics-types';
 import { getFileIcon, getFolderIcon, FolderIcon as DefaultFolderIcon } from './file-icons';
-import { promptInput, promptConfirm } from '../../ui/dialogs';
+import { promptInput, promptConfirm, promptDelete } from '../../ui/dialogs';
 import { FileHistoryModal } from '../../editor/file-history-modal';
 import type { FileNode } from '../../../stores/file-store';
 import type { GitFile } from '../../../stores/git-store';
@@ -106,27 +122,14 @@ function formatBadge(count: number): string {
   return count > 9 ? '9+' : String(count);
 }
 
-async function getUniqueDestPath(targetDir: string, name: string, sep: string): Promise<string> {
-  let destPath = targetDir + sep + name;
+/** Surface a file-operation failure to the user (extension toast + console). */
+function notifyError(message: string): void {
+  console.error(message);
   try {
-    await tauriFs.statPath(destPath);
-    const dotIdx = name.lastIndexOf('.');
-    const base = dotIdx > 0 ? name.slice(0, dotIdx) : name;
-    const ext = dotIdx > 0 ? name.slice(dotIdx) : '';
-    let i = 1;
-    while (true) {
-      destPath = `${targetDir}${sep}${base} (${i})${ext}`;
-      try {
-        await tauriFs.statPath(destPath);
-        i++;
-      } catch {
-        break;
-      }
-    }
+    useExtensionUiStore.getState().showNotification('error', message, 'Files');
   } catch {
-    // Original path doesn't exist, use it as-is
+    // Store unavailable (tests, teardown) — console output above suffices.
   }
-  return destPath;
 }
 
 function sortNodes(nodes: FileNode[]): FileNode[] {
@@ -135,17 +138,6 @@ function sortNodes(nodes: FileNode[]): FileNode[] {
     if (!a.isDir && b.isDir) return 1;
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
-}
-
-function getParentPath(path: string): string {
-  const sep = path.includes('/') ? '/' : '\\';
-  const parts = path.split(sep);
-  parts.pop();
-  return parts.join(sep);
-}
-
-function getSep(path: string): string {
-  return path.includes('/') ? '/' : '\\';
 }
 
 // ── Visible nodes flat list (for keyboard nav) ──────────────────────────────
@@ -592,7 +584,7 @@ export function FileTree() {
 
   const getTargetParent = (node: FileNode | null): string => {
     if (!node) return rootPath ?? '';
-    return node.isDir ? node.path : getParentPath(node.path);
+    return node.isDir ? node.path : parentDir(node.path);
   };
 
   const withPending = async <T,>(key: string, fn: () => Promise<T>): Promise<T | undefined> => {
@@ -617,19 +609,29 @@ export function FileTree() {
   const handlePaste = async (targetDir: string) => {
     const cb = clipboardRef.current;
     if (!cb || !targetDir) return;
-    const sep = getSep(targetDir);
     for (const srcPath of cb.paths) {
-      if (srcPath === targetDir || targetDir.startsWith(srcPath + sep)) continue;
-      const fileName = srcPath.split(/[\\/]/).pop()!;
-      const destPath = await getUniqueDestPath(targetDir, fileName, sep);
+      const node = useFileStore.getState().findNode(srcPath);
+      let isDir = node?.isDir;
+      if (isDir === undefined) {
+        try {
+          isDir = (await tauriFs.statPath(srcPath)).is_dir;
+        } catch {
+          isDir = false;
+        }
+      }
       try {
         if (cb.op === 'copy') {
-          await withPending('paste-' + srcPath, () => tauriFs.copyPath(srcPath, destPath));
+          await withPending('paste-' + srcPath, () => performCopy(srcPath, targetDir));
         } else {
-          await withPending('paste-' + srcPath, () => tauriFs.renamePath(srcPath, destPath));
+          const dest = await withPending('paste-' + srcPath, () =>
+            performMove(srcPath, targetDir),
+          );
+          if (dest && !fsPathsEqual(dest, srcPath)) {
+            syncTabsAfterMove(srcPath, dest, isDir, detectLanguage);
+          }
         }
       } catch (err) {
-        console.error('Paste failed:', err);
+        notifyError(`Paste failed: ${extractInvokeMessage(err)}`);
       }
     }
     if (cb.op === 'cut') setClipboard(null);
@@ -716,7 +718,7 @@ export function FileTree() {
         if (!clipboardRef.current) return;
         const node = currentIdx >= 0 ? visibleNodes[currentIdx] : null;
         const targetDir = node ? getTargetParent(node) : (rootPath ?? '');
-        if (targetDir) handlePaste(targetDir).catch(console.error);
+        if (targetDir) handlePaste(targetDir).catch((err) => notifyError(`Paste failed: ${extractInvokeMessage(err)}`));
       }
     };
 
@@ -777,8 +779,8 @@ export function FileTree() {
     if (!node.isDir) return;
     const dragged = draggedPathRef.current;
     if (dragged) {
-      const sep = getSep(dragged);
-      if (node.path === dragged || node.path.startsWith(dragged + sep)) return;
+      // Refuse dropping a folder onto itself or into its own subtree.
+      if (isSameOrWithin(node.path, dragged)) return;
     } else if (!e.dataTransfer.types.includes('Files')) {
       return;
     }
@@ -792,16 +794,19 @@ export function FileTree() {
   }, []);
 
   const handleExternalFileDrop = useCallback(async (files: File[], targetDir: string) => {
-    const sep = getSep(targetDir);
     const targetNode = useFileStore.getState().findNode(targetDir);
     if (targetNode && !targetNode.isExpanded) {
       await expandDirectory(targetDir);
     }
     for (const file of files) {
-      const srcPath = (file as any).path as string | undefined;
+      const srcPath = (file as unknown as { path?: string }).path;
       if (!srcPath) continue;
-      const destPath = await getUniqueDestPath(targetDir, file.name, sep);
-      await withPending('import-' + file.name, () => tauriFs.copyPath(srcPath, destPath));
+      try {
+        const destPath = await getUniqueDestPath(targetDir, file.name);
+        await withPending('import-' + file.name, () => tauriFs.copyPath(srcPath, destPath));
+      } catch (err) {
+        notifyError(`Import failed for "${file.name}": ${extractInvokeMessage(err)}`);
+      }
     }
   }, [expandDirectory]);
 
@@ -811,21 +816,30 @@ export function FileTree() {
     setDraggedPath(null);
     if (!targetNode.isDir) return;
     if (dragged) {
-      if (dragged === targetNode.path) return;
-      const sep = getSep(dragged);
-      if (targetNode.path.startsWith(dragged + sep)) return;
-      const fileName = dragged.split(/[\\/]/).pop()!;
-      const newPath = targetNode.path + sep + fileName;
-      if (newPath === dragged) return;
+      if (isSameOrWithin(targetNode.path, dragged)) return;
+      const node = useFileStore.getState().findNode(dragged);
+      let isDir = node?.isDir;
+      if (isDir === undefined) {
+        try {
+          isDir = (await tauriFs.statPath(dragged)).is_dir;
+        } catch {
+          isDir = false;
+        }
+      }
       try {
-        await tauriFs.renamePath(dragged, newPath);
+        const dest = await performMove(dragged, targetNode.path);
+        if (!fsPathsEqual(dest, dragged)) {
+          syncTabsAfterMove(dragged, dest, isDir, detectLanguage);
+        }
       } catch (err) {
-        console.error('Failed to move:', err);
+        notifyError(`Move failed: ${extractInvokeMessage(err)}`);
       }
     } else {
       const files = Array.from(e.dataTransfer.files);
       if (!files.length) return;
-      handleExternalFileDrop(files, targetNode.path).catch(console.error);
+      handleExternalFileDrop(files, targetNode.path).catch((err) => {
+        notifyError(`Import failed: ${extractInvokeMessage(err)}`);
+      });
     }
   }, [handleExternalFileDrop]);
 
@@ -844,7 +858,18 @@ export function FileTree() {
       if (!rootPath) return;
       const name = await promptInput({ title: 'New File', placeholder: 'Enter file name' });
       if (!name?.trim()) return;
-      await withPending('new-file', () => tauriFs.createFile(rootPath + getSep(rootPath) + name.trim(), ''));
+      const trimmed = name.trim();
+      const clientError = validateNameClient(trimmed);
+      if (clientError) {
+        notifyError(clientError);
+        return;
+      }
+      try {
+        const newPath = await joinChild(rootPath, trimmed);
+        await withPending('new-file', () => tauriFs.createFile(newPath, ''));
+      } catch (err) {
+        notifyError(`Cannot create file: ${extractInvokeMessage(err)}`);
+      }
       return;
     }
 
@@ -864,10 +889,21 @@ export function FileTree() {
       if (!rootPath) return;
       const name = await promptInput({ title: 'New Folder', placeholder: 'Enter folder name' });
       if (!name?.trim()) return;
-      await withPending('new-folder', async () => {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('create_directory', { path: rootPath + getSep(rootPath) + name.trim() });
-      });
+      const trimmed = name.trim();
+      const clientError = validateNameClient(trimmed);
+      if (clientError) {
+        notifyError(clientError);
+        return;
+      }
+      try {
+        const newPath = await joinChild(rootPath, trimmed);
+        await withPending('new-folder', async () => {
+          const { invoke } = await import('@tauri-apps/api/core');
+          await invoke('create_directory', { path: newPath });
+        });
+      } catch (err) {
+        notifyError(`Cannot create folder: ${extractInvokeMessage(err)}`);
+      }
       return;
     }
 
@@ -879,24 +915,12 @@ export function FileTree() {
     setCreatingIn({ parentPath, isDir: true });
   };
 
-  const handleRename = async () => {
+  const handleRename = () => {
     if (!contextMenu?.node) return;
     const node = contextMenu.node;
     setContextMenu(null);
-
-    const newName = await promptInput({
-      title: `Rename ${node.isDir ? 'Folder' : 'File'}`,
-      placeholder: 'Enter new name',
-      defaultValue: node.name,
-      confirmLabel: 'Rename',
-    });
-
-    if (!newName || newName === node.name) return;
-
-    const parentPath = getParentPath(node.path);
-    const sep = getSep(node.path);
-    const newPath = parentPath + sep + newName;
-    await withPending('rename-' + node.path, () => tauriFs.renamePath(node.path, newPath));
+    // Inline rename (same UX as F2): validation errors keep the input open.
+    setRenamingPath(node.path);
   };
 
   const handleDeleteNode = async (targetNode?: FileNode) => {
@@ -904,26 +928,56 @@ export function FileTree() {
     if (!target) return;
     setContextMenu(null);
 
-    const confirmed = await promptConfirm({
-      title: `Delete "${target.name}"?`,
-      description: target.isDir
-        ? 'This will permanently delete the folder and all its contents.'
-        : 'This will permanently delete this file.',
-      confirmLabel: 'Delete',
-      danger: true,
-    });
+    const stored = loadDeletePref();
+    let mode = stored?.dontAsk === true ? stored.mode : null;
+    if (!mode) {
+      const choice = await promptDelete({
+        fileName: target.name,
+        isDir: target.isDir,
+        defaultMode: stored?.mode ?? 'trash',
+      });
+      if (!choice) return;
+      mode = choice.mode;
+      if (choice.dontAsk) saveDeletePref({ mode, dontAsk: true });
+    }
 
-    if (!confirmed) return;
-    await withPending('delete-' + target.path, () => tauriFs.deletePath(target.path));
+    const runDelete = (m: 'trash' | 'permanent') =>
+      withPending('delete-' + target.path, () =>
+        m === 'trash' ? tauriFs.trashPath(target.path) : tauriFs.deletePath(target.path),
+      );
+
+    try {
+      await runDelete(mode);
+      syncTabsAfterDelete(target.path, target.isDir);
+    } catch (err) {
+      const message = extractInvokeMessage(err);
+      if (mode === 'trash' && message.startsWith(TRASH_UNAVAILABLE_PREFIX)) {
+        const reason = message.slice(TRASH_UNAVAILABLE_PREFIX.length).replace(/^:\s*/, '');
+        const confirmed = await promptConfirm({
+          title: 'Trash is unavailable',
+          description: reason
+            ? `Could not move "${target.name}" to Trash (${reason}). Delete it permanently instead? This cannot be undone.`
+            : `Could not move "${target.name}" to Trash. Delete it permanently instead? This cannot be undone.`,
+          confirmLabel: 'Delete permanently',
+          danger: true,
+        });
+        if (!confirmed) return;
+        try {
+          await runDelete('permanent');
+          syncTabsAfterDelete(target.path, target.isDir);
+        } catch (err2) {
+          notifyError(`Delete failed: ${extractInvokeMessage(err2)}`);
+        }
+        return;
+      }
+      notifyError(`Delete failed: ${message}`);
+    }
   };
 
   const handleDuplicate = async () => {
     if (!contextMenu?.node) return;
     const node = contextMenu.node;
     setContextMenu(null);
-
-    const parentPath = getParentPath(node.path);
-    const sep = getSep(node.path);
 
     let defaultName: string;
     if (node.isDir) {
@@ -946,8 +1000,20 @@ export function FileTree() {
 
     if (!newName) return;
 
-    const newPath = parentPath + sep + newName;
-    await withPending('duplicate-' + node.path, () => tauriFs.copyPath(node.path, newPath));
+    const trimmed = newName.trim();
+    const clientError = validateNameClient(trimmed);
+    if (clientError) {
+      notifyError(clientError);
+      return;
+    }
+
+    try {
+      const newPath = await joinChild(parentDir(node.path), trimmed);
+      if (fsPathsEqual(newPath, node.path)) return;
+      await withPending('duplicate-' + node.path, () => tauriFs.copyPath(node.path, newPath));
+    } catch (err) {
+      notifyError(`Duplicate failed: ${extractInvokeMessage(err)}`);
+    }
   };
 
   const handleCopyPath = async () => {
@@ -957,7 +1023,7 @@ export function FileTree() {
     try {
       await writeClipboard(node.path);
     } catch (err) {
-      console.error('Failed to copy path:', err);
+      notifyError(`Cannot copy path: ${extractInvokeMessage(err)}`);
     }
   };
 
@@ -972,7 +1038,7 @@ export function FileTree() {
     try {
       await writeClipboard(relPath);
     } catch (err) {
-      console.error('Failed to copy relative path:', err);
+      notifyError(`Cannot copy relative path: ${extractInvokeMessage(err)}`);
     }
   };
 
@@ -984,7 +1050,7 @@ export function FileTree() {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('reveal_path', { path: node.path });
     } catch (err) {
-      console.error('Failed to reveal in file manager:', err);
+      notifyError(`Cannot reveal in file manager: ${extractInvokeMessage(err)}`);
     }
   };
 
@@ -1005,27 +1071,77 @@ export function FileTree() {
   // ── Create / Rename submit ─────────────────────────────────────────────────
 
   const handleRenameSubmit = async (node: FileNode, newName: string) => {
+    if (newName === node.name) {
+      setRenamingPath(null);
+      return;
+    }
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === node.name) {
+      setRenamingPath(null);
+      return;
+    }
+    // Validation failures keep the inline input open so nothing is lost.
+    const clientError = validateNameClient(trimmed);
+    if (clientError) {
+      notifyError(clientError);
+      return;
+    }
+    let newPath: string;
+    try {
+      await tauriFs.validateName(trimmed);
+      newPath = await joinChild(parentDir(node.path), trimmed);
+    } catch (err) {
+      notifyError(`Cannot rename: ${extractInvokeMessage(err)}`);
+      return;
+    }
+    if (fsPathsEqual(newPath, node.path)) {
+      setRenamingPath(null);
+      return;
+    }
     setRenamingPath(null);
-    if (newName === node.name) return;
-    const parentPath = getParentPath(node.path);
-    const sep = getSep(node.path);
-    const newPath = parentPath + sep + newName;
-    await withPending('rename-' + node.path, () => tauriFs.renamePath(node.path, newPath));
+    try {
+      await withPending('rename-' + node.path, () => tauriFs.renamePath(node.path, newPath));
+      syncTabsAfterMove(node.path, newPath, node.isDir, detectLanguage);
+    } catch (err) {
+      notifyError(`Rename failed: ${extractInvokeMessage(err)}`);
+    }
   };
 
   const handleCreateSubmit = async (name: string) => {
     if (!creatingIn) return;
-    const sep = getSep(creatingIn.parentPath);
-    const newPath = creatingIn.parentPath + sep + name;
-    await withPending('create-' + newPath, async () => {
-      if (creatingIn.isDir) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('create_directory', { path: newPath });
-      } else {
-        await tauriFs.createFile(newPath, '');
-      }
-    });
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setCreatingIn(null);
+      return;
+    }
+    // Validation failures keep the inline input open so nothing is lost.
+    const clientError = validateNameClient(trimmed);
+    if (clientError) {
+      notifyError(clientError);
+      return;
+    }
+    let newPath: string;
+    try {
+      await tauriFs.validateName(trimmed);
+      newPath = await joinChild(creatingIn.parentPath, trimmed);
+    } catch (err) {
+      notifyError(`Cannot create: ${extractInvokeMessage(err)}`);
+      return;
+    }
+    const isDir = creatingIn.isDir;
     setCreatingIn(null);
+    try {
+      await withPending('create-' + newPath, async () => {
+        if (isDir) {
+          const { invoke } = await import('@tauri-apps/api/core');
+          await invoke('create_directory', { path: newPath });
+        } else {
+          await tauriFs.createFile(newPath, '');
+        }
+      });
+    } catch (err) {
+      notifyError(`Create failed: ${extractInvokeMessage(err)}`);
+    }
   };
 
   if (tree.length === 0) {
@@ -1058,7 +1174,7 @@ export function FileTree() {
         if (!files.length) return;
         e.preventDefault();
         setDragOverPath(null);
-        handleExternalFileDrop(files, rootPath).catch(console.error);
+        handleExternalFileDrop(files, rootPath).catch((err) => notifyError(`Import failed: ${extractInvokeMessage(err)}`));
       }}
     >
       {sortedTree.map((node) => (
@@ -1110,7 +1226,7 @@ export function FileTree() {
             <ContextMenuItem icon={ClipboardPaste} label="Paste" shortcut="Ctrl+V" onClick={() => {
               const t = contextMenu?.node ? getTargetParent(contextMenu.node) : (rootPath ?? '');
               setContextMenu(null);
-              if (t) handlePaste(t).catch(console.error);
+              if (t) handlePaste(t).catch((err) => notifyError(`Paste failed: ${extractInvokeMessage(err)}`));
             }} />
           )}
 

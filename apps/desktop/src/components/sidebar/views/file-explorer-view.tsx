@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import { FolderOpen, RefreshCw, FilePlus, FolderPlus, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useFileStore, useProjectStore } from '../../../stores';
+import { useExtensionUiStore } from '../../../stores/extension-ui-store';
 import { pickFolder } from '../../../lib/tauri-dialog';
 import { openProjectWorkspace } from '../../../lib/project-persistence';
 import { tauriFs } from '../../../lib/tauri-fs';
+import { extractInvokeMessage, joinChild, validateNameClient } from '../../../lib/file-ops';
 import { promptInput } from '../../ui/dialogs';
 import { FileTree } from './file-tree';
 
@@ -42,7 +44,13 @@ export function FileExplorerView() {
     try {
       await fn();
     } catch (err) {
-      console.error(err);
+      const message = extractInvokeMessage(err);
+      console.error(message);
+      try {
+        useExtensionUiStore.getState().showNotification('error', message, 'Files');
+      } catch {
+        // Ignore notification failures.
+      }
     } finally {
       setPendingAction(null);
     }
@@ -52,18 +60,32 @@ export function FileExplorerView() {
     if (!rootPath) return;
     const name = await promptInput({ title: 'New File', placeholder: 'Enter file name' });
     if (!name?.trim()) return;
-    const sep = rootPath.includes('/') ? '/' : '\\';
-    await withAction('new-file', () => tauriFs.createFile(rootPath + sep + name.trim(), ''));
+    const trimmed = name.trim();
+    const clientError = validateNameClient(trimmed);
+    if (clientError) {
+      useExtensionUiStore.getState().showNotification('error', clientError, 'Files');
+      return;
+    }
+    await withAction('new-file', async () => {
+      await tauriFs.validateName(trimmed);
+      await tauriFs.createFile(await joinChild(rootPath, trimmed), '');
+    });
   };
 
   const handleNewFolderAtRoot = async () => {
     if (!rootPath) return;
     const name = await promptInput({ title: 'New Folder', placeholder: 'Enter folder name' });
     if (!name?.trim()) return;
-    const sep = rootPath.includes('/') ? '/' : '\\';
+    const trimmed = name.trim();
+    const clientError = validateNameClient(trimmed);
+    if (clientError) {
+      useExtensionUiStore.getState().showNotification('error', clientError, 'Files');
+      return;
+    }
     await withAction('new-folder', async () => {
+      await tauriFs.validateName(trimmed);
       const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('create_directory', { path: rootPath + sep + name.trim() });
+      await invoke('create_directory', { path: await joinChild(rootPath, trimmed) });
     });
   };
 

@@ -170,6 +170,7 @@ export function normalizeTerminalOutput(raw: string, maxChars: number): string {
     normalizedLines.push(line);
   }
   const normalized = normalizedLines.join('\n').trim();
+  return normalized.length <= maxChars ? normalized : normalized.slice(-maxChars);
 }
 
 export function looksLikeTerminalPrompt(output: string): boolean {
