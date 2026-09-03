@@ -14,12 +14,18 @@ import {
   Files,
   History,
   Database,
+  SquareTerminal,
+  MessageSquarePlus,
+  GitCompare,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
-import { useFileStore, useEditorStore, useGitStore } from '../../../stores';
+import { useFileStore, useEditorStore, useGitStore, useAgentStore } from '../../../stores';
 import { useLayoutStore } from '../../../stores/layout-store';
 import { useDiagnosticsStore } from '../../../stores/diagnostics-store';
 import { useExtensionStore } from '../../../stores/extension-store';
 import { useExtensionUiStore } from '../../../stores/extension-ui-store';
+import { useTerminalStore } from '../../../stores/terminal-store';
 import type { FileDiagnostics } from '../../../stores/diagnostics-store';
 import { tauriFs, TRASH_UNAVAILABLE_PREFIX } from '../../../lib/tauri-fs';
 import {
@@ -531,6 +537,50 @@ function ContextMenuSeparator() {
   return <div className="my-1 h-px bg-border" />;
 }
 
+function ContextMenuSubmenu({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: typeof FilePlus;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => {
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+        setOpen(true);
+      }}
+      onMouseLeave={scheduleClose}
+    >
+      <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-foreground transition-colors hover:bg-muted">
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="absolute left-full top-0 z-50 ml-0.5 min-w-[200px] rounded-xl border border-border bg-popover p-1 shadow-lg">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main FileTree ────────────────────────────────────────────────────────────
 
 export function FileTree() {
@@ -562,6 +612,7 @@ export function FileTree() {
   const unstaged = useGitStore((s) => s.unstaged);
   const untracked = useGitStore((s) => s.untracked);
   const conflicts = useGitStore((s) => s.conflicts);
+  const isGitRepo = useGitStore((s) => s.isGitRepo);
   const gitMap = useMemo(
     () => buildGitStatusMap(staged, unstaged, untracked, conflicts),
     [staged, unstaged, untracked, conflicts],
@@ -1068,6 +1119,81 @@ export function FileTree() {
     useEditorStore.getState().openDbSchemaTab(node.path);
   };
 
+  const handleOpenInTerminal = (targetDir: string, label: string) => {
+    setContextMenu(null);
+    if (!targetDir) return;
+    try {
+      const sessionId = useTerminalStore
+        .getState()
+        .createSession(label, false, targetDir, 'panel');
+      useTerminalStore.getState().setActiveSession(sessionId);
+      useLayoutStore.getState().setTerminalVisible(true);
+    } catch (err) {
+      notifyError(`Cannot open terminal: ${extractInvokeMessage(err)}`);
+    }
+  };
+
+  const handleAddToChat = () => {
+    if (!contextMenu?.node) return;
+    const node = contextMenu.node;
+    setContextMenu(null);
+    try {
+      useAgentStore.getState().addContextFile(node.path);
+      useExtensionUiStore
+        .getState()
+        .showNotification('info', `"${node.name}" added to chat context`, 'Agent');
+    } catch (err) {
+      notifyError(`Cannot add to chat: ${extractInvokeMessage(err)}`);
+    }
+  };
+
+  const handleOpenChanges = () => {
+    if (!contextMenu?.node || contextMenu.node.isDir) return;
+    const node = contextMenu.node;
+    setContextMenu(null);
+    try {
+      useEditorStore.getState().openTab({
+        id: `diff:unstaged:${node.path}`,
+        filePath: node.path,
+        fileName: `${node.name} (changes)`,
+        language: detectLanguage(node.path),
+        type: 'diff',
+        viewerType: getViewerType(node.name),
+        diffProps: { filePath: node.path, staged: false, mode: 'unstaged' },
+      });
+    } catch (err) {
+      notifyError(`Cannot open changes: ${extractInvokeMessage(err)}`);
+    }
+  };
+
+  const handleOpenWithText = () => {
+    if (!contextMenu?.node || contextMenu.node.isDir) return;
+    const node = contextMenu.node;
+    setContextMenu(null);
+    try {
+      useEditorStore.getState().openTab({
+        id: node.path,
+        filePath: node.path,
+        fileName: node.name,
+        language: detectLanguage(node.path),
+        viewerType: 'code',
+      });
+    } catch (err) {
+      notifyError(`Cannot open file: ${extractInvokeMessage(err)}`);
+    }
+  };
+
+  const handleOpenWithDefault = async () => {
+    if (!contextMenu?.node || contextMenu.node.isDir) return;
+    const node = contextMenu.node;
+    setContextMenu(null);
+    try {
+      await tauriFs.openPath(node.path);
+    } catch (err) {
+      notifyError(`Cannot open with default application: ${extractInvokeMessage(err)}`);
+    }
+  };
+
   // ── Create / Rename submit ─────────────────────────────────────────────────
 
   const handleRenameSubmit = async (node: FileNode, newName: string) => {
@@ -1150,10 +1276,19 @@ export function FileTree() {
 
   const sortedTree = sortNodes(tree);
   const hasNode = !!contextMenu?.node;
+  const menuNode = contextMenu?.node ?? null;
+  const menuNodeIsFile = !!menuNode && !menuNode.isDir;
+  const menuViewerType = menuNodeIsFile ? getViewerType(menuNode!.name) : null;
+  const menuIsTextual = menuViewerType === 'code' || menuViewerType === 'markdown';
+  const menuIsDbFile =
+    menuNodeIsFile &&
+    ['sql', 'prisma', 'db', 'sqlite', 'sqlite3'].includes(
+      menuNode!.name.split('.').pop()?.toLowerCase() ?? '',
+    );
 
-  // Clamp context menu to viewport
-  const menuX = contextMenu ? Math.min(contextMenu.x, window.innerWidth - 220) : 0;
-  const menuY = contextMenu ? Math.min(contextMenu.y, window.innerHeight - 320) : 0;
+  // Clamp context menu to viewport (reserve room for the Open With submenu)
+  const menuX = contextMenu ? Math.min(contextMenu.x, window.innerWidth - 430) : 0;
+  const menuY = contextMenu ? Math.min(contextMenu.y, window.innerHeight - 380) : 0;
 
   return (
     <div
@@ -1216,6 +1351,34 @@ export function FileTree() {
           <ContextMenuItem icon={FolderPlus} label="New Folder..." onClick={handleNewFolder} />
 
           <ContextMenuSeparator />
+          {menuNodeIsFile && (
+            <ContextMenuSubmenu icon={Files} label="Open With">
+              {menuIsTextual && (
+                <ContextMenuItem icon={FileText} label="Text Editor" onClick={handleOpenWithText} />
+              )}
+              {menuIsDbFile && (
+                <ContextMenuItem icon={Database} label="Schema Canvas" onClick={handleOpenAsSchemaViewer} />
+              )}
+              <ContextMenuItem icon={ExternalLink} label="Default Application" onClick={handleOpenWithDefault} />
+            </ContextMenuSubmenu>
+          )}
+          <ContextMenuItem
+            icon={SquareTerminal}
+            label="Open in Integrated Terminal"
+            onClick={() => {
+              if (menuNode) {
+                const cwd = menuNode.isDir ? menuNode.path : parentDir(menuNode.path);
+                handleOpenInTerminal(cwd, menuNode.name);
+              } else if (rootPath) {
+                handleOpenInTerminal(rootPath, 'Terminal');
+              }
+            }}
+          />
+          {hasNode && (
+            <ContextMenuItem icon={FolderSearch} label="Reveal in File Manager" onClick={handleRevealInFileManager} />
+          )}
+
+          <ContextMenuSeparator />
           {hasNode && (
             <ContextMenuItem icon={Scissors} label="Cut" shortcut="Ctrl+X" onClick={() => { handleCutItem(contextMenu!.node!); setContextMenu(null); }} />
           )}
@@ -1230,6 +1393,23 @@ export function FileTree() {
             }} />
           )}
 
+          {menuNodeIsFile && (
+            <>
+              <ContextMenuSeparator />
+              {isGitRepo && (
+                <ContextMenuItem icon={GitCompare} label="Open Changes" onClick={handleOpenChanges} />
+              )}
+              <ContextMenuItem icon={History} label="View History" onClick={handleViewHistory} />
+              <ContextMenuItem icon={MessageSquarePlus} label="Add File to Chat" onClick={handleAddToChat} />
+            </>
+          )}
+          {hasNode && contextMenu?.node?.isDir && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem icon={MessageSquarePlus} label="Add Folder to Chat" onClick={handleAddToChat} />
+            </>
+          )}
+
           {hasNode && (
             <>
               <ContextMenuSeparator />
@@ -1240,19 +1420,6 @@ export function FileTree() {
               <ContextMenuSeparator />
               <ContextMenuItem icon={Copy} label="Copy Path" onClick={handleCopyPath} />
               <ContextMenuItem icon={ClipboardCopy} label="Copy Relative Path" onClick={handleCopyRelativePath} />
-
-              <ContextMenuSeparator />
-              <ContextMenuItem icon={FolderSearch} label="Reveal in File Manager" onClick={handleRevealInFileManager} />
-
-              {!contextMenu.node?.isDir && (
-                <>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem icon={History} label="View History" onClick={handleViewHistory} />
-                  {['sql', 'prisma', 'db', 'sqlite', 'sqlite3'].includes(contextMenu.node?.name.split('.').pop()?.toLowerCase() ?? '') && (
-                    <ContextMenuItem icon={Database} label="Open in Schema Canvas" onClick={handleOpenAsSchemaViewer} />
-                  )}
-                </>
-              )}
             </>
           )}
         </div>

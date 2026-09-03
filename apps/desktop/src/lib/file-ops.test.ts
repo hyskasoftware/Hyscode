@@ -233,8 +233,7 @@ describe('delete preference', () => {
 });
 
 describe('syncTabsAfterDelete', () => {
-  it('closes tabs and clears caches for a deleted file', () => {
-    useEditorStore.setState({
+  it('closes tabs and clears caches for a deleted file', () => {    useEditorStore.setState({
       tabs: [
         seedTab({ id: '/a/f.ts', filePath: '/a/f.ts' }),
         seedTab({ id: '/a/keep.ts', filePath: '/a/keep.ts' }),
@@ -271,6 +270,25 @@ describe('syncTabsAfterDelete', () => {
 
     expect(useEditorStore.getState().tabs.map((t) => t.id)).toEqual(['/a2/f.ts']);
     expect(useFileStore.getState().fileCache.has('/a/sub/f.ts')).toBe(false);
+  });
+
+  it('closes open diff tabs whose file was deleted', () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          ...seedTab({ id: 'diff:unstaged:/a/f.ts', filePath: '/a/f.ts' }),
+          type: 'diff',
+          fileName: 'f.ts (changes)',
+          diffProps: { filePath: '/a/f.ts', staged: false, mode: 'unstaged' as const },
+        },
+      ],
+      activeTabId: 'diff:unstaged:/a/f.ts',
+    });
+
+    syncTabsAfterDelete('/a/f.ts', false);
+
+    expect(useEditorStore.getState().tabs).toEqual([]);
+    expect(useEditorStore.getState().activeTabId).toBeNull();
   });
 });
 
@@ -318,5 +336,24 @@ describe('syncTabsAfterMove', () => {
       '/other/f.ts',
     ]);
     expect(useEditorStore.getState().activeTabId).toBe('/other/f.ts');
+  });
+
+  it('remaps diff tab content when its file moves', () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          ...seedTab({ id: 'diff:unstaged:/a/old.ts', filePath: '/a/old.ts' }),
+          type: 'diff',
+          diffProps: { filePath: '/a/old.ts', staged: false, mode: 'unstaged' as const },
+        },
+      ],
+      activeTabId: 'diff:unstaged:/a/old.ts',
+    });
+
+    syncTabsAfterMove('/a/old.ts', '/a/new.ts', false);
+
+    const tab = useEditorStore.getState().tabs[0];
+    expect(tab?.filePath).toBe('/a/new.ts');
+    expect(tab?.diffProps?.filePath).toBe('/a/new.ts');
   });
 });

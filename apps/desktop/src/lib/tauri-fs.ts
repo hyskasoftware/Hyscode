@@ -40,6 +40,7 @@ export const tauriFs = {
   copyPath: (from: string, to: string) => invoke<void>('copy_path', { from, to }),
   renamePath: (from: string, to: string) => invoke<void>('rename_path', { from, to }),
   movePath: (from: string, to: string) => invoke<void>('move_path', { from, to }),
+  openPath: (path: string) => invoke<void>('open_path', { path }),
   joinPath: (parent: string, name: string) => invoke<string>('join_path', { parent, name }),
   validateName: (name: string) => invoke<void>('validate_name', { name }),
 };

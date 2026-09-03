@@ -97,8 +97,7 @@ fn clear_readonly_recursive(path: &Path) -> Result<(), String> {
         return Ok(());
     }
     if meta.permissions().readonly() {
-        let mut perms = meta.permissions();
-        perms.set_readonly(false);
+        let perms = writable_permissions(&meta);
         fs::set_permissions(path, perms).map_err(|e| {
             format!(
                 "Failed to clear read-only flag of {}: {}",
@@ -118,17 +117,30 @@ fn clear_readonly_recursive(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Permissions that allow deletion: on Unix add owner-write while preserving
+/// all other mode bits (avoids the world-writable side effect of
+/// `set_readonly(false)`); on Windows clear the read-only attribute.
+fn writable_permissions(meta: &fs::Metadata) -> fs::Permissions {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::Permissions::from_mode(meta.permissions().mode() | 0o200)
+    }
+    #[cfg(not(unix))]
+    {
+        let mut perms = meta.permissions();
+        perms.set_readonly(false);
+        perms
+    }
+}
+
 /// Permanent recursive delete that handles symlinks (never follows them into
 /// the target) and read-only files/dirs on Windows, Linux and macOS.
 fn remove_all_hardened(path: &Path) -> Result<(), String> {
     let meta = fs::symlink_metadata(path)
         .map_err(|e| format!("Failed to read metadata of {}: {}", path.display(), e))?;
     if meta.file_type().is_symlink() || meta.is_file() {
-        let _ = fs::set_permissions(path, {
-            let mut p = meta.permissions();
-            p.set_readonly(false);
-            p
-        });
+        let _ = fs::set_permissions(path, writable_permissions(&meta));
         return fs::remove_file(path).map_err(|e| format!("Failed to delete file: {}", e));
     }
     clear_readonly_recursive(path)?;
@@ -874,6 +886,43 @@ pub fn reveal_path(path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Open a file or folder with the OS default application
+/// ("Open With > Default Application" in the explorer).
+#[tauri::command]
+pub fn open_path(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() && fs::symlink_metadata(&p).is_err() {
+        return Err(format!("Path not found: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // `start` takes the window title as its first quoted argument.
+        cmd("cmd")
+            .args(["/c", "start", "", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        cmd("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        cmd("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open: {}", e))?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -945,6 +994,12 @@ mod tests {
             assert!(validate_file_name(illegal).is_err(), "{}", illegal);
         }
         assert!(validate_file_name("normal file (1).txt").is_ok());
+    }
+
+    #[test]
+    fn open_and_trash_reject_missing_paths_without_side_effects() {
+        assert!(open_path("/nonexistent-hyscode-path-xyz".to_string()).is_err());
+        assert!(trash_path("/nonexistent-hyscode-path-xyz".to_string()).is_err());
     }
 
     #[test]

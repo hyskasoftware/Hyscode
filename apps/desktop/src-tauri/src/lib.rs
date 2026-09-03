@@ -59,6 +59,7 @@ pub fn run() {
             commands::fs::fs_unwatch,
             commands::fs::copy_path,
             commands::fs::reveal_path,
+            commands::fs::open_path,
             commands::fs::find_files,
             // Diagnostics
             commands::diagnostics::get_diagnostics,
