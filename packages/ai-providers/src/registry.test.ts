@@ -53,4 +53,41 @@ describe('ProviderRegistry per-request retry policy', () => {
     ).rejects.toThrow('temporary failure');
     expect(attempts).toBe(1);
   });
+
+  it('retries a connection failure before the provider yields content', async () => {
+    let attempts = 0;
+    const provider: AIProvider = {
+      id: 'test-provider',
+      name: 'Test provider',
+      models: [model],
+      capabilities: {
+        promptCache: 'none',
+        reasoningReplay: 'none',
+        nativeTokenCounting: false,
+        acceptsPromptCacheKey: false,
+      },
+      isConfigured: () => true,
+      listModels: async () => [model],
+      async *chat() {
+        attempts += 1;
+        if (attempts === 1) throw new Error('HTTP request failed: connection refused');
+        yield { type: 'text_delta', text: 'recovered' };
+      },
+    };
+    const registry = new ProviderRegistry();
+    registry.register(provider);
+
+    const chunks = [];
+    for await (const chunk of registry.chat({
+      providerId: 'test-provider',
+      model: model.id,
+      messages: [],
+      retry: { maxRetries: 1, baseDelayMs: 0 },
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toEqual([{ type: 'text_delta', text: 'recovered' }]);
+    expect(attempts).toBe(2);
+  });
 });

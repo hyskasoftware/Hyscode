@@ -67,6 +67,30 @@ export interface StoreItem {
 
 const STORE_REPO_API = 'https://api.github.com/repos/Hyska-Software/Hyscode-Extensions/contents/';
 export const STORE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const EXTENSION_IMAGE_MIME_TYPES: Record<string, string> = {
+  avif: 'image/avif',
+  gif: 'image/gif',
+  ico: 'image/x-icon',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+};
+
+function extensionAssetMimeType(assetPath: string): string {
+  const extension = assetPath.split(/[./\\]/).pop()?.toLowerCase() ?? '';
+  return EXTENSION_IMAGE_MIME_TYPES[extension] ?? 'application/octet-stream';
+}
+
+async function readExtensionAssetDataUrl(name: string, assetPath: string): Promise<string> {
+  const base64 = await invoke<string>('extension_read_asset_base64', {
+    name,
+    assetPath,
+  });
+  return `data:${extensionAssetMimeType(assetPath)};base64,${base64}`;
+}
+
 
 // ── Store-sha persistence (localStorage) ─────────────────────────────────────
 
@@ -767,12 +791,7 @@ export const useExtensionStore = create<ExtensionState>()(
           const svgLoader = async (svgPath: string): Promise<string | null> => {
             const fullPath = themeDir + svgPath;
             try {
-              const raw = await invoke<string>('extension_read_asset', {
-                name: contrib.extensionName,
-                assetPath: fullPath,
-              });
-              const b64 = btoa(unescape(encodeURIComponent(raw)));
-              return `data:image/svg+xml;base64,${b64}`;
+              return await readExtensionAssetDataUrl(contrib.extensionName, fullPath);
             } catch {
               return null;
             }
@@ -798,13 +817,8 @@ export const useExtensionStore = create<ExtensionState>()(
       for (const lang of languages) {
         if (!lang.icon || isStale()) continue;
         try {
-          const raw = await invoke<string>('extension_read_asset', {
-            name: lang.extensionName,
-            assetPath: lang.icon,
-          });
+          const dataUrl = await readExtensionAssetDataUrl(lang.extensionName, lang.icon);
           if (isStale()) continue;
-          const b64 = btoa(unescape(encodeURIComponent(raw)));
-          const dataUrl = `data:image/svg+xml;base64,${b64}`;
           registerLanguageIcon(lang.extensions ?? [], lang.filenames ?? [], dataUrl);
         } catch (e) {
           console.warn(`[ExtensionStore] Failed to load language icon for "${lang.id}":`, e);

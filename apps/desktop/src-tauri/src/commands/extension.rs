@@ -407,9 +407,7 @@ pub async fn extension_list() -> Result<Vec<ExtensionMeta>, String> {
     Ok(extensions)
 }
 
-#[tauri::command]
-pub async fn extension_read_asset(name: String, asset_path: String) -> Result<String, String> {
-    // Validate name
+fn resolve_extension_asset(name: &str, asset_path: &str) -> Result<PathBuf, String> {
     if !name
         .chars()
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
@@ -417,11 +415,11 @@ pub async fn extension_read_asset(name: String, asset_path: String) -> Result<St
         return Err("Invalid extension name.".to_string());
     }
 
-    let full_path = extensions_dir().join(&name).join(&asset_path);
+    let full_path = extensions_dir().join(name).join(asset_path);
 
     // Ensure asset_path doesn't escape the extension dir
     let canonical_ext_dir = extensions_dir()
-        .join(&name)
+        .join(name)
         .canonicalize()
         .map_err(|e| format!("Extension not found: {}", e))?;
 
@@ -433,7 +431,26 @@ pub async fn extension_read_asset(name: String, asset_path: String) -> Result<St
         return Err("Access denied: path traversal detected.".to_string());
     }
 
+    Ok(canonical_asset)
+}
+
+#[tauri::command]
+pub async fn extension_read_asset(name: String, asset_path: String) -> Result<String, String> {
+    let canonical_asset = resolve_extension_asset(&name, &asset_path)?;
     fs::read_to_string(&canonical_asset).map_err(|e| format!("Failed to read asset: {}", e))
+}
+
+/// Read an extension asset without assuming it is UTF-8 text.
+#[tauri::command]
+pub async fn extension_read_asset_base64(
+    name: String,
+    asset_path: String,
+) -> Result<String, String> {
+    use base64::prelude::*;
+
+    let canonical_asset = resolve_extension_asset(&name, &asset_path)?;
+    let bytes = fs::read(&canonical_asset).map_err(|e| format!("Failed to read asset: {}", e))?;
+    Ok(BASE64_STANDARD.encode(bytes))
 }
 
 /// Get the extension directory path for the frontend to know where extensions live

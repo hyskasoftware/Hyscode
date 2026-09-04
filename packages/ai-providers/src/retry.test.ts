@@ -18,6 +18,18 @@ describe('withRetry cost safety', () => {
     expect(operation).toHaveBeenCalledTimes(2);
   });
 
+  it('retries explicitly retryable pre-response transport failures', async () => {
+    const operation = vi
+      .fn()
+      .mockRejectedValueOnce(
+        normalizeProviderError(new Error('HTTP request failed: connection refused'), 'test', 'connecting'),
+      )
+      .mockResolvedValue('ok');
+
+    await expect(withRetry(operation, { maxRetries: 1, baseDelayMs: 0 })).resolves.toBe('ok');
+    expect(operation).toHaveBeenCalledTimes(2);
+  });
+
   it('respects provider retry-after and reports the scheduled attempt', async () => {
     const onRetry = vi.fn();
     const operation = vi

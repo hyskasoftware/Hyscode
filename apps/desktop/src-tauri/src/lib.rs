@@ -129,6 +129,7 @@ pub fn run() {
             commands::extension::extension_uninstall,
             commands::extension::extension_list,
             commands::extension::extension_read_asset,
+            commands::extension::extension_read_asset_base64,
             commands::extension::extension_toggle,
             commands::extension::extension_get_dir,
             commands::extension::extension_install_git,

@@ -42,11 +42,17 @@ export async function withRetry<T>(
         if (err.statusCode === 401 || err.statusCode === 403) {
           throw err;
         }
-        // Only retry if the status is in the retryable list
-        if (err.statusCode && !cfg.retryableStatuses.includes(err.statusCode)) {
+        if (err.statusCode !== undefined) {
+          // HTTP retries are limited to explicitly retryable statuses.
+          if (!cfg.retryableStatuses.includes(err.statusCode)) {
+            throw err;
+          }
+        } else if (!err.retryable) {
+          // A status-less retryable ProviderError is produced only for a
+          // pre-response transport failure. Once content has streamed, the
+          // normalized error is non-retryable to avoid duplicate charges.
           throw err;
         }
-        if (!err.statusCode) throw err;
       } else {
         // Unknown transport errors may occur after the provider accepted a billable
         // request. Do not retry without an explicit pre-response retryable status.

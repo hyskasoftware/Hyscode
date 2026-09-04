@@ -109,6 +109,7 @@ export function useGitBlameDecorations(
   editorVersion: number,
 ) {
   const rootPath = useFileStore((s) => s.rootPath);
+  const isGitRepo = useGitStore((s) => s.isGitRepo);
   const enabled = useSettingsStore((s) => s.gitBlameInline);
 
   const ownedDecorationsRef = useRef<Map<string, string[]>>(new Map());
@@ -125,7 +126,7 @@ export function useGitBlameDecorations(
     const monaco = monacoRef.current;
 
     // Reset and bail if prerequisites are missing
-    if (!editor || !monaco || !filePath || !rootPath || !enabled) {
+    if (!editor || !monaco || !filePath || !rootPath || !isGitRepo || !enabled) {
       if (editor) {
         const model = editor.getModel();
         if (model) {
@@ -244,7 +245,7 @@ export function useGitBlameDecorations(
       if (timer) clearTimeout(timer);
       hunksRef.current = [];
     };
-  }, [editorRef, monacoRef, filePath, rootPath, enabled, editorVersion]);
+  }, [editorRef, monacoRef, filePath, rootPath, isGitRepo, enabled, editorVersion]);
 
   // Clean up on unmount
   useEffect(() => {
