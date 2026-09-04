@@ -15,7 +15,7 @@ declare const __HYSCODE_TUI_VERSION__: string | undefined;
 
 const VERSION = typeof __HYSCODE_TUI_VERSION__ === 'string'
   ? __HYSCODE_TUI_VERSION__
-  : process.env.HYSCODE_TUI_VERSION ?? '0.12.1';
+  : process.env.HYSCODE_TUI_VERSION ?? '0.12.2';
 
 async function main(): Promise<void> {
   let parsed;
