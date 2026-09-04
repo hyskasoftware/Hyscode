@@ -38,8 +38,8 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 #if VortexCliArm64
-ArchitecturesAllowed=arm64compatible
-ArchitecturesInstallIn64BitMode=arm64compatible
+ArchitecturesAllowed=arm64
+ArchitecturesInstallIn64BitMode=arm64
 #else
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
