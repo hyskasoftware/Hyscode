@@ -369,6 +369,8 @@ jobs:
         env:
           VERSION: ${{ needs.create-release.outputs.version }}
         run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y }
           $cliOutDir = Join-Path $env:GITHUB_WORKSPACE "artifacts\vortex-cli"
           New-Item -ItemType Directory -Path $cliOutDir -Force | Out-Null
           & $iscc "/DMyAppVersion=$env:VERSION" "/DVortexCliArchitecture=x64" "/DVortexCliArm64=0" "/FVortex-CLI-Setup-$env:VERSION-x64" "/O$cliOutDir" "scripts/installer/vortex-cli.iss"
