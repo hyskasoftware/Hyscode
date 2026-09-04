@@ -1,6 +1,6 @@
 [package]
 name = "hyscode"
-version = "0.12.1-build.106"
+version = "0.12.1-build.107"
 edition = "2021"
 description = "An agentic code IDE"
 
