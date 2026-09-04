@@ -383,6 +383,7 @@ jobs:
           $archive = Join-Path $cliOutDir "vortex-cli-$env:VERSION-windows-x64.zip"
           if (-not (Test-Path $archive)) { throw "Standalone VORTEX archive not found: $archive" }
           "VORTEX_CLI_INSTALLER=$installer" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VORTEX_CLI_ARCHIVE=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
           $armInstaller = Join-Path $cliOutDir "Vortex-CLI-Setup-$env:VERSION-arm64.exe"
           if (-not (Test-Path $armInstaller)) { throw "Standalone VORTEX arm64 installer not found: $armInstaller" }
           $armArchive = Join-Path $cliOutDir "vortex-cli-$env:VERSION-windows-arm64.zip"
@@ -395,7 +396,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.create-release.outputs.tag_name }}
-        run: gh release upload $env:TAG "$env:INNO_INSTALLER" "$env:VORTEX_CLI_INSTALLER" "$env:VORTEX_CLI_ARCHIVE" "$env:VORTEX_CLI_INSTALLER_ARM64" "$env:VORTEX_CLI_ARCHIVE_ARM64" --clobber
+        run: |
+          $assets = @(
+            @{ name = 'INNO_INSTALLER'; path = $env:INNO_INSTALLER },
+            @{ name = 'VORTEX_CLI_INSTALLER'; path = $env:VORTEX_CLI_INSTALLER },
+            @{ name = 'VORTEX_CLI_ARCHIVE'; path = $env:VORTEX_CLI_ARCHIVE },
+            @{ name = 'VORTEX_CLI_INSTALLER_ARM64'; path = $env:VORTEX_CLI_INSTALLER_ARM64 },
+            @{ name = 'VORTEX_CLI_ARCHIVE_ARM64'; path = $env:VORTEX_CLI_ARCHIVE_ARM64 }
+          )
+          foreach ($asset in $assets) {
+            if ([string]::IsNullOrWhiteSpace($asset.path)) { throw "Upload asset $($asset.name) is empty — the build step did not export it via GITHUB_ENV." }
+            if (-not (Test-Path $asset.path)) { throw "Upload asset $($asset.name) not found: $($asset.path)" }
+          }
+          gh release upload $env:TAG $assets.path --clobber
 
 # ─────────────────────────────────────────────────────────────────────────────
 # JOB 3 — Build Linux x64
